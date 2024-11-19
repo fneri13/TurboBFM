@@ -20,16 +20,15 @@ class CVolume():
         yv = np.zeros((ni, nj, nk))
         zv = np.zeros((ni, nj, nk))
 
-        # internal points
-        for i in range(1, ni-1):
-            for j in range(1, nj-1):
-                for k in range(1, nk-1):
-                    xv[i, j, k] = (geometry.X[i-1, j, k] + geometry.X[i, j-1, k] + geometry.X[i, j, k-1] + geometry.X[i-1, j-1, k] + \
-                                  geometry.X[i-1, j, k-1] + geometry.X[i, j-1, k-1] + geometry.X[i-1, j-1, k-1] + geometry.X[i, j, k] )/8.0
-                    yv[i, j, k] = (geometry.Y[i-1, j, k] + geometry.Y[i, j-1, k] + geometry.Y[i, j, k-1] + geometry.Y[i-1, j-1, k] + \
-                                  geometry.Y[i-1, j, k-1] + geometry.Y[i, j-1, k-1] + geometry.Y[i-1, j-1, k-1] + geometry.Y[i, j, k] )/8.0
-                    zv[i, j, k] = (geometry.Z[i-1, j, k] + geometry.Z[i, j-1, k] + geometry.Z[i, j, k-1] + geometry.Z[i-1, j-1, k] + \
-                                  geometry.Z[i-1, j, k-1] + geometry.Z[i, j-1, k-1] + geometry.Z[i-1, j-1, k-1] + geometry.Z[i, j, k] )/8.0
+        # fix the internal points
+        def fix_internals(arr1, arr2):
+            arr1[1:-1, 1:-1, 1:-1] = (arr2[0:-1,0:-1,0:-1] + arr2[1:,0:-1,0:-1] + arr2[0:-1,1:,0:-1] + arr2[0:-1,0:-1,1:] + 
+                                      arr2[1:,1:,0:-1] + arr2[1:,0:-1,1:] + arr2[0:-1,1:,1:] + arr2[1:,1:,1:])/8.0
+            return arr1
+        
+        xv = fix_internals(xv, geometry.X)
+        yv = fix_internals(yv, geometry.Y)
+        zv = fix_internals(zv, geometry.Z)
         
         # fix the corners
         def fix_corners(arr1, arr2):
@@ -142,12 +141,16 @@ class CVolume():
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(geometry.X, geometry.Y, geometry.Z, c=self.volume)
+        ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.volume[1:-1])
         ax.set_xlabel('Z')
         ax.set_ylabel('X')
         ax.set_zlabel('Y')
         ax.set_aspect('equal', adjustable='box')
         plt.show()
+
+        self.surface = CSurface(geometry.X, geometry.Y, geometry.Z, xv, yv, zv)
+        
+
         
 
                     
