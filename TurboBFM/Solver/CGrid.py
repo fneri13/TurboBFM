@@ -13,6 +13,8 @@ class CGrid():
         self.nr = x.shape[1]
         self.ntheta = x.shape[2]
 
+        self.AddGhostPoints()
+
     def VisualizeMesh(self):
         # Create a 3D scatter plot
         mesh = pv.StructuredGrid(self.X, self.Y, self.Z)

@@ -1,0 +1,7 @@
+LENGTH = 0.5
+H_IN = 0.1
+H_OUT = 0.05
+NZ = 50
+NY = 10
+NX = 5
+SPAN = 0.05

@@ -6,9 +6,12 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Solver.CConfig import Config
 
-with open('../02_ControlVolumes/Mesh/Mesh_52_12_07.pik', 'rb') as file:
-    mesh = pickle.load(file)
-config = Config('input.ini')
 
+config = Config('input.ini')
+with open(config.GetGridFilepath(), 'rb') as file:
+    grid = pickle.load(file)
+
+geometry = CGrid(grid['X'], grid['Y'], grid['Z'])
+mesh = CMesh(geometry)
 
 solver = CSolver(config, mesh)
