@@ -94,42 +94,6 @@ class CMesh():
         zv = fix_boundaries(zv, geometry.Z)
 
 
-        # plt.figure()
-        # plt.scatter(geometry.Z[:,:,0], geometry.X[:,:,0], marker='o', label='primary grid')
-        # plt.scatter(zv[:,:,0], xv[:,:,0], marker='x', label='secondary grid')
-        # plt.legend()
-        # ax = plt.gca()
-        # ax.set_aspect('equal', adjustable='box')
-
-        # plt.figure()
-        # plt.scatter(geometry.X[5,:,:], geometry.Y[5,:,:], marker='o', label='primary grid')
-        # plt.scatter(xv[5,:,:], yv[5,:,:], marker='x', label='secondary grid')
-        # plt.legend()
-        # ax = plt.gca()
-        # ax.set_aspect('equal', adjustable='box')
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        # ax.scatter(geometry.X, geometry.Y, geometry.Z, marker='o', label='primary grid')
-        # ax.scatter(xv, yv, zv, marker='x', label='secondary grid')
-        # ax.set_xlabel('Z')
-        # ax.set_ylabel('X')
-        # ax.set_zlabel('Y')
-        # ax.set_aspect('equal', adjustable='box')
-
-        # plt.show()
-        
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        # ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.V[1:-1])
-        # ax.set_xlabel('Z')
-        # ax.set_ylabel('X')
-        # ax.set_zlabel('Y')
-        # ax.set_aspect('equal', adjustable='box')
-        # plt.show()
-
-
         def compute_surface_vector_and_cg(x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4):
             """
             Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices
@@ -205,18 +169,15 @@ class CMesh():
                         print('                         Vol=%.4e' %(self.V[i,j,k]))
                         print()
             print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
-
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        # ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.V[1:-1])
-        # ax.set_xlabel('Z')
-        # ax.set_ylabel('X')
-        # ax.set_zlabel('Y')
-        # ax.set_aspect('equal', adjustable='box')
-        # plt.show()
-
         
+
+        print('='*25 + ' MESH INFORMATION ' + '='*25)
+        print('Number of physical points:           (%i, %i, %i)' %(self.ni-2, self.nj-2, self.nk-2))
+        print('Number of total points:              (%i, %i, %i)' %(self.ni, self.nj, self.nk))
+        print('Type of element:                     %s' %('Hexagonal'))
+        print('='*25 + ' END MESH INFORMATION ' + '='*25)
+
+
 
         
 
