@@ -5,11 +5,15 @@ from TurboBFM.Solver.CFluid import FluidIdeal, FluidReal
 
 class CSolver():
     
-    def __init__(self, mesh, *fluid_props, verbosity=0):
+    def __init__(self, config, mesh, verbosity=0):
         """
         Instantiate the Euler Solver, by using the information contained in the mesh object (Points, Volumes, and Surfaces)
         """
-        self.verbosity = verbosity
+        self.config = config
+        self.verbosity = self.config.GetVerbosity()
+        self.fluidName = self.config.GetFluidName()
+        self.fluidGamma = self.config.GetFluidGamma()
+        self.fluidModel = self.config.GetFluidModel()
         
         # the internal (physical) points indexes differ from the ghost ones
         self.ni = mesh.ni-2
@@ -21,16 +25,12 @@ class CSolver():
                               'U4': np.zeros((self.ni, self.nj, self.nk)),
                               'U5': np.zeros((self.ni, self.nj, self.nk))}
         
-        self.fluid_name = fluid_props[0]
-        if fluid_props[1].lower()=='ideal':
-            assert(len(fluid_props)>=3)
-            self.fluid_model = 'ideal'
-            self.gmma = fluid_props[2]
-            self.fluid = FluidIdeal(self.gmma)
-        elif fluid_props[1].lower()=='real':
-            assert(len(fluid_props)>=2)
-            self.fluid_model = 'real'
-            self.fluid = FluidReal(self.fluid_name)
+        if self.fluidModel.lower()=='ideal':
+            self.fluid = FluidIdeal(self.fluidGamma)
+        elif self.fluidModel.lower()=='real':
+            self.fluid = FluidReal(self.fluidName)
+        else:
+            raise ValueError('Unknown Fluid Model')
         
 
         
