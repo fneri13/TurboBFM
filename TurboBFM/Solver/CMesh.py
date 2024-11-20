@@ -118,26 +118,6 @@ class CMesh():
         # ax.set_aspect('equal', adjustable='box')
 
         # plt.show()
-
-        def compute_volume(x1, x2, x3, x4, 
-                           y1, y2, y3, y4, 
-                           z1, z2, z3, z4):
-            
-            a = np.array([x2-x1, y2-y1, z2-z1])
-            b = np.array([x3-x1, y3-y1, z3-z1])
-            c = np.array([x4-x1, y4-y1, z4-z1])
-
-            volume = np.linalg.norm(a@(np.cross(b,c)))
-            return volume
-
-        self.V = np.zeros((self.ni,self.nj,self.nk))
-        for i in range(self.ni):
-            for j in range(self.nj):
-                for k in range(self.nk):
-                    self.V[i,j,k] = compute_volume(xv[i,j,k], xv[i+1,j,k], xv[i,j+1,k], xv[i,j,k+1],
-                                                   yv[i,j,k], yv[i+1,j,k], yv[i,j+1,k], yv[i,j,k+1],
-                                                   zv[i,j,k], zv[i+1,j,k], zv[i,j+1,k], zv[i,j,k+1])
-        
         
 
         # fig = plt.figure()
@@ -150,7 +130,7 @@ class CMesh():
         # plt.show()
 
 
-        def compute_surface_vector(x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4):
+        def compute_surface_vector_and_cg(x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4):
             """
             Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices
             """
@@ -159,39 +139,82 @@ class CMesh():
             b1 = np.array([x3-x2, y3-y2, z3-z2])
             a2 = np.array([x3-x1, y3-y1, z3-z1])
             b2 = np.array([x4-x3, y4-y3, z4-z3])
-            Str = 0.5*(np.cross(a1, b1) + np.cross(a2, b2))
-            return Str
+            S1 = np.cross(a1, b1)
+            S2 = np.cross(a2, b2)
+            Str = 0.5*(S1 + S2)
+
+            cg1 = (np.array([x1+x2+x3, y1+y2+y3, z1+z2+z3]))/3.0
+            cg2 = (np.array([x1+x3+x4, y1+y3+y4, z1+z3+z4]))/3.0
+            CG = (cg1*np.linalg.norm(S1)+cg2*np.linalg.norm(S2))/(np.linalg.norm(S1)+np.linalg.norm(S2))
+
+            return Str, CG
         
-        self.Si = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3))
-        self.Sj = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3))
-        self.Sk = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3))
+        self.Si = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # surface vector connecting point (i,j,k) to (i+1,j,k)
+        self.Sj = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # surface vector connecting point (i,j,k) to (i,j+1,k)
+        self.Sk = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # surface vector connecting point (i,j,k) to (i,j,k+1)
+        self.CGi = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # center of face vector connecting point (i,j,k) to (i+1,j,k)
+        self.CGj = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # center of face vector connecting point (i,j,k) to (i,j+1,k)
+        self.CGk = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # center of face vector connecting point (i,j,k) to (i,j,k+1)
         for i in range(self.ni-1):
             for j in range(self.nj-1):
                 for k in range(self.nk-1):
-                    self.Si[i,j,k,:] = compute_surface_vector(xv[i+1,j,k], xv[i+1, j+1, k], xv[i+1, j+1, k+1], xv[i+1, j, k+1], 
-                                                              yv[i+1,j,k], yv[i+1, j+1, k], yv[i+1, j+1, k+1], yv[i+1, j, k+1],
-                                                              zv[i+1,j,k], zv[i+1, j+1, k], zv[i+1, j+1, k+1], zv[i+1, j, k+1])
+                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j,k], xv[i+1, j+1, k], xv[i+1, j+1, k+1], xv[i+1, j, k+1], 
+                                                                                        yv[i+1,j,k], yv[i+1, j+1, k], yv[i+1, j+1, k+1], yv[i+1, j, k+1],
+                                                                                        zv[i+1,j,k], zv[i+1, j+1, k], zv[i+1, j+1, k+1], zv[i+1, j, k+1])
                     
-                    self.Sj[i,j,k,:] = compute_surface_vector(xv[i+1,j+1,k], xv[i, j+1, k], xv[i, j+1, k+1], xv[i+1, j+1, k+1], 
-                                                              yv[i+1,j+1,k], yv[i, j+1, k], yv[i, j+1, k+1], yv[i+1, j+1, k+1], 
-                                                              zv[i+1,j+1,k], zv[i, j+1, k], zv[i, j+1, k+1], zv[i+1, j+1, k+1])
+                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k], xv[i, j+1, k], xv[i, j+1, k+1], xv[i+1, j+1, k+1], 
+                                                                                        yv[i+1,j+1,k], yv[i, j+1, k], yv[i, j+1, k+1], yv[i+1, j+1, k+1], 
+                                                                                        zv[i+1,j+1,k], zv[i, j+1, k], zv[i, j+1, k+1], zv[i+1, j+1, k+1])
                     
-                    self.Sk[i,j,k,:] = compute_surface_vector(xv[i+1,j+1,k+1], xv[i, j+1, k+1], xv[i, j, k+1], xv[i+1, j, k+1],
-                                                              yv[i+1,j+1,k+1], yv[i, j+1, k+1], yv[i, j, k+1], yv[i+1, j, k+1],
-                                                              zv[i+1,j+1,k+1], zv[i, j+1, k+1], zv[i, j, k+1], zv[i+1, j, k+1])
+                    self.Sk[i,j,k,:], self.CGk[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i, j+1, k+1], xv[i, j, k+1], xv[i+1, j, k+1],
+                                                                                        yv[i+1,j+1,k+1], yv[i, j+1, k+1], yv[i, j, k+1], yv[i+1, j, k+1],
+                                                                                        zv[i+1,j+1,k+1], zv[i, j+1, k+1], zv[i, j, k+1], zv[i+1, j, k+1])
+
+
+        def compute_volume(S, CG, iDir):
+            """
+            For the 6 surfaces enclosing an element, compute the volume using green gauss theorem. iDir stands for the direction used (0,1,2) for (x,y,z)
+            """
+            assert(len(S)==len(CG))
+            vol = 0
+            for iFace in range(len(S)):
+                vol += CG[iFace][iDir]*S[iFace][iDir]
+            return vol
+
+        self.V = np.zeros((self.ni,self.nj,self.nk)) # the ghost point volumes will be zero for the moment
+        for i in range(1,self.ni-1):
+            for j in range(1,self.nj-1):
+                for k in range(1,self.nk-1):
+                    # assemble tuple of Surfaces enclosing the element, facing outside
+                    S = (self.Si[i,j,k,:], self.Sj[i,j,k,:], self.Sk[i,j,k,:], -self.Si[i-1,j,k,:], -self.Sj[i,j-1,k,:], -self.Sk[i,j,k-1,:])
+                    CG = (self.CGi[i,j,k,:], self.CGj[i,j,k,:], self.CGk[i,j,k,:], self.CGi[i-1,j,k,:], self.CGj[i,j-1,k,:], self.CGk[i,j,k-1,:])
+                    self.V[i,j,k] = compute_volume(S, CG, 2)
         
-        print('='*20 + 'SURFACE VECTORS INFORMATION' + '='*20)
-        for i in range(self.ni-1):
-            for j in range(self.nj-1):
-                for k in range(self.nk-1):
+
+        print('='*20 + ' ELEMENTS INFORMATION ' + '='*20)
+        for i in range(1, self.ni-1):
+            for j in range(1, self.nj-1):
+                for k in range(1, self.nk-1):
                     print('For point (%i,%i,%i):' %(i,j,k))
                     print('                         Si=[%.2e,%.2e,%.2e]' %(self.Si[i,j,k,0],self.Si[i,j,k,1],self.Si[i,j,k,2]))
+                    print('                         CGi=[%.2e,%.2e,%.2e]' %(self.CGi[i,j,k,0],self.CGi[i,j,k,1],self.CGi[i,j,k,2]))
                     print('                         Sj=[%.2e,%.2e,%.2e]' %(self.Sj[i,j,k,0],self.Sj[i,j,k,1],self.Sj[i,j,k,2]))
+                    print('                         CGj=[%.2e,%.2e,%.2e]' %(self.CGj[i,j,k,0],self.CGj[i,j,k,1],self.CGj[i,j,k,2]))
                     print('                         Sk=[%.2e,%.2e,%.2e]' %(self.Sk[i,j,k,0],self.Sk[i,j,k,1],self.Sk[i,j,k,2]))
+                    print('                         CGk=[%.2e,%.2e,%.2e]' %(self.CGk[i,j,k,0],self.CGk[i,j,k,1],self.CGk[i,j,k,2]))
+                    print('                         Vol=%.4e' %(self.V[i,j,k]))
                     print()
-        print('='*20 + 'END SURFACE VECTORS INFORMATION' + '='*20)
+        print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
 
 
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.V[1:-1])
+        ax.set_xlabel('Z')
+        ax.set_ylabel('X')
+        ax.set_zlabel('Y')
+        ax.set_aspect('equal', adjustable='box')
+        plt.show()
 
         
 
