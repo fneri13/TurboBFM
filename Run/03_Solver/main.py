@@ -15,3 +15,4 @@ geometry = CGrid(grid['X'], grid['Y'], grid['Z'])
 mesh = CMesh(geometry)
 
 solver = CSolver(config, mesh)
+solver.Solve()

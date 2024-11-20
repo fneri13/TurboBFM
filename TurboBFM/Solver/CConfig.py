@@ -62,3 +62,24 @@ class Config:
     
     def GetFluidModel(self):
         return str(self.config_parser.get('CFD', 'FLUID_MODEL'))
+    
+    def GetMarkersI(self):
+        mark = self.config_parser.get('CFD', 'MARKERS_I')
+        assert(len(mark.split())==2)
+        mark = mark.split(',')
+        markers = (mark[0].strip(), mark[1].strip())
+        return markers
+    
+    def GetMarkersJ(self):
+        mark = self.config_parser.get('CFD', 'MARKERS_J')
+        assert(len(mark.split())==2)
+        mark = mark.split(',')
+        markers = (mark[0].strip(), mark[1].strip())
+        return markers
+    
+    def GetMarkersK(self):
+        mark = self.config_parser.get('CFD', 'MARKERS_K')
+        assert(len(mark.split())==2)
+        mark = mark.split(',')
+        markers = (mark[0].strip(), mark[1].strip())
+        return markers

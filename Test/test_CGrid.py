@@ -11,7 +11,6 @@ class TestGrid(unittest.TestCase):
         z = np.linspace(0, 3, 4)
         X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
         geometry = CGrid(X, Y, Z)
-        geometry.AddGhostPoints()
         X, Y, Z = geometry.X, geometry.Y, geometry.Z
 
         self.assertEqual(X[1,1,1], 0)
@@ -33,7 +32,6 @@ class TestGrid(unittest.TestCase):
         z = np.linspace(0, 3, 4)
         X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
         geometry = CGrid(X, Y, Z)
-        geometry.AddGhostPoints()
         X, Y, Z = geometry.X, geometry.Y, geometry.Z
 
         self.assertEqual(X[0,0,0], -1)

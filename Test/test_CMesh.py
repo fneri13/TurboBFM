@@ -8,7 +8,6 @@ y = np.linspace(0, 5 , 6)
 z = np.linspace(0, 3, 4)
 X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
 geometry = CGrid(X, Y, Z)
-geometry.AddGhostPoints()
 mesh = CMesh(geometry)
 ni,nj,nk = geometry.X.shape
 
