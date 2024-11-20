@@ -4,21 +4,22 @@ import pyvista as pv
 from mpl_toolkits.mplot3d import Axes3D 
 from .CGrid import CGrid
 
-class CVolume():
+class CMesh():
     
     def __init__(self, geometry):
+        """
+        Starting from the grid points coordinates, generate the array of Volumes associated to the points, and the array of surfaces associated to the interfaces between the points (Dual grid formulation).
+        If the grid has (ni,nj,nk) structured points, it has (ni,nj,nk) volumes and (ni-1, nj-1, nk-1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
+        """
         
-        ni, nj, nk = geometry.X.shape
+        self.ni, self.nj, self.nk = geometry.X.shape
+        self.X, self.Y, self.Z = geometry.X, geometry.Y, geometry.Z
 
         # the dual grid nodes are primary grid nodes + 1 in every direction
-        ni += 1
-        nj += 1
-        nk += 1
-
         # vertices of the dual grid
-        xv = np.zeros((ni, nj, nk))
-        yv = np.zeros((ni, nj, nk))
-        zv = np.zeros((ni, nj, nk))
+        xv = np.zeros((self.ni+1, self.nj+1, self.nk+1))
+        yv = np.zeros((self.ni+1, self.nj+1, self.nk+1))
+        zv = np.zeros((self.ni+1, self.nj+1, self.nk+1))
 
         # fix the internal points
         def fix_internals(arr1, arr2):
@@ -129,26 +130,69 @@ class CVolume():
             volume = np.linalg.norm(a@(np.cross(b,c)))
             return volume
 
-        ni, nj, nk = geometry.X.shape
-        self.volume = np.zeros((ni,nj,nk))
-        for i in range(ni):
-            for j in range(nj):
-                for k in range(nk):
-                    self.volume[i,j,k] = compute_volume(xv[i,j,k], xv[i+1,j,k], xv[i,j+1,k], xv[i,j,k+1],
-                                                        yv[i,j,k], yv[i+1,j,k], yv[i,j+1,k], yv[i,j,k+1],
-                                                        zv[i,j,k], zv[i+1,j,k], zv[i,j+1,k], zv[i,j,k+1])
+        self.V = np.zeros((self.ni,self.nj,self.nk))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    self.V[i,j,k] = compute_volume(xv[i,j,k], xv[i+1,j,k], xv[i,j+1,k], xv[i,j,k+1],
+                                                   yv[i,j,k], yv[i+1,j,k], yv[i,j+1,k], yv[i,j,k+1],
+                                                   zv[i,j,k], zv[i+1,j,k], zv[i,j+1,k], zv[i,j,k+1])
+        
         
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.volume[1:-1])
-        ax.set_xlabel('Z')
-        ax.set_ylabel('X')
-        ax.set_zlabel('Y')
-        ax.set_aspect('equal', adjustable='box')
-        plt.show()
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.V[1:-1])
+        # ax.set_xlabel('Z')
+        # ax.set_ylabel('X')
+        # ax.set_zlabel('Y')
+        # ax.set_aspect('equal', adjustable='box')
+        # plt.show()
 
-        self.surface = CSurface(geometry.X, geometry.Y, geometry.Z, xv, yv, zv)
+
+        def compute_surface_vector(x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4):
+            """
+            Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices
+            """
+            # triangulate the face
+            a1 = np.array([x2-x1, y2-y1, z2-z1])
+            b1 = np.array([x3-x2, y3-y2, z3-z2])
+            a2 = np.array([x3-x1, y3-y1, z3-z1])
+            b2 = np.array([x4-x3, y4-y3, z4-z3])
+            Str = 0.5*(np.cross(a1, b1) + np.cross(a2, b2))
+            return Str
+        
+        self.Si = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3))
+        self.Sj = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3))
+        self.Sk = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3))
+        for i in range(self.ni-1):
+            for j in range(self.nj-1):
+                for k in range(self.nk-1):
+                    self.Si[i,j,k,:] = compute_surface_vector(xv[i+1,j,k], xv[i+1, j+1, k], xv[i+1, j+1, k+1], xv[i+1, j, k+1], 
+                                                              yv[i+1,j,k], yv[i+1, j+1, k], yv[i+1, j+1, k+1], yv[i+1, j, k+1],
+                                                              zv[i+1,j,k], zv[i+1, j+1, k], zv[i+1, j+1, k+1], zv[i+1, j, k+1])
+                    
+                    self.Sj[i,j,k,:] = compute_surface_vector(xv[i+1,j+1,k], xv[i, j+1, k], xv[i, j+1, k+1], xv[i+1, j+1, k+1], 
+                                                              yv[i+1,j+1,k], yv[i, j+1, k], yv[i, j+1, k+1], yv[i+1, j+1, k+1], 
+                                                              zv[i+1,j+1,k], zv[i, j+1, k], zv[i, j+1, k+1], zv[i+1, j+1, k+1])
+                    
+                    self.Sk[i,j,k,:] = compute_surface_vector(xv[i+1,j+1,k+1], xv[i, j+1, k+1], xv[i, j, k+1], xv[i+1, j, k+1],
+                                                              yv[i+1,j+1,k+1], yv[i, j+1, k+1], yv[i, j, k+1], yv[i+1, j, k+1],
+                                                              zv[i+1,j+1,k+1], zv[i, j+1, k+1], zv[i, j, k+1], zv[i+1, j, k+1])
+        
+        print('='*20 + 'SURFACE VECTORS INFORMATION' + '='*20)
+        for i in range(self.ni-1):
+            for j in range(self.nj-1):
+                for k in range(self.nk-1):
+                    print('For point (%i,%i,%i):' %(i,j,k))
+                    print('                         Si=[%.2e,%.2e,%.2e]' %(self.Si[i,j,k,0],self.Si[i,j,k,1],self.Si[i,j,k,2]))
+                    print('                         Sj=[%.2e,%.2e,%.2e]' %(self.Sj[i,j,k,0],self.Sj[i,j,k,1],self.Sj[i,j,k,2]))
+                    print('                         Sk=[%.2e,%.2e,%.2e]' %(self.Sk[i,j,k,0],self.Sk[i,j,k,1],self.Sk[i,j,k,2]))
+                    print()
+        print('='*20 + 'END SURFACE VECTORS INFORMATION' + '='*20)
+
+
+
         
 
         
