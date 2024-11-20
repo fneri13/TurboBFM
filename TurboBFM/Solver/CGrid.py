@@ -3,7 +3,8 @@ import pyvista as pv
 
 class CGrid():
     
-    def __init__(self, x, y, z):
+    def __init__(self, x, y, z, verbosity=0):
+        self.verbosity = verbosity
         self.X = x
         self.Y = y
         self.Z = z
@@ -48,12 +49,13 @@ class CGrid():
         self.Y = add_ghost_coords(self.Y)
         self.Z = add_ghost_coords(self.Z)
 
-        ni, nj, nk = self.X.shape
-        for i in range(ni):
-            for j in range(nj):
-                for k in range(nk):
-                    print('For point (%i,%i,%i):' %(i,j,k))
-                    print('                         (x,y,z)=[%.2e,%.2e,%.2e]' %(self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]))
-                    print()
+        if self.verbosity == 2:
+            ni, nj, nk = self.X.shape
+            for i in range(ni):
+                for j in range(nj):
+                    for k in range(nk):
+                        print('For point (%i,%i,%i):' %(i,j,k))
+                        print('                         (x,y,z)=[%.2e,%.2e,%.2e]' %(self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]))
+                        print()
 
 

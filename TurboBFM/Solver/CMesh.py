@@ -6,12 +6,12 @@ from .CGrid import CGrid
 
 class CMesh():
     
-    def __init__(self, geometry):
+    def __init__(self, geometry, verbosity=0):
         """
         Starting from the grid points coordinates, generate the array of Volumes associated to the points, and the array of surfaces associated to the interfaces between the points (Dual grid formulation).
         If the grid has (ni,nj,nk) structured points, it has (ni,nj,nk) volumes and (ni-1, nj-1, nk-1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
         """
-        
+        self.verbosity = verbosity
         self.ni, self.nj, self.nk = geometry.X.shape
         self.X, self.Y, self.Z = geometry.X, geometry.Y, geometry.Z
 
@@ -190,31 +190,31 @@ class CMesh():
                     CG = (self.CGi[i,j,k,:], self.CGj[i,j,k,:], self.CGk[i,j,k,:], self.CGi[i-1,j,k,:], self.CGj[i,j-1,k,:], self.CGk[i,j,k-1,:])
                     self.V[i,j,k] = compute_volume(S, CG, 2)
         
+        if self.verbosity==2:
+            print('='*20 + ' ELEMENTS INFORMATION ' + '='*20)
+            for i in range(1, self.ni-1):
+                for j in range(1, self.nj-1):
+                    for k in range(1, self.nk-1):
+                        print('For point (%i,%i,%i):' %(i,j,k))
+                        print('                         Si=[%.2e,%.2e,%.2e]' %(self.Si[i,j,k,0],self.Si[i,j,k,1],self.Si[i,j,k,2]))
+                        print('                         CGi=[%.2e,%.2e,%.2e]' %(self.CGi[i,j,k,0],self.CGi[i,j,k,1],self.CGi[i,j,k,2]))
+                        print('                         Sj=[%.2e,%.2e,%.2e]' %(self.Sj[i,j,k,0],self.Sj[i,j,k,1],self.Sj[i,j,k,2]))
+                        print('                         CGj=[%.2e,%.2e,%.2e]' %(self.CGj[i,j,k,0],self.CGj[i,j,k,1],self.CGj[i,j,k,2]))
+                        print('                         Sk=[%.2e,%.2e,%.2e]' %(self.Sk[i,j,k,0],self.Sk[i,j,k,1],self.Sk[i,j,k,2]))
+                        print('                         CGk=[%.2e,%.2e,%.2e]' %(self.CGk[i,j,k,0],self.CGk[i,j,k,1],self.CGk[i,j,k,2]))
+                        print('                         Vol=%.4e' %(self.V[i,j,k]))
+                        print()
+            print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
 
-        print('='*20 + ' ELEMENTS INFORMATION ' + '='*20)
-        for i in range(1, self.ni-1):
-            for j in range(1, self.nj-1):
-                for k in range(1, self.nk-1):
-                    print('For point (%i,%i,%i):' %(i,j,k))
-                    print('                         Si=[%.2e,%.2e,%.2e]' %(self.Si[i,j,k,0],self.Si[i,j,k,1],self.Si[i,j,k,2]))
-                    print('                         CGi=[%.2e,%.2e,%.2e]' %(self.CGi[i,j,k,0],self.CGi[i,j,k,1],self.CGi[i,j,k,2]))
-                    print('                         Sj=[%.2e,%.2e,%.2e]' %(self.Sj[i,j,k,0],self.Sj[i,j,k,1],self.Sj[i,j,k,2]))
-                    print('                         CGj=[%.2e,%.2e,%.2e]' %(self.CGj[i,j,k,0],self.CGj[i,j,k,1],self.CGj[i,j,k,2]))
-                    print('                         Sk=[%.2e,%.2e,%.2e]' %(self.Sk[i,j,k,0],self.Sk[i,j,k,1],self.Sk[i,j,k,2]))
-                    print('                         CGk=[%.2e,%.2e,%.2e]' %(self.CGk[i,j,k,0],self.CGk[i,j,k,1],self.CGk[i,j,k,2]))
-                    print('                         Vol=%.4e' %(self.V[i,j,k]))
-                    print()
-        print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
 
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.V[1:-1])
-        ax.set_xlabel('Z')
-        ax.set_ylabel('X')
-        ax.set_zlabel('Y')
-        ax.set_aspect('equal', adjustable='box')
-        plt.show()
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.scatter(geometry.X[1:-1], geometry.Y[1:-1], geometry.Z[1:-1], c=self.V[1:-1])
+        # ax.set_xlabel('Z')
+        # ax.set_ylabel('X')
+        # ax.set_zlabel('Y')
+        # ax.set_aspect('equal', adjustable='box')
+        # plt.show()
 
         
 
