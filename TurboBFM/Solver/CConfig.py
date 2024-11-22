@@ -60,26 +60,58 @@ class Config:
         except: 
             return 0.0
     
+    def GetFluidRConstant(self):
+        return float(self.config_parser.get('CFD', 'FLUID_R_CONSTANT'))
+
     def GetFluidModel(self):
         return str(self.config_parser.get('CFD', 'FLUID_MODEL'))
     
-    def GetMarkersI(self):
-        mark = self.config_parser.get('CFD', 'MARKERS_I')
+    def GetBoundaryTypeI(self):
+        mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_I')
         assert(len(mark.split())==2)
         mark = mark.split(',')
         markers = (mark[0].strip(), mark[1].strip())
         return markers
     
-    def GetMarkersJ(self):
-        mark = self.config_parser.get('CFD', 'MARKERS_J')
+    def GetBoundaryTypeJ(self):
+        mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_J')
         assert(len(mark.split())==2)
         mark = mark.split(',')
         markers = (mark[0].strip(), mark[1].strip())
         return markers
     
-    def GetMarkersK(self):
-        mark = self.config_parser.get('CFD', 'MARKERS_K')
+    def GetBoundaryTypeK(self):
+        mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_J')
         assert(len(mark.split())==2)
         mark = mark.split(',')
         markers = (mark[0].strip(), mark[1].strip())
         return markers
+    
+    def GetInletValue(self):
+        inlet = self.config_parser.get('CFD', 'INLET_VALUE')
+        inlet = [float(x.strip()) for x in inlet.split(',')]
+        return inlet
+    
+    def GetOutletValue(self):
+        return float(self.config_parser.get('CFD', 'OUTLET_VALUE'))
+    
+    def GetInitMach(self):
+        return float(self.config_parser.get('CFD', 'INIT_MACH_NUMBER'))
+
+    def GetInitTemperature(self):
+        return float(self.config_parser.get('CFD', 'INIT_TEMPERATURE'))
+    
+    def GetInitPressure(self):
+        return float(self.config_parser.get('CFD', 'INIT_PRESSURE'))
+    
+    def GetInitDirection(self):
+        dir = self.config_parser.get('CFD', 'INIT_DIRECTION')
+        if dir.lower() == 'x':
+            return 0
+        elif dir.lower() == 'y':
+            return 1
+        elif dir.lower() == 'z':
+            return 2 
+        else:
+            raise ValueError('INIT_DIRECTION not recognized. Select between x,y and z')
+    

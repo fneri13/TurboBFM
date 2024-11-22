@@ -18,6 +18,12 @@ class FluidIdeal():
     
     def ComputeSoundSpeed_p_rho(self, p, rho):
         return np.sqrt(self.gmma*p/rho)
+    
+    def ComputeThermoFluidState_FromTotalQuantities(Pt, Tt, flow_dir):
+        """
+        From total quanties and flow direction, compute the complete thermofluiddynamic.
+        """
+        # this must compute the stat
 
 class FluidReal():
     """
