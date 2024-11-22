@@ -17,7 +17,6 @@ mesh = CMesh(geometry)
 
 solver = CSolver(config, mesh)
 solver.InitializeSolution()
-
 solver.Solve()
 solver.ContoursCheck('primitives')
 solver.ContoursCheck('conservatives')

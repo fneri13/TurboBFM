@@ -146,8 +146,8 @@ class CSolver():
                         U_b = self.GetElementConservatives(iFace+1, jFace, kFace)
                         S = self.mesh.Si[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace, jFace, kFace, :] -= flux
-                        self.conservatives[iFace+1, jFace, kFace, :] += flux
+                        self.conservatives[iFace, jFace, kFace, :] -= flux          # a positive flux leaves the first element
+                        self.conservatives[iFace+1, jFace, kFace, :] += flux        # and enters in the second
 
                         # j direction surface, connecting points (i,j,k) to (i,j+1,k)
                         U_a = self.GetElementConservatives(iFace, jFace, kFace)
@@ -188,9 +188,9 @@ class CSolver():
         """
         Compute the vector flux between the two elements defined by their conservative vectors, and the surface vector oriented from 1 to 2.
         """
-        f12 = EulerFluxFromConservatives(U1, S, self.fluid)
-        f21 = EulerFluxFromConservatives(U2, -S, self.fluid)
-        f = 0.5*(f12+f21)
+        f1 = EulerFluxFromConservatives(U1, S, self.fluid)
+        f2 = EulerFluxFromConservatives(U2, S, self.fluid)
+        f = 0.5*(f1+f2)
         return f
         
 

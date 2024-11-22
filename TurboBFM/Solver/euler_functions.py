@@ -101,7 +101,7 @@ def EulerFluxFromConservatives(cons, surf, fluid):
         normal = surf/np.linalg.norm(surf)
         vel = prim[1:-1]
         vel_n = np.dot(vel, normal)
-        p = prim[0]*prim[4]*(fluid.gmma-1) - 0.5*prim[0]*np.linalg.norm(vel)
+        p = prim[0]*prim[4]*(fluid.gmma-1) - 0.5*prim[0]*np.linalg.norm(vel)**2
         
         flux = np.zeros(5)
         flux[0] = prim[0]*vel_n
