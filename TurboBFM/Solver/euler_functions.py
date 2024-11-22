@@ -1,41 +1,19 @@
 from TurboBFM.Solver.CFluid import FluidIdeal
 import numpy as np
 
-def GetPrimitivesFromConservatives(conservative, fluid):
+def GetPrimitivesFromConservatives(conservative: np.ndarray) -> np.ndarray:
         """
         Compute primitive variables vector from conservative vector
 
         Parameters
         -----------
 
-       Conservative vector defined by: 
-
-        `u1`: density
-
-        `u2`: density*velocity_x
-
-        `u3`: density*velocity_y
-
-        `u4`: density*velocity_z
-
-        `u5`: density*total energy
-
-        `fluid`: fluid object, ideal or real
+        `conservative`: conservative variable vector (rho, rho ux, rho uy, rho uz, rho et)
 
         Returns
         -----------
 
-        Primitive vector defined by:
-
-        `rho`: density
-
-        `ux`: velocity_x
-
-        `uy`: velocity_y
-
-        `uz`: velocity_z
-
-        `e`: total energy
+        `primitive`: primitive variables vector (rho, ux, uy, uz, et)
 
         """
         rho = conservative[0]
@@ -46,39 +24,20 @@ def GetPrimitivesFromConservatives(conservative, fluid):
         return np.array([rho, ux, uy, uz, et])
 
 
-def GetConservativesFromPrimitives(primitive, fluid):
+def GetConservativesFromPrimitives(primitive: np.ndarray) -> np.ndarray:
         """
         Compute conservative variables from primitive vector
 
         Parameters
         -----------
-        Primitive vector defined by:
 
-        `rho`: density
+        `primitive`: primitive variables vector (rho, ux, uy, uz, et)
 
-        `ux`: velocity_x
-
-        `uy`: velocity_y
-
-        `uz`: velocity_z
-
-        `et`: total energy
-
-        `fluid`: fluid object, ideal or real
 
         Returns
         -----------
-        Conservative vector defined by: 
 
-        `u1`: density
-
-        `u2`: density*velocity_x
-
-        `u3`: density*velocity_y
-
-        `u4`: density*velocity_z
-
-        `u5`: density*total energy
+        `conservative`: conservative variable vector (rho, rho ux, rho uy, rho uz, rho et)
 
         """
         u1 = primitive[0]
@@ -89,9 +48,20 @@ def GetConservativesFromPrimitives(primitive, fluid):
         return np.array([u1, u2, u3, u4, u5])
 
 
-def EulerFluxFromConservatives(cons, surf, fluid):
+def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, fluid: FluidIdeal) -> np.ndarray:
         """
-        Compute Euler flux vector from conservative variables, passing through a surface defined by vector S. 
+        Compute Euler flux vector from conservative variables, passing through a surface defined by vector S. Ideal gas version
+        for the moment
+
+        Parameters
+        -----------
+        Primitive vector defined by:
+
+        `cons`: conservative variable vector (rho, rho ux, rho uy, rho uz, rho et)
+
+        `surf`: surface vector (nx, ny, nz)
+
+        `fluid`: fluid object
 
         Returns
         --------
