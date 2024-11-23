@@ -177,6 +177,115 @@ class CMesh():
         print('Type of element:                     %s' %('Hexagonal'))
         print('='*25 + ' END MESH INFORMATION ' + '='*25)
 
+        # mantain a copy of the vertices, to compute also the quality
+        self.xv, self.yv, self.zv = xv, yv, zv
+    
+    def ComputeMeshQuality(self):
+        """
+        Given the geometry information stored, compute some quality metrics. 
+        """
+        self.ComputeAspectRatio()
+        self.ComputeSkewnessOrthogonality()
+
+    def ComputeAspectRatio(self):
+        """
+        Compute aspect ratio, and store it in a 1D numpy array
+        """
+        ni, nj, nk = self.xv.shape
+        self.n_elements = (ni-2)*(nj-2)*(nk-2)
+        self.aspect_ratio = []
+
+        # the loop extremes avoid to include data of the ghost cells, which should not be relevant for the CFD simulation
+        for i in range(1, ni-2):
+            for j in range(1, nj-2):
+                for k in range(1, nk-2):
+                    pt_0 = np.array([self.xv[i,j,k], self.yv[i,j,k], self.zv[i,j,k]])
+                    pt_i = np.array([self.xv[i+1,j,k], self.yv[i+1,j,k], self.zv[i+1,j,k]])
+                    pt_j = np.array([self.xv[i,j+1,k], self.yv[i,j+1,k], self.zv[i,j+1,k]])
+                    pt_k = np.array([self.xv[i,j,k+1], self.yv[i,j,k+1], self.zv[i,j,k+1]])
+                    i_edge = np.linalg.norm(pt_i-pt_0)
+                    j_edge = np.linalg.norm(pt_j-pt_0)
+                    k_edge = np.linalg.norm(pt_k-pt_0)
+                    ar = max(i_edge, j_edge, k_edge)/min(i_edge, j_edge, k_edge)
+                    self.aspect_ratio.append(ar)
+        self.aspect_ratio = np.array(self.aspect_ratio)
+    
+    def ComputeSkewnessOrthogonality(self):
+        """
+        Compute the mesh skewness, defined as the distance between the real center face and the midpoint connecting the two cells, normalized
+        by the distance between the two elements center. And the orthogonality, defined as the angle between the connecting line and the face normal.
+        """
+        ni, nj, nk = self.Si[:,:,:,0].shape
+        self.skewness = []
+        self.orthogonality = []
+        for i in range(1, ni-1):
+            for j in range(1, nj-1):
+                for k in range(1, nk-1):
+                    pt_0 = np.array([self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]])
+                    pt_i = np.array([self.X[i+1,j,k], self.Y[i+1,j,k], self.Z[i+1,j,k]])
+                    pt_j = np.array([self.X[i,j+1,k], self.Y[i,j+1,k], self.Z[i,j+1,k]])
+                    pt_k = np.array([self.X[i,j,k+1], self.Y[i,j,k+1], self.Z[i,j,k+1]])
+
+                    #face_i
+                    midpoint = pt_0 + 0.5*(pt_i-pt_0)   # point in the middle between the cell centers
+                    CG = self.CGi[i,j,k,:]              # face center
+                    l1 = np.linalg.norm(midpoint-CG)
+                    l2 = np.linalg.norm(pt_i-pt_0)
+                    self.skewness.append(l1/l2)
+                    S = self.Si[i,j,k,:]
+                    l2 = pt_i-pt_0 
+                    angle = np.arccos(np.dot(l2, S)/np.linalg.norm(l2)/np.linalg.norm(S))
+                    self.orthogonality.append(angle)
+
+
+                    #face_j
+                    midpoint = pt_0 + 0.5*(pt_j-pt_0)   # point in the middle between the cell centers
+                    CG = self.CGj[i,j,k,:]              # face center
+                    l1 = np.linalg.norm(midpoint-CG)
+                    l2 = np.linalg.norm(pt_j-pt_0)
+                    self.skewness.append(l1/l2)
+                    S = self.Sj[i,j,k,:]
+                    l2 = pt_j-pt_0
+                    angle = np.arccos(np.dot(l2, S)/np.linalg.norm(l2)/np.linalg.norm(S))
+                    self.orthogonality.append(angle)
+
+                    #face_k
+                    midpoint = pt_0 + 0.5*(pt_k-pt_0)   # point in the middle between the cell centers
+                    CG = self.CGk[i,j,k,:]              # face center
+                    l1 = np.linalg.norm(midpoint-CG)
+                    l2 = np.linalg.norm(pt_k-pt_0)
+                    self.skewness.append(l1/l2)
+                    S = self.Sk[i,j,k,:]
+                    l2 = pt_k-pt_0
+                    angle = np.arccos(np.dot(l2, S)/np.linalg.norm(l2)/np.linalg.norm(S))
+                    self.orthogonality.append(angle)
+        
+        self.skewness = np.array(self.skewness)
+        self.orthogonality = np.array(self.orthogonality)
+
+
+
+
+    
+    def PlotMeshQuality(self):
+        fig, ax = plt.subplots(1, 3, figsize=(16,9))
+
+        ax[0].hist(self.aspect_ratio, edgecolor='black', color='C0', align='left')
+        ax[0].set_xlabel('Aspect Ratio')
+        ax[0].set_ylabel('Elements')        
+
+        ax[1].hist(self.skewness, edgecolor='black', color='C1', align='left')
+        ax[1].set_xlabel('Skewness')
+        ax[1].set_ylabel('Faces')
+
+        ax[2].hist(self.orthogonality, edgecolor='black', color='C2', align='left')
+        ax[2].set_xlabel('Orthogonality')
+        ax[2].set_ylabel('Faces')
+
+                    
+
+
+
 
 
         
