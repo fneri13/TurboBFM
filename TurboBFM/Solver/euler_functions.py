@@ -48,10 +48,10 @@ def GetConservativesFromPrimitives(primitive: np.ndarray) -> np.ndarray:
         return np.array([u1, u2, u3, u4, u5])
 
 
-def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, fluid: FluidIdeal) -> np.ndarray:
+def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, gmma: float) -> np.ndarray:
         """
         Compute Euler flux vector from conservative variables, passing through a surface defined by vector S. Ideal gas version
-        for the moment
+        for the moment. The flux is already integrated on the surface [quantity/second], is not a flux density [quantity/second/surface]
 
         Parameters
         -----------
@@ -61,23 +61,24 @@ def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, fluid: FluidI
 
         `surf`: surface vector (nx, ny, nz)
 
-        `fluid`: fluid object
+        `gamma`: cp/cv ratio
 
         Returns
         --------
         `flux`: flux vector
         """
-        prim = GetPrimitivesFromConservatives(cons, fluid)
-        normal = surf/np.linalg.norm(surf)
+        prim = GetPrimitivesFromConservatives(cons)
+        area = np.linalg.norm(surf)
+        normal = surf/area
         vel = prim[1:-1]
         vel_n = np.dot(vel, normal)
-        p = prim[0]*prim[4]*(fluid.gmma-1) - 0.5*prim[0]*np.linalg.norm(vel)**2
+        p = prim[0]*prim[4]*(gmma-1) - 0.5*prim[0]*np.linalg.norm(vel)**2
         
-        flux = np.zeros(5)
+        flux = np.zeros(5, dtype=float)
         flux[0] = prim[0]*vel_n
         flux[1] = prim[0]*vel_n*prim[1] + p*normal[0]
         flux[2] = prim[0]*vel_n*prim[2] + p*normal[1]
         flux[3] = prim[0]*vel_n*prim[3] + p*normal[2]
         flux[4] = vel_n*(prim[0]*prim[4]+p)
 
-        return flux
+        return flux*area

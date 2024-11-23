@@ -73,7 +73,7 @@ class CSolver():
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
-                    self.conservatives[i,j,k,:] = GetConservativesFromPrimitives(self.primitives[i,j,k,:], self.fluid)
+                    self.conservatives[i,j,k,:] = GetConservativesFromPrimitives(self.primitives[i,j,k,:])
 
     def ContoursCheck(self, group, perp_direction = 'k'):
         """
@@ -92,7 +92,7 @@ class CSolver():
                 plt.figure()
                 plt.contourf(fields[idx,:,:,iField])
                 plt.colorbar()
-                plt.title(names[iPrim])
+                plt.title(names[iField])
                 plt.xlabel('K')
                 plt.ylabel('J')
         elif perp_direction.lower()=='j':
@@ -128,7 +128,10 @@ class CSolver():
         return rho, u, et
         
 
-    def Solve(self, nIter = 100):
+    def Solve(self, nIter : int = 100) -> None:
+        """
+        Solve explicitly in time the system
+        """
         # number of faces, where the 0 is the interface between the ghost point and the first internal point
         niF = self.mesh.Si.shape[0]
         njF = self.mesh.Si.shape[1]
@@ -137,60 +140,48 @@ class CSolver():
         start = time.time()
         for it in range(nIter):
             print('Iteration %i of %i' %(it+1, nIter))
+            # self.ContoursCheck('conservatives')
+            cons_old = self.conservatives.copy() # old solution needed during explicit step
+
             for iFace in range(niF):
                 for jFace in range(njF):
                     for kFace in range(nkF):
                         
                         # i direction surface, connecting points (i,j,k) to (i+1,j,k)
-                        U_a = self.GetElementConservatives(iFace, jFace, kFace)
-                        U_b = self.GetElementConservatives(iFace+1, jFace, kFace)
+                        U_a = cons_old[iFace,jFace,kFace,:]
+                        U_b = cons_old[iFace+1, jFace, kFace,:]
                         S = self.mesh.Si[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
                         self.conservatives[iFace, jFace, kFace, :] -= flux          # a positive flux leaves the first element
                         self.conservatives[iFace+1, jFace, kFace, :] += flux        # and enters in the second
 
                         # j direction surface, connecting points (i,j,k) to (i,j+1,k)
-                        U_a = self.GetElementConservatives(iFace, jFace, kFace)
-                        U_b = self.GetElementConservatives(iFace, jFace+1, kFace)
+                        U_b = cons_old[iFace, jFace+1, kFace,:]
                         S = self.mesh.Sj[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
                         self.conservatives[iFace, jFace, kFace, :] -= flux
                         self.conservatives[iFace, jFace+1, kFace, :] += flux
 
                         # k direction surface, connecting points (i,j,k) to (i,j,k+1)
-                        U_a = self.GetElementConservatives(iFace, jFace, kFace)
-                        U_b = self.GetElementConservatives(iFace, jFace, kFace+1)
+                        U_b = cons_old[iFace, jFace, kFace+1]
                         S = self.mesh.Sk[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
                         self.conservatives[iFace, jFace, kFace, :] -= flux
                         self.conservatives[iFace, jFace, kFace+1, :] += flux
 
-                        pass
-
-
-
         end = time.time()
         print()
         print('For a (%i,%i,%i) grid, with %i internal faces, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, (niF*njF*nkF*3), nIter/(end-start)))
-
-
-        
-        
-    def GetElementPrimitives(self, i, j, k):
-        return self.primitives[i,j,k,:]
-    
-    def GetElementConservatives(self, i, j, k):
-        return self.conservatives[i,j,k,:]
-        
 
         
     def ComputeFlux(self, U1, U2, S):
         """
         Compute the vector flux between the two elements defined by their conservative vectors, and the surface vector oriented from 1 to 2.
         """
-        f1 = EulerFluxFromConservatives(U1, S, self.fluid)
-        f2 = EulerFluxFromConservatives(U2, S, self.fluid)
+        f1 = EulerFluxFromConservatives(U1, S, self.fluid.gmma)
+        f2 = EulerFluxFromConservatives(U2, S, self.fluid.gmma)
         f = 0.5*(f1+f2)
+
         return f
         
 
