@@ -9,10 +9,18 @@ class CMesh():
     def __init__(self, geometry, verbosity=0):
         """
         Starting from the grid points coordinates, generate the array of Volumes associated to the points, and the array of surfaces associated to the interfaces between the points (Dual grid formulation).
-        If the grid has (ni,nj,nk) structured points, it has (ni,nj,nk) volumes and (ni-1, nj-1, nk-1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
+        If the grid has (ni,nj,nk) structured points (comprehensive of ghost points), it has (ni-1,nj-1,nk-1) elements and (ni-1, nj-1, nk-1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
         """
         self.verbosity = verbosity
-        self.ni, self.nj, self.nk = geometry.X.shape
+        self.ni, self.nj, self.nk = geometry.X.shape    # these are the number of total ghost points
+
+        # compute the number of relevant quantities
+        self.n_grid_points_total = self.ni*self.nj*self.nk                              # total number of grid points (including ghost)
+        self.n_grid_points_physical = (self.ni-2)*(self.nj-2)*(self.nk-2)               # total number of physical grid points
+        self.n_elems = self.n_grid_points_physical                                      # number of finite volumes (excluding ghost elements)
+        self.n_faces = (self.ni-1)*(self.nj-1)*(self.nk-1)*3                            # total number of internal faces, where fluxes need to be computed
+
+
         self.X, self.Y, self.Z = geometry.X, geometry.Y, geometry.Z
 
         # the dual grid nodes are primary grid nodes + 1 in every direction
@@ -172,20 +180,29 @@ class CMesh():
         
 
         print('='*25 + ' MESH INFORMATION ' + '='*25)
-        print('Number of physical points:           (%i, %i, %i)' %(self.ni-2, self.nj-2, self.nk-2))
-        print('Number of total points:              (%i, %i, %i)' %(self.ni, self.nj, self.nk))
-        print('Type of element:                     %s' %('Hexagonal'))
-        print('='*25 + ' END MESH INFORMATION ' + '='*25)
+        print('Number of total grid points:         %i' %(self.n_grid_points_total))
+        print('Number of physical grid points:      %i' %(self.n_grid_points_physical))
+        print('Number of physical elements:         %i' %(self.n_grid_points_physical))
+        print('Number of internal faces:            %i' %(self.n_faces))
+        print('Type of elements:                    %s' %('Hexagonal'))
 
         # mantain a copy of the vertices, to compute also the quality
         self.xv, self.yv, self.zv = xv, yv, zv
-    
+
+        self.ComputeMeshQuality()
+        print('Max aspect ratio:                    %.2f' %(np.max(self.aspect_ratio)))
+        print('Max skewness:                        %.2f' %(np.max(self.skewness)))
+        print('Max orthogonality:                   %.2f' %(np.max(self.orthogonality)))
+        print('='*25 + ' END MESH INFORMATION ' + '='*25)
+
+
     def ComputeMeshQuality(self):
         """
         Given the geometry information stored, compute some quality metrics. 
         """
         self.ComputeAspectRatio()
         self.ComputeSkewnessOrthogonality()
+
 
     def ComputeAspectRatio(self):
         """
@@ -218,9 +235,9 @@ class CMesh():
         ni, nj, nk = self.Si[:,:,:,0].shape
         self.skewness = []
         self.orthogonality = []
-        for i in range(1, ni-1):
-            for j in range(1, nj-1):
-                for k in range(1, nk-1):
+        for i in range(0, ni):
+            for j in range(0, nj):
+                for k in range(0, nk):
                     pt_0 = np.array([self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]])
                     pt_i = np.array([self.X[i+1,j,k], self.Y[i+1,j,k], self.Z[i+1,j,k]])
                     pt_j = np.array([self.X[i,j+1,k], self.Y[i,j+1,k], self.Z[i,j+1,k]])
@@ -231,18 +248,21 @@ class CMesh():
                     CG = self.CGi[i,j,k,:]              # face center
                     l1 = np.linalg.norm(midpoint-CG)
                     l2 = np.linalg.norm(pt_i-pt_0)
+                    if (l1/l2)!=0:
+                        pass
                     self.skewness.append(l1/l2)
                     S = self.Si[i,j,k,:]
                     l2 = pt_i-pt_0 
                     angle = np.arccos(np.dot(l2, S)/np.linalg.norm(l2)/np.linalg.norm(S))
                     self.orthogonality.append(angle)
 
-
                     #face_j
                     midpoint = pt_0 + 0.5*(pt_j-pt_0)   # point in the middle between the cell centers
                     CG = self.CGj[i,j,k,:]              # face center
                     l1 = np.linalg.norm(midpoint-CG)
                     l2 = np.linalg.norm(pt_j-pt_0)
+                    if (l1/l2)!=0:
+                        pass
                     self.skewness.append(l1/l2)
                     S = self.Sj[i,j,k,:]
                     l2 = pt_j-pt_0
@@ -254,6 +274,8 @@ class CMesh():
                     CG = self.CGk[i,j,k,:]              # face center
                     l1 = np.linalg.norm(midpoint-CG)
                     l2 = np.linalg.norm(pt_k-pt_0)
+                    if (l1/l2)!=0:
+                        pass
                     self.skewness.append(l1/l2)
                     S = self.Sk[i,j,k,:]
                     l2 = pt_k-pt_0
@@ -264,23 +286,26 @@ class CMesh():
         self.orthogonality = np.array(self.orthogonality)
 
 
-
-
-    
     def PlotMeshQuality(self):
+        """
+        Plot the histograms of aspect ratio, skewness and orthogonality
+        """
         fig, ax = plt.subplots(1, 3, figsize=(16,9))
 
         ax[0].hist(self.aspect_ratio, edgecolor='black', color='C0', align='left')
+        ax[0].set_title('AR of %i Elements' %(self.n_elems))
         ax[0].set_xlabel('Aspect Ratio')
-        ax[0].set_ylabel('Elements')        
+        ax[0].set_ylabel('N')        
 
         ax[1].hist(self.skewness, edgecolor='black', color='C1', align='left')
+        ax[1].set_title('Skewness of %i Faces' %(self.n_faces))
         ax[1].set_xlabel('Skewness')
-        ax[1].set_ylabel('Faces')
+        ax[1].set_ylabel('N')
 
         ax[2].hist(self.orthogonality, edgecolor='black', color='C2', align='left')
+        ax[2].set_title('Orthogonality of %i Faces' %(self.n_faces))
         ax[2].set_xlabel('Orthogonality')
-        ax[2].set_ylabel('Faces')
+        ax[2].set_ylabel('N')
 
                     
 
