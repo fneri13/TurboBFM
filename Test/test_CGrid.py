@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from TurboBFM.Solver.CGrid import CGrid
+from TurboBFM.Solver.CElement import CGrid
 
 
 

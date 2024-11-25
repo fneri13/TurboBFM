@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from TurboBFM.Solver.CGrid import CGrid
+from TurboBFM.Solver.CElement import CGrid
 from TurboBFM.Solver.CMesh import CMesh
 
 x = np.linspace(0 , 10, 11)

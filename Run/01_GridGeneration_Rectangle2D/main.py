@@ -14,7 +14,7 @@ Generate a 2D rectangular geometry, that will be used as verification
 OUTPUT_FOLDER = 'Grid'
 NX = 20
 NY = 10
-NZ = 2
+NZ = 5
 
 x = np.linspace(0, NX-1, NX)
 y = np.linspace(0, NY-1, NY)

@@ -2,27 +2,184 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvista as pv
 from mpl_toolkits.mplot3d import Axes3D 
-from .CGrid import CGrid
+from TurboBFM.Solver.CConfig import Config
 
 class CMesh():
     
-    def __init__(self, coords, verbosity=2):
+    def __init__(self, config, coords, verbosity=2):
         """
         Starting from the grid points coordinates, generate the array of Volumes associated to the points, and the array of surfaces associated to the interfaces between the points (Dual grid formulation).
         If the grid has (ni,nj,nk) structured points, it has (ni,nj,nk) elements and (ni+1, nj+1, nk+1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
         """
+        self.config = config
         self.verbosity = verbosity
         self.ni, self.nj, self.nk = coords['X'].shape                                   # these are the number of primary nodes
         self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
-        self.ni_faces, self.nj_faces, self.nk_faces = self.ni, self.nj, self.nk   # these are the number of interfaces along single directions
+        self.ni_faces, self.nj_faces, self.nk_faces = self.ni+1, self.nj+1, self.nk+1   # these are the number of interfaces along single directions
 
 
         # compute the number of relevant quantities for later use
-        self.n_elements = self.ni*self.nj*self.nk                                               # number of finite volumes (excluding ghost elements)
+        self.n_elements = self.ni*self.nj*self.nk                                       # number of finite volumes (excluding ghost elements)
         self.n_faces = (self.ni_faces)*(self.nj_faces)*(self.nk_faces)*3                # total number of internal faces, where fluxes need to be computed
-
         self.X, self.Y, self.Z = coords['X'], coords['Y'], coords['Z']                  # store a local copy of the primary grid coordinate
 
+        self.ComputeDualGrid()
+        self.ComputeInterfaces()
+        self.ComputeVolumes()
+
+    def ComputeInterfaces(self):
+        """
+        Build the interfaces structure, based on an array of CEdge objects
+        """
+
+        def compute_surface_vector_and_cg(x1: float, x2: float, x3: float, x4: float, 
+                                          y1: float, y2: float, y3: float, y4: float,
+                                          z1: float, z2: float, z3: float, z4: float):
+            """
+            Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices. The surface direction corresponds to the
+            right-hand rule for the points ordered as 1->2->3->4.
+            """
+            # triangulate the face
+            a1 = np.array([x2-x1, y2-y1, z2-z1])
+            b1 = np.array([x3-x2, y3-y2, z3-z2])
+            a2 = np.array([x3-x1, y3-y1, z3-z1])
+            b2 = np.array([x4-x3, y4-y3, z4-z3])
+            S1 = np.cross(a1, b1)
+            S2 = np.cross(a2, b2)
+            Str = 0.5*(S1 + S2)
+
+            cg1 = (np.array([x1+x2+x3, y1+y2+y3, z1+z2+z3]))/3.0
+            cg2 = (np.array([x1+x3+x4, y1+y3+y4, z1+z3+z4]))/3.0
+            CG = (cg1*np.linalg.norm(S1)+cg2*np.linalg.norm(S2))/(np.linalg.norm(S1)+np.linalg.norm(S2))
+
+            return Str, CG
+        
+        """
+        Surface Computations here. The ordering respect the following ideas:
+        - Si[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i+1,j,k].
+        - Sj[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j+1,k].
+        - Sk[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j,k+1].
+        For every point [i,j,k] only three surfaces are needed, since the other three come from the following points on the respective directions.
+        
+        Interfaces between two ghost points are not needed, therefore the ordering respects this idea: 
+        - Si[0,0,0,:] is the i-interface connecting the ghost P[0,1,1] to physical point P[1,1,1].
+        - Sj[0,0,0,:] is the j-interface connecting the ghost P[1,0,1] to physical point P[1,1,1].
+        - Sk[0,0,0,:] is the k-interface connecting the ghost P[1,1,0] to physical point P[1,1,1].
+
+        The centers of gravity of every interface (CGi, CGj, CGk) follows the same indexing
+        """
+        self.Si = np.zeros((self.ni_faces, self.nj_faces-1, self.nk_faces-1, 3))            # surface vector connecting point (i,j,k) to (i+1,j,k)
+        self.Sj = np.zeros((self.ni_faces-1, self.nj_faces, self.nk_faces-1, 3))            # surface vector connecting point (i,j,k) to (i,j+1,k)
+        self.Sk = np.zeros((self.ni_faces-1, self.nj_faces-1, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i,j,k+1)
+        self.CGi = np.zeros((self.ni_faces, self.nj_faces-1, self.nk_faces-1, 3))           # center of face vector connecting point (i,j,k) to (i+1,j,k)
+        self.CGj = np.zeros((self.ni_faces-1, self.nj_faces, self.nk_faces-1, 3))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
+        self.CGk = np.zeros((self.ni_faces-1, self.nj_faces-1, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j,k+1)
+        
+        for i in range(self.ni_faces):
+            for j in range(self.nj_faces-1):
+                for k in range(self.nk_faces-1):
+                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(self.xv[i,j,k], self.xv[i, j+1, k], self.xv[i, j+1, k+1], self.xv[i, j, k+1], 
+                                                                                        self.yv[i,j,k], self.yv[i, j+1, k], self.yv[i, j+1, k+1], self.yv[i, j, k+1], 
+                                                                                        self.zv[i,j,k], self.zv[i, j+1, k], self.zv[i, j+1, k+1], self.zv[i, j, k+1])
+        
+        for i in range(self.ni_faces-1):
+            for j in range(self.nj_faces):
+                for k in range(self.nk_faces-1):
+                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(self.xv[i,j,k], self.xv[i, j, k+1], self.xv[i+1, j, k+1], self.xv[i+1, j, k], 
+                                                                                        self.yv[i,j,k], self.yv[i, j, k+1], self.yv[i+1, j, k+1], self.yv[i+1, j, k], 
+                                                                                        self.zv[i,j,k], self.zv[i, j, k+1], self.zv[i+1, j, k+1], self.zv[i+1, j, k])
+            
+        for i in range(self.ni_faces-1):
+            for j in range(self.nj_faces-1):
+                for k in range(self.nk_faces):
+                    self.Sk[i,j,k,:], self.CGk[i,j,k,:] = compute_surface_vector_and_cg(self.xv[i,j,k], self.xv[i+1, j, k], self.xv[i+1, j+1, k], self.xv[i, j+1, k], 
+                                                                                        self.yv[i,j,k], self.yv[i+1, j, k], self.yv[i+1, j+1, k], self.yv[i, j+1, k], 
+                                                                                        self.zv[i,j,k], self.zv[i+1, j, k], self.zv[i+1, j+1, k], self.zv[i, j+1, k])
+
+        plt.figure()
+        def plot_grid_lines(xgrid, ygrid, color):
+            ni, nj = xgrid.shape[0], xgrid.shape[1]
+            for i in range(ni):
+                plt.plot(xgrid[i,:,0], ygrid[i,:,0], '%s' %(color), lw=0.75, mfc='none')
+            for j in range(nj):
+                plt.plot(xgrid[:,j,0], ygrid[:,j,0], '%s' %(color), lw=0.75, mfc='none')
+            return None
+        
+        plot_grid_lines(self.X, self.Y, 'ko')
+        plot_grid_lines(self.xv, self.yv, '--r^')
+        for i in range(self.ni_faces):
+            for j in range(self.nj_faces-1):
+                plt.quiver(self.CGi[i,j,0,0], self.CGi[i,j,0,1], self.Si[i,j,0,0], self.Si[i,j,0,1])
+        for i in range(self.ni_faces-1):
+            for j in range(self.nj_faces):
+                plt.quiver(self.CGj[i,j,0,0], self.CGj[i,j,0,1], self.Sj[i,j,0,0], self.Sj[i,j,0,1])
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.title('k=%i plane' %(0))
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.show()
+
+
+
+    def ComputeVolumes(self):
+        """
+        Build the elements structure, based on an array of CElements objects
+        """
+        def compute_volume(S, CG, iDir):
+            """
+            For the 6 surfaces enclosing an element, compute the volume using green gauss theorem. iDir stands for the direction used (0,1,2) for (x,y,z)
+            """
+            assert(len(S)==len(CG))
+            vol = 0
+            for iFace in range(len(S)):
+                vol += CG[iFace][iDir]*S[iFace][iDir]
+            return vol
+
+        self.V = np.zeros((self.ni,self.nj,self.nk)) # the ghost point volumes will be zero for the moment
+        for i in range(0,self.ni):
+            for j in range(0,self.nj):
+                for k in range(0,self.nk):
+                    # assemble the tuple of Surfaces enclosing the element, being careful to set the facing outside
+                    S = (-self.Si[i,j,k,:], -self.Sj[i,j,k,:], -self.Sk[i,j,k,:], self.Si[i+1,j,k,:], self.Sj[i,j+1,k,:], self.Sk[i,j,k+1,:])
+                    CG = (self.CGi[i,j,k,:], self.CGj[i,j,k,:], self.CGk[i,j,k,:], self.CGi[i+1,j,k,:], self.CGj[i,j+1,k,:], self.CGk[i,j,k+1,:])
+                    self.V[i,j,k] = compute_volume(S, CG, 0)
+        
+        # if self.verbosity==2:
+        #     print('='*20 + ' ELEMENTS INFORMATION ' + '='*20)
+        #     for i in range(1, self.ni-1):
+        #         for j in range(1, self.nj-1):
+        #             for k in range(1, self.nk-1):
+        #                 print('For point (%i,%i,%i):' %(i,j,k))
+        #                 print('                         Si=[%.2e,%.2e,%.2e]' %(self.Si[i,j,k,0],self.Si[i,j,k,1],self.Si[i,j,k,2]))
+        #                 print('                         CGi=[%.2e,%.2e,%.2e]' %(self.CGi[i,j,k,0],self.CGi[i,j,k,1],self.CGi[i,j,k,2]))
+        #                 print('                         Sj=[%.2e,%.2e,%.2e]' %(self.Sj[i,j,k,0],self.Sj[i,j,k,1],self.Sj[i,j,k,2]))
+        #                 print('                         CGj=[%.2e,%.2e,%.2e]' %(self.CGj[i,j,k,0],self.CGj[i,j,k,1],self.CGj[i,j,k,2]))
+        #                 print('                         Sk=[%.2e,%.2e,%.2e]' %(self.Sk[i,j,k,0],self.Sk[i,j,k,1],self.Sk[i,j,k,2]))
+        #                 print('                         CGk=[%.2e,%.2e,%.2e]' %(self.CGk[i,j,k,0],self.CGk[i,j,k,1],self.CGk[i,j,k,2]))
+        #                 print('                         Vol=%.4e' %(self.V[i,j,k]))
+        #                 print()
+        #     print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
+        
+
+        # print('='*25 + ' MESH INFORMATION ' + '='*25)
+        # print('Number of elements:                  %i' %(self.n_elements))
+        # print('Number of internal faces:            %i' %(self.n_faces))
+        # print('Type of elements:                    %s' %('Hexagonal'))
+
+        
+
+        # self.ComputeMeshQuality()
+        # print('Max aspect ratio:                    %.2f' %(np.max(self.aspect_ratio)))
+        # print('Max skewness:                        %.2f' %(np.max(self.skewness)))
+        # print('Max orthogonality:                   %.2f' %(np.max(self.orthogonality)))
+        # print('='*25 + ' END MESH INFORMATION ' + '='*25)
+
+
+
+    def ComputeDualGrid(self):
+        """
+        Compute the dual grid points
+        """
         # Compute the vertices of the dual grid
         # (the dual grid nodes are equal to the primary grid nodes + 1 in every direction)
         xv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
@@ -112,129 +269,9 @@ class CMesh():
         yv = fix_boundaries(yv, self.Y)
         zv = fix_boundaries(zv, self.Z)
 
-        # plt.figure()
-        # def plot_grid_lines(xgrid, ygrid, color):
-        #     ni, nj = xgrid.shape[0], xgrid.shape[1]
-        #     for i in range(ni):
-        #         plt.plot(xgrid[i,:,0], ygrid[i,:,0], '%s' %(color), lw=0.75, mfc='none')
-        #     for j in range(nj):
-        #         plt.plot(xgrid[:,j,0], ygrid[:,j,0], '%s' %(color), lw=0.75, mfc='none')
-        # plot_grid_lines(self.X, self.Y, '-ko')
-        # plot_grid_lines(xv, yv, '--r^')
-        # plt.xlabel('x')
-        # plt.ylabel('y')
-        # plt.title('k=%i plane' %(0))
-        # plt.show()
-
-
-        def compute_surface_vector_and_cg(x1: float, x2: float, x3: float, x4: float, 
-                                          y1: float, y2: float, y3: float, y4: float,
-                                          z1: float, z2: float, z3: float, z4: float):
-            """
-            Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices. The surface direction corresponds to the
-            right-hand rule for the points ordered as 1->2->3->4.
-            """
-            # triangulate the face
-            a1 = np.array([x2-x1, y2-y1, z2-z1])
-            b1 = np.array([x3-x2, y3-y2, z3-z2])
-            a2 = np.array([x3-x1, y3-y1, z3-z1])
-            b2 = np.array([x4-x3, y4-y3, z4-z3])
-            S1 = np.cross(a1, b1)
-            S2 = np.cross(a2, b2)
-            Str = 0.5*(S1 + S2)
-
-            cg1 = (np.array([x1+x2+x3, y1+y2+y3, z1+z2+z3]))/3.0
-            cg2 = (np.array([x1+x3+x4, y1+y3+y4, z1+z3+z4]))/3.0
-            CG = (cg1*np.linalg.norm(S1)+cg2*np.linalg.norm(S2))/(np.linalg.norm(S1)+np.linalg.norm(S2))
-
-            return Str, CG
-        
-        """
-        Surface Computations here. The ordering respect the following ideas:
-        - Si[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i+1,j,k].
-        - Sj[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j+1,k].
-        - Sk[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j,k+1].
-        For every point [i,j,k] only three surfaces are needed, since the other three come from the following points on the respective directions.
-        
-        Interfaces between two ghost points are not needed, therefore the ordering respects this idea: 
-        - Si[0,0,0,:] is the i-interface connecting the ghost P[0,1,1] to physical point P[1,1,1].
-        - Sj[0,0,0,:] is the j-interface connecting the ghost P[1,0,1] to physical point P[1,1,1].
-        - Sk[0,0,0,:] is the k-interface connecting the ghost P[1,1,0] to physical point P[1,1,1].
-
-        The centers of gravity of every interface (CGi, CGj, CGk) follows the same indexing
-        """
-        self.Si = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i+1,j,k)
-        self.Sj = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i,j+1,k)
-        self.Sk = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i,j,k+1)
-        self.CGi = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i+1,j,k)
-        self.CGj = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
-        self.CGk = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j,k+1)
-        for i in range(self.ni_faces-1):
-            for j in range(self.nj_faces-1):
-                for k in range(self.nk_faces-1):
-                    # the nodes are given in the order to produce the correct surface orientations. That's important
-
-                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(xv[i,j,k], xv[i, j+1, k], xv[i, j+1, k+1], xv[i, j+1, k+1], 
-                                                                                        yv[i,j,k], yv[i, j+1, k], yv[i, j+1, k+1], yv[i, j+1, k+1], 
-                                                                                        zv[i,j,k], zv[i, j+1, k], zv[i, j+1, k+1], zv[i, j+1, k+1])
-                    
-                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(xv[i,j,k], xv[i, j, k+1], xv[i+1, j, k+1], xv[i+1, j, k], 
-                                                                                        yv[i,j,k], yv[i, j, k+1], yv[i+1, j, k+1], yv[i+1, j, k], 
-                                                                                        zv[i,j,k], zv[i, j, k+1], zv[i+1, j, k+1], zv[i+1, j, k])
-                    
-                    self.Sk[i,j,k,:], self.CGk[i,j,k,:] = compute_surface_vector_and_cg(xv[i,j,k], xv[i+1, j, k], xv[i+1, j+1, k], xv[i, j+1, k],
-                                                                                        yv[i,j,k], yv[i+1, j, k], yv[i+1, j+1, k], yv[i, j+1, k],
-                                                                                        zv[i,j,k], zv[i+1, j, k], zv[i+1, j+1, k], zv[i, j+1, k])
-
-        def compute_volume(S, CG, iDir):
-            """
-            For the 6 surfaces enclosing an element, compute the volume using green gauss theorem. iDir stands for the direction used (0,1,2) for (x,y,z)
-            """
-            assert(len(S)==len(CG))
-            vol = 0
-            for iFace in range(len(S)):
-                vol += CG[iFace][iDir]*S[iFace][iDir]
-            return vol
-
-        self.V = np.zeros((self.ni,self.nj,self.nk)) # the ghost point volumes will be zero for the moment
-        for i in range(1,self.ni-1):
-            for j in range(1,self.nj-1):
-                for k in range(1,self.nk-1):
-                    # assemble tuple of Surfaces enclosing the element, facing outside
-                    S = (self.Si[i,j,k,:], self.Sj[i,j,k,:], self.Sk[i,j,k,:], -self.Si[i-1,j,k,:], -self.Sj[i,j-1,k,:], -self.Sk[i,j,k-1,:])
-                    CG = (self.CGi[i,j,k,:], self.CGj[i,j,k,:], self.CGk[i,j,k,:], self.CGi[i-1,j,k,:], self.CGj[i,j-1,k,:], self.CGk[i,j,k-1,:])
-                    self.V[i,j,k] = compute_volume(S, CG, 2)
-        
-        if self.verbosity==2:
-            print('='*20 + ' ELEMENTS INFORMATION ' + '='*20)
-            for i in range(1, self.ni-1):
-                for j in range(1, self.nj-1):
-                    for k in range(1, self.nk-1):
-                        print('For point (%i,%i,%i):' %(i,j,k))
-                        print('                         Si=[%.2e,%.2e,%.2e]' %(self.Si[i,j,k,0],self.Si[i,j,k,1],self.Si[i,j,k,2]))
-                        print('                         CGi=[%.2e,%.2e,%.2e]' %(self.CGi[i,j,k,0],self.CGi[i,j,k,1],self.CGi[i,j,k,2]))
-                        print('                         Sj=[%.2e,%.2e,%.2e]' %(self.Sj[i,j,k,0],self.Sj[i,j,k,1],self.Sj[i,j,k,2]))
-                        print('                         CGj=[%.2e,%.2e,%.2e]' %(self.CGj[i,j,k,0],self.CGj[i,j,k,1],self.CGj[i,j,k,2]))
-                        print('                         Sk=[%.2e,%.2e,%.2e]' %(self.Sk[i,j,k,0],self.Sk[i,j,k,1],self.Sk[i,j,k,2]))
-                        print('                         CGk=[%.2e,%.2e,%.2e]' %(self.CGk[i,j,k,0],self.CGk[i,j,k,1],self.CGk[i,j,k,2]))
-                        print('                         Vol=%.4e' %(self.V[i,j,k]))
-                        print()
-            print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
-        
-
-        print('='*25 + ' MESH INFORMATION ' + '='*25)
-        print('Number of elements:                  %i' %(self.n_elements))
-        print('Number of internal faces:            %i' %(self.n_faces))
-        print('Type of elements:                    %s' %('Hexagonal'))
-
         # mantain a copy of the vertices, to compute also the quality
         self.xv, self.yv, self.zv = xv, yv, zv
 
-        self.ComputeMeshQuality()
-        print('Max aspect ratio:                    %.2f' %(np.max(self.aspect_ratio)))
-        print('Max skewness:                        %.2f' %(np.max(self.skewness)))
-        print('Max orthogonality:                   %.2f' %(np.max(self.orthogonality)))
-        print('='*25 + ' END MESH INFORMATION ' + '='*25)
 
 
     def ComputeMeshQuality(self):
