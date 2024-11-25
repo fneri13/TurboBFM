@@ -6,25 +6,22 @@ from .CGrid import CGrid
 
 class CMesh():
     
-    def __init__(self, geometry, verbosity=0):
+    def __init__(self, coords, verbosity=2):
         """
         Starting from the grid points coordinates, generate the array of Volumes associated to the points, and the array of surfaces associated to the interfaces between the points (Dual grid formulation).
-        If the grid has (ni,nj,nk) structured points (comprehensive of ghost points), it has (ni-1,nj-1,nk-1) elements and (ni-1, nj-1, nk-1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
+        If the grid has (ni,nj,nk) structured points, it has (ni,nj,nk) elements and (ni+1, nj+1, nk+1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
         """
         self.verbosity = verbosity
-        self.ni, self.nj, self.nk = geometry.X.shape                                    # these are the number of total points (physical + ghost)
-        self.ni_phys, self.nj_phys, self.nk_phys = self.ni-2, self.nj-2, self.nk-2      # these are the number of physical points
+        self.ni, self.nj, self.nk = coords['X'].shape                                   # these are the number of primary nodes
         self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
-        self.ni_faces, self.nj_faces, self.nk_faces = self.ni-1, self.nj-1, self.nk-1   # these are the number of interfaces along single directions
+        self.ni_faces, self.nj_faces, self.nk_faces = self.ni, self.nj, self.nk   # these are the number of interfaces along single directions
 
 
         # compute the number of relevant quantities for later use
-        self.n_grid_points_total = self.ni*self.nj*self.nk                              # total number of grid points (including ghost)
-        self.n_grid_points_physical = self.ni_phys*self.nj_phys, self.nk_phys           # total number of physical grid points
-        self.n_elems = self.n_grid_points_physical                                      # number of finite volumes (excluding ghost elements)
+        self.n_elements = self.ni*self.nj*self.nk                                               # number of finite volumes (excluding ghost elements)
         self.n_faces = (self.ni_faces)*(self.nj_faces)*(self.nk_faces)*3                # total number of internal faces, where fluxes need to be computed
 
-        self.X, self.Y, self.Z = geometry.X, geometry.Y, geometry.Z                     # store a local copy of the grid coordinates
+        self.X, self.Y, self.Z = coords['X'], coords['Y'], coords['Z']                  # store a local copy of the primary grid coordinate
 
         # Compute the vertices of the dual grid
         # (the dual grid nodes are equal to the primary grid nodes + 1 in every direction)
@@ -40,9 +37,9 @@ class CMesh():
             arr1[1:-1, 1:-1, 1:-1] = (arr2[0:-1,0:-1,0:-1] + arr2[1:,0:-1,0:-1] + arr2[0:-1,1:,0:-1] + arr2[0:-1,0:-1,1:] + 
                                       arr2[1:,1:,0:-1] + arr2[1:,0:-1,1:] + arr2[0:-1,1:,1:] + arr2[1:,1:,1:])/8.0
             return arr1
-        xv = fix_internals(xv, geometry.X)
-        yv = fix_internals(yv, geometry.Y)
-        zv = fix_internals(zv, geometry.Z)
+        xv = fix_internals(xv, self.X)
+        yv = fix_internals(yv, self.Y)
+        zv = fix_internals(zv, self.Z)
         
 
         # fix the corners
@@ -59,9 +56,9 @@ class CMesh():
             arr1[-1,-1,0] = arr2[-1,-1,0]
             arr1[-1,-1,-1] = arr2[-1,-1,-1]
             return arr1
-        xv = fix_corners(xv, geometry.X)
-        yv = fix_corners(yv, geometry.Y)
-        zv = fix_corners(zv, geometry.Z)
+        xv = fix_corners(xv, self.X)
+        yv = fix_corners(yv, self.Y)
+        zv = fix_corners(zv, self.Z)
 
 
         # fix the edges
@@ -88,9 +85,9 @@ class CMesh():
             arr1[-1,-1,1:-1] = (arr2[-1,-1,0:-1]+arr2[-1,-1,1:])/2.0
 
             return arr1
-        xv = fix_edges(xv, geometry.X)
-        yv = fix_edges(yv, geometry.Y)
-        zv = fix_edges(zv, geometry.Z)
+        xv = fix_edges(xv, self.X)
+        yv = fix_edges(yv, self.Y)
+        zv = fix_edges(zv, self.Z)
 
 
         # fix the boundaries
@@ -111,9 +108,23 @@ class CMesh():
             arr1[1:-1,1:-1,-1] = (arr2[0:-1,0:-1,-1] + arr2[1:,0:-1,-1] + arr2[0:-1,1:,-1] + arr2[1:,1:,-1])/4.0
 
             return arr1
-        xv = fix_boundaries(xv, geometry.X)
-        yv = fix_boundaries(yv, geometry.Y)
-        zv = fix_boundaries(zv, geometry.Z)
+        xv = fix_boundaries(xv, self.X)
+        yv = fix_boundaries(yv, self.Y)
+        zv = fix_boundaries(zv, self.Z)
+
+        # plt.figure()
+        # def plot_grid_lines(xgrid, ygrid, color):
+        #     ni, nj = xgrid.shape[0], xgrid.shape[1]
+        #     for i in range(ni):
+        #         plt.plot(xgrid[i,:,0], ygrid[i,:,0], '%s' %(color), lw=0.75, mfc='none')
+        #     for j in range(nj):
+        #         plt.plot(xgrid[:,j,0], ygrid[:,j,0], '%s' %(color), lw=0.75, mfc='none')
+        # plot_grid_lines(self.X, self.Y, '-ko')
+        # plot_grid_lines(xv, yv, '--r^')
+        # plt.xlabel('x')
+        # plt.ylabel('y')
+        # plt.title('k=%i plane' %(0))
+        # plt.show()
 
 
         def compute_surface_vector_and_cg(x1: float, x2: float, x3: float, x4: float, 
@@ -158,23 +169,22 @@ class CMesh():
         self.CGi = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i+1,j,k)
         self.CGj = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
         self.CGk = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j,k+1)
-        for i in range(self.ni_faces):
-            for j in range(self.nj_faces):
-                for k in range(self.nk_faces):
+        for i in range(self.ni_faces-1):
+            for j in range(self.nj_faces-1):
+                for k in range(self.nk_faces-1):
                     # the nodes are given in the order to produce the correct surface orientations. That's important
 
-                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i+1, j+2, k+1], xv[i+1, j+2, k+2], xv[i+1, j+1, k+2], 
-                                                                                        yv[i+1,j+1,k+1], yv[i+1, j+2, k+1], yv[i+1, j+2, k+2], yv[i+1, j+1, k+2], 
-                                                                                        zv[i+1,j+1,k+1], zv[i+1, j+2, k+1], zv[i+1, j+2, k+2], zv[i+1, j+1, k+2])
+                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(xv[i,j,k], xv[i, j+1, k], xv[i, j+1, k+1], xv[i, j+1, k+1], 
+                                                                                        yv[i,j,k], yv[i, j+1, k], yv[i, j+1, k+1], yv[i, j+1, k+1], 
+                                                                                        zv[i,j,k], zv[i, j+1, k], zv[i, j+1, k+1], zv[i, j+1, k+1])
                     
-                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i+1, j+1, k+2], xv[i+2, j+1, k+2], xv[i+2, j+1, k+1], 
-                                                                                        yv[i+1,j+1,k+1], yv[i+1, j+1, k+2], yv[i+2, j+1, k+2], yv[i+2, j+1, k+1], 
-                                                                                        zv[i+1,j+1,k+1], zv[i+1, j+1, k+2], zv[i+2, j+1, k+2], zv[i+2, j+1, k+1])
+                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(xv[i,j,k], xv[i, j, k+1], xv[i+1, j, k+1], xv[i+1, j, k], 
+                                                                                        yv[i,j,k], yv[i, j, k+1], yv[i+1, j, k+1], yv[i+1, j, k], 
+                                                                                        zv[i,j,k], zv[i, j, k+1], zv[i+1, j, k+1], zv[i+1, j, k])
                     
-                    self.Sk[i,j,k,:], self.CGk[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i, j+1, k+1], xv[i, j, k+1], xv[i+1, j, k+1],
-                                                                                        yv[i+1,j+1,k+1], yv[i, j+1, k+1], yv[i, j, k+1], yv[i+1, j, k+1],
-                                                                                        zv[i+1,j+1,k+1], zv[i, j+1, k+1], zv[i, j, k+1], zv[i+1, j, k+1])
-
+                    self.Sk[i,j,k,:], self.CGk[i,j,k,:] = compute_surface_vector_and_cg(xv[i,j,k], xv[i+1, j, k], xv[i+1, j+1, k], xv[i, j+1, k],
+                                                                                        yv[i,j,k], yv[i+1, j, k], yv[i+1, j+1, k], yv[i, j+1, k],
+                                                                                        zv[i,j,k], zv[i+1, j, k], zv[i+1, j+1, k], zv[i, j+1, k])
 
         def compute_volume(S, CG, iDir):
             """
@@ -213,9 +223,7 @@ class CMesh():
         
 
         print('='*25 + ' MESH INFORMATION ' + '='*25)
-        print('Number of total grid points:         %i' %(self.n_grid_points_total))
-        print('Number of physical grid points:      %i' %(self.n_grid_points_physical))
-        print('Number of physical elements:         %i' %(self.n_grid_points_physical))
+        print('Number of elements:                  %i' %(self.n_elements))
         print('Number of internal faces:            %i' %(self.n_faces))
         print('Type of elements:                    %s' %('Hexagonal'))
 
@@ -242,13 +250,12 @@ class CMesh():
         Compute aspect ratio, and store it in a 1D numpy array
         """
         ni, nj, nk = self.xv.shape
-        self.n_elements = (ni-2)*(nj-2)*(nk-2)
         self.aspect_ratio = []
 
         # the loop extremes avoid to include data of the ghost cells, which should not be relevant for the CFD simulation
-        for i in range(1, ni-2):
-            for j in range(1, nj-2):
-                for k in range(1, nk-2):
+        for i in range(ni-1):
+            for j in range(nj-1):
+                for k in range(nk-1):
                     pt_0 = np.array([self.xv[i,j,k], self.yv[i,j,k], self.zv[i,j,k]])
                     pt_i = np.array([self.xv[i+1,j,k], self.yv[i+1,j,k], self.zv[i+1,j,k]])
                     pt_j = np.array([self.xv[i,j+1,k], self.yv[i,j+1,k], self.zv[i,j+1,k]])
@@ -339,6 +346,14 @@ class CMesh():
         ax[2].set_title('Orthogonality of %i Faces' %(self.n_faces))
         ax[2].set_xlabel('Orthogonality')
         ax[2].set_ylabel('N')
+    
+    def VisualizeMesh(self):
+        # Create a 3D scatter plot
+        mesh = pv.StructuredGrid(self.X, self.Y, self.Z)
+        plotter = pv.Plotter()
+        plotter.add_mesh(mesh, cmap='viridis', show_edges=True)
+        plotter.show_axes()
+        plotter.show()
 
                     
 

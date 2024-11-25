@@ -10,8 +10,7 @@ config = Config('input.ini')
 with open(config.GetGridFilepath(), 'rb') as file:
     grid = pickle.load(file)
 
-geometry = CGrid(grid['X'], grid['Y'], grid['Z'])
-elements = CMesh(geometry)
+elements = CMesh(grid)
 elements.ComputeMeshQuality()
 elements.PlotMeshQuality()
 plt.show()

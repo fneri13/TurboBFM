@@ -9,11 +9,11 @@ class CGrid():
         self.Y = y
         self.Z = z
 
-        self.nz = x.shape[0]
-        self.nr = x.shape[1]
-        self.ntheta = x.shape[2]
+        self.ni = x.shape[0]
+        self.nj = x.shape[1]
+        self.nk = x.shape[2]
 
-        self.AddGhostPoints()
+        # self.AddGhostPoints()
 
     def VisualizeMesh(self):
         # Create a 3D scatter plot
