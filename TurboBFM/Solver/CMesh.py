@@ -354,6 +354,59 @@ class CMesh():
     #     self.skewness = np.array(self.skewness)
     #     self.orthogonality = np.array(self.orthogonality)
 
+    def GetSurfaceData(self, i: int, j: int, k: int, direction: str, data: str) -> np.ndarray:
+        """
+        Get the surface vector that connects the primary node with another node in the specified direction.
+
+        Parameters
+        -------------------
+
+        `i`: element index along first direction
+        
+        `j`: element index along second direction
+        
+        `k`: element index along third direction
+
+        `direction`: string defining the direction (i,j,k) -> (east or west, south or north, down or up)
+
+        `data`: string specifying if you want the midpoint coordinates, or the surface vector, or all
+        """
+        if direction=='east':
+            S = -self.Si[i,j,k,:]
+            CG = self.CGi[i,j,k,:]
+        
+        elif direction=='west':
+            S =  self.Si[i+1,j,k,:]
+            CG = self.CGi[i+1,j,k,:]
+        
+        elif direction=='south':
+            S = -self.Sj[i,j,k,:]
+            CG = self.CGj[i,j,k,:]
+        
+        elif direction=='north':
+            S =  self.Sj[i,j+1,k,:]
+            CG = self.CGj[i,j+1,k,:]
+        
+        elif direction=='down':
+            S = -self.Sk[i,j,k,:]
+            CG = self.CGk[i,j,k,:]
+        
+        elif direction=='up':
+            S =  self.Sk[i,j,k+1,:]
+            CG = self.CGk[i,j,k+1,:]
+        
+        else:
+            raise ValueError('Direction not recognized')
+
+        if data=='surface':
+            return S
+        elif data=='midpoint':
+            return CG
+        elif data=='all':
+            return S, CG
+        else:
+            raise ValueError('Data requested not recognized. Choose between surface, midpoint, or all')
+    
 
     def PlotMeshQuality(self):
         """
