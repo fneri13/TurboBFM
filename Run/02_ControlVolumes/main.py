@@ -7,23 +7,11 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import Config
 
 config = Config('input.ini')
-
 with open(config.GetGridFilepath(), 'rb') as file:
     grid = pickle.load(file)
 
-
-
-x = np.linspace(0 , 10, 11)
-y = np.linspace(0, 5 , 6)
-z = np.linspace(0, 3, 4)
-X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
-geometry = CGrid(X, Y, Z)
+geometry = CGrid(grid['X'], grid['Y'], grid['Z'])
 elements = CMesh(geometry)
-
-
-
-# geometry = CGrid(grid['X'], grid['Y'], grid['Z'])
-# elements = CMesh(geometry)
 elements.ComputeMeshQuality()
 elements.PlotMeshQuality()
 plt.show()

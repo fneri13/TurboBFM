@@ -12,35 +12,44 @@ class CMesh():
         If the grid has (ni,nj,nk) structured points (comprehensive of ghost points), it has (ni-1,nj-1,nk-1) elements and (ni-1, nj-1, nk-1)*3 internal surfaces (Si the surface connect point (i,j,k) and (i+1,j,k), and analogusly for Sj and Sk).
         """
         self.verbosity = verbosity
-        self.ni, self.nj, self.nk = geometry.X.shape    # these are the number of total ghost points
+        self.ni, self.nj, self.nk = geometry.X.shape                                    # these are the number of total points (physical + ghost)
+        self.ni_phys, self.nj_phys, self.nk_phys = self.ni-2, self.nj-2, self.nk-2      # these are the number of physical points
+        self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
+        self.ni_faces, self.nj_faces, self.nk_faces = self.ni-1, self.nj-1, self.nk-1   # these are the number of interfaces along single directions
 
-        # compute the number of relevant quantities
+
+        # compute the number of relevant quantities for later use
         self.n_grid_points_total = self.ni*self.nj*self.nk                              # total number of grid points (including ghost)
-        self.n_grid_points_physical = (self.ni-2)*(self.nj-2)*(self.nk-2)               # total number of physical grid points
+        self.n_grid_points_physical = self.ni_phys*self.nj_phys, self.nk_phys           # total number of physical grid points
         self.n_elems = self.n_grid_points_physical                                      # number of finite volumes (excluding ghost elements)
-        self.n_faces = (self.ni-1)*(self.nj-1)*(self.nk-1)*3                            # total number of internal faces, where fluxes need to be computed
+        self.n_faces = (self.ni_faces)*(self.nj_faces)*(self.nk_faces)*3                # total number of internal faces, where fluxes need to be computed
 
+        self.X, self.Y, self.Z = geometry.X, geometry.Y, geometry.Z                     # store a local copy of the grid coordinates
 
-        self.X, self.Y, self.Z = geometry.X, geometry.Y, geometry.Z
-
-        # the dual grid nodes are primary grid nodes + 1 in every direction
-        # vertices of the dual grid
-        xv = np.zeros((self.ni+1, self.nj+1, self.nk+1))
-        yv = np.zeros((self.ni+1, self.nj+1, self.nk+1))
-        zv = np.zeros((self.ni+1, self.nj+1, self.nk+1))
+        # Compute the vertices of the dual grid
+        # (the dual grid nodes are equal to the primary grid nodes + 1 in every direction)
+        xv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
+        yv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
+        zv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
 
         # fix the internal points
-        def fix_internals(arr1, arr2):
+        def fix_internals(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The internal dual points are found as baricenter of 8 surrounding points
+            """
             arr1[1:-1, 1:-1, 1:-1] = (arr2[0:-1,0:-1,0:-1] + arr2[1:,0:-1,0:-1] + arr2[0:-1,1:,0:-1] + arr2[0:-1,0:-1,1:] + 
                                       arr2[1:,1:,0:-1] + arr2[1:,0:-1,1:] + arr2[0:-1,1:,1:] + arr2[1:,1:,1:])/8.0
             return arr1
-        
         xv = fix_internals(xv, geometry.X)
         yv = fix_internals(yv, geometry.Y)
         zv = fix_internals(zv, geometry.Z)
         
+
         # fix the corners
-        def fix_corners(arr1, arr2):
+        def fix_corners(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The corners of the dual grid coincide with the corners of the primary grid
+            """
             arr1[0,0,0] = arr2[0,0,0]
             arr1[0,0,-1] = arr2[0,0,-1]
             arr1[0,-1,0] = arr2[0,-1,0]
@@ -50,13 +59,16 @@ class CMesh():
             arr1[-1,-1,0] = arr2[-1,-1,0]
             arr1[-1,-1,-1] = arr2[-1,-1,-1]
             return arr1
-        
         xv = fix_corners(xv, geometry.X)
         yv = fix_corners(yv, geometry.Y)
         zv = fix_corners(zv, geometry.Z)
 
+
         # fix the edges
-        def fix_edges(arr1, arr2):
+        def fix_edges(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The dual grid nodes on the edges are found halfway between two successive primary grid nodes on that edge
+            """
             # i oriented edges
             arr1[1:-1,0,0] = (arr2[0:-1,0,0]+arr2[1:,0,0])/2.0
             arr1[1:-1,-1,0] = (arr2[0:-1,-1,0]+arr2[1:,-1,0])/2.0
@@ -76,13 +88,16 @@ class CMesh():
             arr1[-1,-1,1:-1] = (arr2[-1,-1,0:-1]+arr2[-1,-1,1:])/2.0
 
             return arr1
-        
         xv = fix_edges(xv, geometry.X)
         yv = fix_edges(yv, geometry.Y)
         zv = fix_edges(zv, geometry.Z)
 
+
         # fix the boundaries
-        def fix_boundaries(arr1, arr2):
+        def fix_boundaries(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The dual grid nodes on the internal part of the boundaries are found as the baricenter of 4 surrounding points of the primary grid
+            """
             # i faces
             arr1[0,1:-1,1:-1] = (arr2[0,0:-1,0:-1] + arr2[0,1:,0:-1] + arr2[0,0:-1,1:] + arr2[0,1:,1:])/4.0
             arr1[-1,1:-1,1:-1] = (arr2[-1,0:-1,0:-1] + arr2[-1,1:,0:-1] + arr2[-1,0:-1,1:] + arr2[-1,1:,1:])/4.0
@@ -96,15 +111,17 @@ class CMesh():
             arr1[1:-1,1:-1,-1] = (arr2[0:-1,0:-1,-1] + arr2[1:,0:-1,-1] + arr2[0:-1,1:,-1] + arr2[1:,1:,-1])/4.0
 
             return arr1
-        
         xv = fix_boundaries(xv, geometry.X)
         yv = fix_boundaries(yv, geometry.Y)
         zv = fix_boundaries(zv, geometry.Z)
 
 
-        def compute_surface_vector_and_cg(x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4):
+        def compute_surface_vector_and_cg(x1: float, x2: float, x3: float, x4: float, 
+                                          y1: float, y2: float, y3: float, y4: float,
+                                          z1: float, z2: float, z3: float, z4: float):
             """
-            Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices
+            Compute the surface vector of the ordered quadrilater identified from the coords of the 4 vertices. The surface direction corresponds to the
+            right-hand rule for the points ordered as 1->2->3->4.
             """
             # triangulate the face
             a1 = np.array([x2-x1, y2-y1, z2-z1])
@@ -121,22 +138,38 @@ class CMesh():
 
             return Str, CG
         
-        self.Si = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # surface vector connecting point (i,j,k) to (i+1,j,k)
-        self.Sj = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # surface vector connecting point (i,j,k) to (i,j+1,k)
-        self.Sk = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # surface vector connecting point (i,j,k) to (i,j,k+1)
-        self.CGi = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # center of face vector connecting point (i,j,k) to (i+1,j,k)
-        self.CGj = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # center of face vector connecting point (i,j,k) to (i,j+1,k)
-        self.CGk = np.zeros((self.ni-1, self.nj-1, self.nk-1, 3)) # center of face vector connecting point (i,j,k) to (i,j,k+1)
-        for i in range(self.ni-1):
-            for j in range(self.nj-1):
-                for k in range(self.nk-1):
-                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j,k], xv[i+1, j+1, k], xv[i+1, j+1, k+1], xv[i+1, j, k+1], 
-                                                                                        yv[i+1,j,k], yv[i+1, j+1, k], yv[i+1, j+1, k+1], yv[i+1, j, k+1],
-                                                                                        zv[i+1,j,k], zv[i+1, j+1, k], zv[i+1, j+1, k+1], zv[i+1, j, k+1])
+        """
+        Surface Computations here. The ordering respect the following ideas:
+        - Si[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i+1,j,k].
+        - Sj[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j+1,k].
+        - Sk[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j,k+1].
+        For every point [i,j,k] only three surfaces are needed, since the other three come from the following points on the respective directions.
+        
+        Interfaces between two ghost points are not needed, therefore the ordering respects this idea: 
+        - Si[0,0,0,:] is the i-interface connecting the ghost P[0,1,1] to physical point P[1,1,1].
+        - Sj[0,0,0,:] is the j-interface connecting the ghost P[1,0,1] to physical point P[1,1,1].
+        - Sk[0,0,0,:] is the k-interface connecting the ghost P[1,1,0] to physical point P[1,1,1].
+
+        The centers of gravity of every interface (CGi, CGj, CGk) follows the same indexing
+        """
+        self.Si = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i+1,j,k)
+        self.Sj = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i,j+1,k)
+        self.Sk = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))            # surface vector connecting point (i,j,k) to (i,j,k+1)
+        self.CGi = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i+1,j,k)
+        self.CGj = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
+        self.CGk = np.zeros((self.ni_faces, self.nj_faces, self.nk_faces, 3))           # center of face vector connecting point (i,j,k) to (i,j,k+1)
+        for i in range(self.ni_faces):
+            for j in range(self.nj_faces):
+                for k in range(self.nk_faces):
+                    # the nodes are given in the order to produce the correct surface orientations. That's important
+
+                    self.Si[i,j,k,:], self.CGi[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i+1, j+2, k+1], xv[i+1, j+2, k+2], xv[i+1, j+1, k+2], 
+                                                                                        yv[i+1,j+1,k+1], yv[i+1, j+2, k+1], yv[i+1, j+2, k+2], yv[i+1, j+1, k+2], 
+                                                                                        zv[i+1,j+1,k+1], zv[i+1, j+2, k+1], zv[i+1, j+2, k+2], zv[i+1, j+1, k+2])
                     
-                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k], xv[i, j+1, k], xv[i, j+1, k+1], xv[i+1, j+1, k+1], 
-                                                                                        yv[i+1,j+1,k], yv[i, j+1, k], yv[i, j+1, k+1], yv[i+1, j+1, k+1], 
-                                                                                        zv[i+1,j+1,k], zv[i, j+1, k], zv[i, j+1, k+1], zv[i+1, j+1, k+1])
+                    self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i+1, j+1, k+2], xv[i+2, j+1, k+2], xv[i+2, j+1, k+1], 
+                                                                                        yv[i+1,j+1,k+1], yv[i+1, j+1, k+2], yv[i+2, j+1, k+2], yv[i+2, j+1, k+1], 
+                                                                                        zv[i+1,j+1,k+1], zv[i+1, j+1, k+2], zv[i+2, j+1, k+2], zv[i+2, j+1, k+1])
                     
                     self.Sk[i,j,k,:], self.CGk[i,j,k,:] = compute_surface_vector_and_cg(xv[i+1,j+1,k+1], xv[i, j+1, k+1], xv[i, j, k+1], xv[i+1, j, k+1],
                                                                                         yv[i+1,j+1,k+1], yv[i, j+1, k+1], yv[i, j, k+1], yv[i+1, j, k+1],
