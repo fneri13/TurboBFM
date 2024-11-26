@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 
-class Config:
+class CConfig:
     def __init__(self, config_file='input.ini'):
         self.config_parser = configparser.ConfigParser()
         self.config_parser.read(config_file)
