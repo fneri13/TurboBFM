@@ -10,7 +10,7 @@ with open(config.GetGridFilepath(), 'rb') as file:
 
 mesh = CMesh(config, grid)
 mesh.PlotMeshQuality()
-mesh.PlotElement((49, 9, 4))
+# mesh.PlotElement((49, 9, 4))
 
 with open('Mesh/Mesh_%02i_%02i_%02i.pik' %(mesh.ni, mesh.nj, mesh.nk), 'wb') as file:
     pickle.dump(mesh, file)
