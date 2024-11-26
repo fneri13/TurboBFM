@@ -4,13 +4,13 @@ from mpl_toolkits.mplot3d import Axes3D
 import time
 from .CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal, FluidReal
-from TurboBFM.Solver.CConfig import Config
+from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.euler_functions import *
 
 
 class CSolver():
     
-    def __init__(self, config, mesh, verbosity=0):
+    def __init__(self, config, mesh):
         """
         Instantiate the Euler Solver, by using the information contained in the mesh object (Points, Volumes, and Surfaces)
         """
@@ -133,41 +133,57 @@ class CSolver():
         Solve explicitly in time the system
         """
         # number of faces, where the 0 is the interface between the ghost point and the first internal point
-        niF = self.mesh.Si.shape[0]
-        njF = self.mesh.Si.shape[1]
-        nkF = self.mesh.Si.shape[2]
 
         start = time.time()
+
+        
         for it in range(nIter):
             print('Iteration %i of %i' %(it+1, nIter))
             # self.ContoursCheck('conservatives')
             cons_old = self.conservatives.copy() # old solution needed during explicit step
-
-            for iFace in range(niF):
+            
+            # i-flux
+            niF = self.mesh.Si.shape[0]
+            njF = self.mesh.Si.shape[1]
+            nkF = self.mesh.Si.shape[2]
+            for iFace in range(1, niF-1):
                 for jFace in range(njF):
-                    for kFace in range(nkF):
-                        
-                        # i direction surface, connecting points (i,j,k) to (i+1,j,k)
-                        U_a = cons_old[iFace,jFace,kFace,:]
-                        U_b = cons_old[iFace+1, jFace, kFace,:]
+                    for kFace in range(nkF):                        
+                        U_a = cons_old[iFace-1, jFace, kFace,:]
+                        U_b = cons_old[iFace, jFace, kFace,:]
                         S = self.mesh.Si[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace, jFace, kFace, :] -= flux          # a positive flux leaves the first element
-                        self.conservatives[iFace+1, jFace, kFace, :] += flux        # and enters in the second
+                        self.conservatives[iFace-1, jFace, kFace, :] -= flux          
+                        self.conservatives[iFace, jFace, kFace, :] += flux
 
-                        # j direction surface, connecting points (i,j,k) to (i,j+1,k)
-                        U_b = cons_old[iFace, jFace+1, kFace,:]
-                        S = self.mesh.Sj[iFace, jFace, kFace, :]
+            # j-flux
+            niF = self.mesh.Sj.shape[0]
+            njF = self.mesh.Sj.shape[1]
+            nkF = self.mesh.Sj.shape[2]
+            for iFace in range(niF):
+                for jFace in range(1, njF-1):
+                    for kFace in range(nkF):                        
+                        U_a = cons_old[iFace, jFace-1, kFace,:]
+                        U_b = cons_old[iFace, jFace, kFace,:]
+                        S = self.mesh.Si[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace, jFace, kFace, :] -= flux
-                        self.conservatives[iFace, jFace+1, kFace, :] += flux
+                        self.conservatives[iFace, jFace-1, kFace, :] -= flux          
+                        self.conservatives[iFace, jFace, kFace, :] += flux
 
-                        # k direction surface, connecting points (i,j,k) to (i,j,k+1)
-                        U_b = cons_old[iFace, jFace, kFace+1]
-                        S = self.mesh.Sk[iFace, jFace, kFace, :]
+            # k-flux
+            niF = self.mesh.Sk.shape[0]
+            njF = self.mesh.Sk.shape[1]
+            nkF = self.mesh.Sk.shape[2]
+            for iFace in range(niF):
+                for jFace in range(njF):
+                    for kFace in range(1, nkF-1):                        
+                        U_a = cons_old[iFace, jFace, kFace-1,:]
+                        U_b = cons_old[iFace, jFace, kFace,:]
+                        S = self.mesh.Si[iFace, jFace, kFace, :]
                         flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace, jFace, kFace, :] -= flux
-                        self.conservatives[iFace, jFace, kFace+1, :] += flux
+                        self.conservatives[iFace, jFace, kFace-1, :] -= flux          
+                        self.conservatives[iFace, jFace, kFace, :] += flux        
+
 
         end = time.time()
         print()
