@@ -11,7 +11,6 @@ with open('../02_ControlVolumes/Mesh/Mesh_20_10_05.pik', 'rb') as file:
     mesh = pickle.load(file)
 config = CConfig('input.ini')
 solver = CSolver(config, mesh)
-
 solver.Solve()
 
 

@@ -27,6 +27,11 @@ class CSchemeJST():
 
         `S`: surface vector between the left and right point
         """
+        # coefficients for the scheme
+        self.kappa2 = 1
+        self.kappa4 = 1/32
+        self.c4 = 2
+
         self.fluid = fluid
         self.Ull = Ull
         self.Ul = Ul
@@ -45,9 +50,7 @@ class CSchemeJST():
         return Wll, Wl, Wr, Wrr
     
     def ComputeFlux(self):
-        kappa2 = 1
-        kappa4 = 1/32
-        c4 = 2
+        
 
         Wll, Wl, Wr, Wrr = self.ComputePrimitives()
 
@@ -56,16 +59,16 @@ class CSchemeJST():
         
         r = np.max(r_factors)
         s = np.max(s_factors)
-        psi2 = kappa2*s*r
-        psi4 = np.max(np.array([0, kappa4*r-c4*psi2]))
+        psi2 = self.kappa2*s*r
+        psi4 = np.max(np.array([0, self.kappa4*r-self.c4*psi2]))
 
         flux = EulerFluxFromConservatives(self.U_avg, self.S, self.fluid)
         dissipation = psi2*(Wr-Wl)-psi4*((Wrr-Wr)-2*(Wr-Wl)+(Wl-Wll))
         flux -= dissipation 
 
         return flux
-    
-        
+
+
     def Compute_r(self, prim):
         """
         r coefficients
