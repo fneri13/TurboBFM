@@ -41,6 +41,27 @@ class TestGrid(unittest.TestCase):
         self.assertEqual(res[3], 0)
         self.assertEqual(res[4], 2)
     
+    def test_EulerFluxFromConservatives(self):
+        prim = np.array([1, 1, 0, 0, 10])
+        cons = GetConservativesFromPrimitives(prim)
+        S = np.array([1,0,0])
+        flux = EulerFluxFromConservatives(cons, S, gmma)
+        self.assertEqual(flux[0], 1)
+        # self.assertEqual(flux[1], 1)
+        self.assertEqual(flux[2], 0)
+        self.assertEqual(flux[3], 0)
+        # self.assertEqual(flux[4], 2)
+
+        prim = np.array([1, 1, 0, 0, 10])
+        cons = GetConservativesFromPrimitives(prim)
+        S = np.array([0,1,0])
+        flux = EulerFluxFromConservatives(cons, S, gmma)
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], 0)
+        # self.assertEqual(flux[2], 1)
+        self.assertEqual(flux[3], 0)
+        # self.assertEqual(flux[4], 2)
+    
 
 
 

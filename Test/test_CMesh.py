@@ -1,15 +1,16 @@
 import unittest
 import numpy as np
-from TurboBFM.Solver.CElement import CGrid
 from TurboBFM.Solver.CMesh import CMesh
+from TurboBFM.Solver.CConfig import CConfig
 
-x = np.linspace(0 , 10, 11)
-y = np.linspace(0, 5 , 6)
-z = np.linspace(0, 3, 4)
+x = np.linspace(0 , 5, 6)
+y = np.linspace(0, 4 , 5)
+z = np.linspace(0, 2, 3)
 X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
-geometry = CGrid(X, Y, Z)
-mesh = CMesh(geometry)
-ni,nj,nk = geometry.X.shape
+grid = {'X': X, 'Y': Y, 'Z': Z}
+config = CConfig('input.ini')
+mesh = CMesh(config, grid)
+ni,nj,nk = mesh.X.shape
 
 class TestGrid(unittest.TestCase):
     def test_surface(self):
@@ -46,6 +47,30 @@ class TestGrid(unittest.TestCase):
                 for k in range(1,nk-1):
                     V = mesh.V[i,j,k]
                     self.assertEqual(V,  1)
+    
+
+    def test_get_surface_data(self):
+        for i in range(1,ni-1):
+            for j in range(1,nj-1):
+                for k in range(1,nk-1):
+                    directions = ['east', 'west', 'north', 'south', 'top', 'bottom']
+                    solutions = [np.array([1, 0, 0]), np.array([-1, 0, 0]),
+                                 np.array([0, 1, 0]), np.array([0, -1, 0]),
+                                 np.array([0, 0, 1]), np.array([0, 0, -1])]
+    
+                    for idir in range(len(directions)):
+                        S = mesh.GetSurfaceData(i, j, k, directions[idir], 'surface')
+                        for idim in range(3):
+                           self.assertEqual(S[idim],  solutions[idir][idim]) 
+    
+    def test_fundamental_entities_number(self):
+        n_elems = mesh.n_elements
+        n_faces = mesh.Si[:,:,:,0].size + mesh.Sj[:,:,:,0].size + mesh.Sk[:,:,:,0].size
+        ref_elems = ni*nj*nk
+        ref_faces = (ni+1)*nj*nk + (nj+1)*ni*nk + (nk+1)*ni*nj
+
+        self.assertEqual(n_elems, ni*nj*nk)
+        self.assertEqual(n_faces, ref_faces)
         
 
         
