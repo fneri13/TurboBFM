@@ -59,12 +59,13 @@ class CSchemeJST():
         psi2 = kappa2*s*r
         psi4 = np.max(np.array([0, kappa4*r-c4*psi2]))
 
-        flux_density = EulerFluxFromConservatives(self.U_avg, self.S, self.fluid)
+        flux = EulerFluxFromConservatives(self.U_avg, self.S, self.fluid)
         dissipation = psi2*(Wr-Wl)-psi4*((Wrr-Wr)-2*(Wr-Wl)+(Wl-Wll))
-        flux_density -= dissipation 
+        flux -= dissipation 
 
-        return flux_density*self.area
+        return flux
     
+        
     def Compute_r(self, prim):
         """
         r coefficients

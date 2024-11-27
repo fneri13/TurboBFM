@@ -6,6 +6,7 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.euler_functions import EulerFluxFromConservatives, GetConservativesFromPrimitives, GetPrimitivesFromConservatives
+from TurboBFM.Solver.CScheme_JST import CSchemeJST
 
 
 class CSolver():
@@ -30,7 +31,7 @@ class CSolver():
         if self.fluidModel.lower()=='ideal':
             self.fluid = FluidIdeal(self.fluidGamma)
         elif self.fluidModel.lower()=='real':
-            self.fluid = FluidReal(self.fluidName)
+            raise ValueError('Real Fluid Model not implemented')
         else:
             raise ValueError('Unknown Fluid Model')
         
@@ -187,15 +188,16 @@ class CSolver():
             print('Iteration %i of %i' %(it+1, nIter))
             
             sol_old = self.conservatives.copy()
+            self.CheckConservativeVariables(sol_old, it+1)
             
             # i-flux, for internal points
             niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
             for iFace in range(niF):
                 for jFace in range(njF):
                     for kFace in range(nkF):
-                        if iFace==0: # flux coming from boundary
+                        if iFace==0: # flux coming from boundary istart
                             pass
-                        elif iFace==niF-1:    
+                        elif iFace==niF-1: # flux coming from boundary iend
                             pass
                         else:
                             U_l = sol_old[iFace-1, jFace, kFace,:]
@@ -210,9 +212,10 @@ class CSolver():
                                 U_rr = U_r + (U_r-U_l)
                             
                             S, CG = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'all')  # surface oriented from left to right
+                            area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                            self.conservatives[iFace-1, jFace, kFace, :] -= flux*dt/self.mesh.V[iFace-1, jFace, kFace]          
-                            self.conservatives[iFace, jFace, kFace, :] += flux*dt/self.mesh.V[iFace, jFace, kFace]
+                            self.conservatives[iFace-1, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace-1, jFace, kFace]          
+                            self.conservatives[iFace, jFace, kFace, :] += flux*area*dt/self.mesh.V[iFace, jFace, kFace]
 
 
 
@@ -241,45 +244,9 @@ class CSolver():
 
         `S`: surface vector going from left to right point
         """
-        kappa2 = 1
-        kappa4 = 1/32
-        c4 = 2
-
-        area = np.linalg.norm(S)
-        U_avg = 0.5*(Ul+Ur)
-        
-        # get the primitives
-        Wll = GetPrimitivesFromConservatives(Ull)
-        Wl = GetPrimitivesFromConservatives(Ul)
-        Wr = GetPrimitivesFromConservatives(Ur)
-        Wrr = GetPrimitivesFromConservatives(Urr)
-
-        def compute_r(prim):
-            u_mag = np.linalg.norm(prim[1:-1])
-            a = self.fluid.ComputeSoundSpeed_rho_u_et(prim[0], prim[1:-1], prim[4])
-            return np.abs(u_mag)+a
-        
-        def compute_s(prim1, prim2, prim3):
-            p1 = self.fluid.ComputePressure_rho_u_et(prim1[0], prim1[1:-1], prim1[4])
-            p2 = self.fluid.ComputePressure_rho_u_et(prim2[0], prim2[1:-1], prim2[4])
-            p3 = self.fluid.ComputePressure_rho_u_et(prim3[0], prim3[1:-1], prim3[4])
-            s = np.abs((p1-2*p2+p3)/(p1+2*p2+p3))
-            return s
-
-        r_factors = np.array([compute_r(Wl), compute_r(Wr)])
-        s_factors = np.array([compute_s(Wll, Wl, Wr), 
-                              compute_s(Wl, Wr, Wrr)])
-        
-        r = np.max(r_factors)
-        s = np.max(s_factors)
-        psi2 = kappa2*s*r
-        psi4 = np.max(np.array([0, kappa4*r-c4*psi2]))
-
-        flux_density = EulerFluxFromConservatives(U_avg, S, self.fluidGamma)
-        dissipation = psi2*(Wr-Wl)-psi4*((Wrr-Wr)-2*(Wr-Wl)+(Wl-Wll))
-        flux_density -= dissipation 
-
-        return flux_density*area
+        jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
+        flux = jst.ComputeFlux()
+        return flux
     
 
     def ImposeBoundaryConditions(self):
@@ -334,3 +301,10 @@ class CSolver():
                     dt_k = np.linalg.norm(k_edge) / (np.abs(np.dot(vel, k_edge))+a)
 
                     self.time_step[i,j,k] = min(dt_i, dt_j, dt_k)
+
+    def CheckConservativeVariables(self, array, nIter):
+        if np.isnan(array).any():
+            raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))
+        
+        if array[:,:,:,0].any()<=0:
+            raise ValueError("The simulation diverged. Negative density at iteration %i" %(nIter))
