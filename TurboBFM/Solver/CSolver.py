@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import time
 from TurboBFM.Solver.CMesh import CMesh
-from TurboBFM.Solver.CFluid import FluidIdeal, FluidReal
+from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.euler_functions import EulerFluxFromConservatives, GetConservativesFromPrimitives, GetPrimitivesFromConservatives
 
@@ -327,9 +327,7 @@ class CSolver():
                     vel = self.primitives[i,j,k,1:-1]
                     rho = self.primitives[i,j,k,0]
                     et = self.primitives[i,j,k,-1]
-                    e = self.fluid.ComputeStaticEnergy_rho_u_et(rho, vel, et)
-                    p = self.fluid.ComputePressure_rho_e(rho, e)
-                    a = self.fluid.ComputeSoundSpeed_p_rho(p, rho)
+                    a = self.fluid.ComputeSoundSpeed_rho_u_et(rho, vel, et)
 
                     dt_i = np.linalg.norm(i_edge) / (np.abs(np.dot(vel, i_edge))+a)
                     dt_j = np.linalg.norm(j_edge) / (np.abs(np.dot(vel, j_edge))+a)

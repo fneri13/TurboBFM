@@ -17,6 +17,6 @@ solver = CSolver(config, mesh)
 solver.ContoursCheck('conservatives', 'k')
 
 solver.Solve()
-# to do -> fluxes, and boundary conditions
+# to do -> boundary conditions
 
 plt.show()
