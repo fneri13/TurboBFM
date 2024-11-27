@@ -402,11 +402,11 @@ class CMesh():
         `data`: string specifying if you want the midpoint coordinates, or the surface vector, or all
         """
 
-        if direction=='east':
+        if direction=='west':
             S = -self.Si[i,j,k,:]
             CG = self.CGi[i,j,k,:]
         
-        elif direction=='west':
+        elif direction=='east':
             S =  self.Si[i+1,j,k,:]
             CG = self.CGi[i+1,j,k,:]
         
@@ -484,6 +484,20 @@ class CMesh():
                       self.zv[i, j+1, k+1], self.zv[i,j,k+1], self.zv[i+1,j,k+1], self.zv[i+1,j+1,k+1]])
         
         return np.vstack((x, y, z))
+    
+    def GetElementEdges(self, idx: tuple) -> tuple:
+        """
+        Return the length of the three edges of an element
+        """
+        i, j, k = idx[0], idx[1], idx[2]
+        pt_0 = np.array([self.xv[i,j,k], self.yv[i,j,k], self.zv[i,j,k]])
+        pt_i = np.array([self.xv[i+1,j,k], self.yv[i+1,j,k], self.zv[i+1,j,k]])
+        pt_j = np.array([self.xv[i,j+1,k], self.yv[i,j+1,k], self.zv[i,j+1,k]])
+        pt_k = np.array([self.xv[i,j,k+1], self.yv[i,j,k+1], self.zv[i,j,k+1]])
+        i_edge = pt_i-pt_0
+        j_edge = pt_j-pt_0
+        k_edge = pt_k-pt_0
+        return i_edge, j_edge, k_edge
         
 
     def PlotElement(self, idx: tuple):

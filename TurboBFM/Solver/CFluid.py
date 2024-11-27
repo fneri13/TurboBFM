@@ -19,6 +19,26 @@ class FluidIdeal():
     def ComputeSoundSpeed_p_rho(self, p, rho):
         return np.sqrt(self.gmma*p/rho)
     
+    def ComputeStaticEnergy_rho_u_et(self, rho, vel, et):
+        if isinstance(vel, np.ndarray):
+            vel = np.linalg.norm(vel)
+        else:
+            pass
+        e = et - 0.5*rho*vel**2
+        return e
+    
+    def ComputeSoundSpeed_rho_u_et(self, rho, u, et):
+        e = self.ComputeStaticEnergy_rho_u_et(rho, u, et)
+        p = self.ComputePressure_rho_e(rho, e)
+        a = self.ComputeSoundSpeed_p_rho(p, rho)
+        return a
+    
+    def ComputePressure_rho_u_et(self, rho, u, et):
+        e = self.ComputeStaticEnergy_rho_u_et(rho, u, et)
+        p = self.ComputePressure_rho_e(rho, e)
+        return p
+
+    
     def ComputeThermoFluidState_FromTotalQuantities(Pt, Tt, flow_dir):
         """
         From total quanties and flow direction, compute the complete thermofluiddynamic.

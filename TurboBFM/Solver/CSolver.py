@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import time
-from .CMesh import CMesh
+from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal, FluidReal
 from TurboBFM.Solver.CConfig import CConfig
-from TurboBFM.Solver.euler_functions import *
+from TurboBFM.Solver.euler_functions import EulerFluxFromConservatives, GetConservativesFromPrimitives, GetPrimitivesFromConservatives
 
 
 class CSolver():
@@ -41,18 +41,54 @@ class CSolver():
     def InstantiateFields(self):
         self.conservatives = np.zeros((self.ni, self.nj, self.nk, 5))
         self.primitives = np.zeros((self.ni, self.nj, self.nk, 5))
+        self.time_step = np.zeros((self.ni, self.nj, self.nk))
 
         
     def ReadBoundaryConditions(self):
-        self.boundary_types =  {'i': self.config.GetBoundaryTypeI(),
-                                'j': self.config.GetBoundaryTypeJ(),
-                                'k': self.config.GetBoundaryTypeK()}
+        """
+        Read the boundary conditions from the input file, and store the information in two dictionnaries
+        """
+        self.boundary_types = {'i': {},
+                               'j': {},
+                               'k': {}}
+        self.boundary_types['i'] = {'begin': self.config.GetBoundaryTypeI()[0],
+                                    'end': self.config.GetBoundaryTypeI()[1]}
+        self.boundary_types['j'] = {'begin': self.config.GetBoundaryTypeJ()[0],
+                                    'end': self.config.GetBoundaryTypeJ()[1]}
+        self.boundary_types['k'] = {'begin': self.config.GetBoundaryTypeK()[0],
+                                    'end': self.config.GetBoundaryTypeK()[1]}
         
-        for keys, values in self.boundary_types.items():
-            if 'inlet' in values:
-                self.inlet_value = self.config.GetInletValue()
-            if 'outlet' in values:
-                self.outlet_value = self.config.GetOutletValue()
+        self.boundary_values = {'i': {},
+                               'j': {},
+                               'k': {}}
+        
+        for direction, station in self.boundary_types.items():
+            for location, type in station.items():
+                if type=='inlet':
+                    self.boundary_values[direction][location] = self.config.GetInletValue()
+                elif type=='outlet':
+                    self.boundary_values[direction][location] = self.config.GetOutletValue()
+                elif type=='wall':
+                    self.boundary_values[direction][location] = None
+                elif type=='periodic':
+                    self.boundary_values[direction][location] = self.config.GetPeriodicValue()
+                else:
+                    raise ValueError('Unknown type of boundary condition on direction <%s> at location <%s>' %(direction, location))
+    
+    def GetBoundaryCondition(self, direction: str, location: str):
+        """
+        Get the boundary condition type and value for a specified direction and location
+
+        Parameters
+        ------------------------
+
+        `direction`: choose string between i, j, k
+
+        `location`: choose between begin or end
+        """
+        bc_type = self.boundary_types[direction][location]
+        bc_value = self.boundary_values[direction][location]
+        return bc_type, bc_value
             
 
     def InitializeSolution(self):
@@ -75,9 +111,15 @@ class CSolver():
                 for k in range(self.nk):
                     self.conservatives[i,j,k,:] = GetConservativesFromPrimitives(self.primitives[i,j,k,:])
 
-    def ContoursCheck(self, group, perp_direction = 'k'):
+    def ContoursCheck(self, group: str, perp_direction: str = 'i'):
         """
         Plot the contour of the required group of variables perpendicular to the direction index `perp_direction`, at mid length (for the moment).
+
+        Parameters:
+        ------------------------
+
+        `group`: select between primitives or conservatives
+        `perp_direction`: select between i,j,k to choose the on which doing the contour
         """
         if group.lower()=='primitives':
             fields = self.primitives
@@ -86,33 +128,37 @@ class CSolver():
             fields = self.conservatives
             names = [r'$\rho$', r'$\rho u_x$', r'$\rho u_y$', r'$\rho u_z$', r'$\rho e_t$']
 
+        # function to make contours on different directions
+        def contour_template(fields, names, dir_cut, idx_cut):
+            fig, ax = plt.subplots(1, len(names), figsize=(20,3))
+            for iField in range(len(names)):
+                if dir_cut=='i':
+                    cnt = ax[iField].contourf(fields[idx_cut,:,:,iField])
+                    xlabel = 'K'
+                    ylabel = 'J'
+                elif dir_cut=='j':
+                    cnt = ax[iField].contourf(fields[:,idx_cut,:,iField])
+                    xlabel = 'K'
+                    ylabel = 'I'
+                elif dir_cut=='k':
+                    cnt = ax[iField].contourf(fields[:,:,idx_cut,iField])
+                    xlabel = 'J'
+                    ylabel = 'I'
+                plt.colorbar(cnt, ax=ax[iField], orientation='horizontal', pad=0.2)
+                ax[iField].set_title(names[iField])
+                ax[iField].set_xlabel(xlabel)
+                ax[iField].set_ylabel(ylabel)
+        
+        # call the contour function depending on the chosen direction
         if perp_direction.lower()=='i':
             idx = self.ni//2
-            for iField in range(len(names)):
-                plt.figure()
-                plt.contourf(fields[idx,:,:,iField])
-                plt.colorbar()
-                plt.title(names[iField])
-                plt.xlabel('K')
-                plt.ylabel('J')
+            contour_template(fields, names, perp_direction, idx)
         elif perp_direction.lower()=='j':
             idx = self.nj//2
-            for iField in range(len(names)):
-                plt.figure()
-                plt.contourf(self.primitives[:,idx,:,iField])
-                plt.colorbar()
-                plt.title(names[iField])
-                plt.xlabel('K')
-                plt.ylabel('I')
+            contour_template(fields, names, perp_direction, idx)
         elif perp_direction.lower()=='k':
             idx = self.nk//2
-            for iField in range(len(names)):
-                plt.figure()
-                plt.contourf(self.primitives[:,:,idx,iField])
-                plt.colorbar()
-                plt.title(names[iField])
-                plt.xlabel('J')
-                plt.ylabel('I')
+            contour_template(fields, names, perp_direction, idx)
             
 
     
@@ -130,59 +176,45 @@ class CSolver():
 
     def Solve(self, nIter : int = 100) -> None:
         """
-        Solve explicitly in time the system
+        Solve the system explicitly in time.
         """
-        # number of faces, where the 0 is the interface between the ghost point and the first internal point
-
+        # self.ImposeBoundaryConditions()  # before calculating the flux, the conditions on the boundary must be known and used
         start = time.time()
+        self.ComputeTimeStep()
+        dt = np.min(self.time_step)
 
-        
         for it in range(nIter):
             print('Iteration %i of %i' %(it+1, nIter))
-            # self.ContoursCheck('conservatives')
-            cons_old = self.conservatives.copy() # old solution needed during explicit step
             
-            # i-flux
-            niF = self.mesh.Si.shape[0]
-            njF = self.mesh.Si.shape[1]
-            nkF = self.mesh.Si.shape[2]
-            for iFace in range(1, niF-1):
-                for jFace in range(njF):
-                    for kFace in range(nkF):                        
-                        U_a = cons_old[iFace-1, jFace, kFace,:]
-                        U_b = cons_old[iFace, jFace, kFace,:]
-                        S = self.mesh.Si[iFace, jFace, kFace, :]
-                        flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace-1, jFace, kFace, :] -= flux          
-                        self.conservatives[iFace, jFace, kFace, :] += flux
-
-            # j-flux
-            niF = self.mesh.Sj.shape[0]
-            njF = self.mesh.Sj.shape[1]
-            nkF = self.mesh.Sj.shape[2]
-            for iFace in range(niF):
-                for jFace in range(1, njF-1):
-                    for kFace in range(nkF):                        
-                        U_a = cons_old[iFace, jFace-1, kFace,:]
-                        U_b = cons_old[iFace, jFace, kFace,:]
-                        S = self.mesh.Si[iFace, jFace, kFace, :]
-                        flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace, jFace-1, kFace, :] -= flux          
-                        self.conservatives[iFace, jFace, kFace, :] += flux
-
-            # k-flux
-            niF = self.mesh.Sk.shape[0]
-            njF = self.mesh.Sk.shape[1]
-            nkF = self.mesh.Sk.shape[2]
+            sol_old = self.conservatives.copy()
+            
+            # i-flux, for internal points
+            niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
             for iFace in range(niF):
                 for jFace in range(njF):
-                    for kFace in range(1, nkF-1):                        
-                        U_a = cons_old[iFace, jFace, kFace-1,:]
-                        U_b = cons_old[iFace, jFace, kFace,:]
-                        S = self.mesh.Si[iFace, jFace, kFace, :]
-                        flux = self.ComputeFlux(U_a, U_b, S)
-                        self.conservatives[iFace, jFace, kFace-1, :] -= flux          
-                        self.conservatives[iFace, jFace, kFace, :] += flux        
+                    for kFace in range(nkF):
+                        if iFace==0: # flux coming from boundary
+                            pass
+                        elif iFace==niF-1:    
+                            pass
+                        else:
+                            U_l = sol_old[iFace-1, jFace, kFace,:]
+                            U_r = sol_old[iFace, jFace, kFace,:]
+                            try:
+                                U_ll = sol_old[iFace-2, jFace, kFace,:]
+                            except:
+                                U_ll = U_l - (U_r-U_l)
+                            try:
+                                U_rr = sol_old[iFace+1, jFace, kFace,:]
+                            except:
+                                U_rr = U_r + (U_r-U_l)
+                            
+                            S, CG = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'all')  # surface oriented from left to right
+                            flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
+                            self.conservatives[iFace-1, jFace, kFace, :] -= flux*dt/self.mesh.V[iFace-1, jFace, kFace]          
+                            self.conservatives[iFace, jFace, kFace, :] += flux*dt/self.mesh.V[iFace, jFace, kFace]
+
+
 
 
         end = time.time()
@@ -190,16 +222,117 @@ class CSolver():
         print('For a (%i,%i,%i) grid, with %i internal faces, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, (niF*njF*nkF*3), nIter/(end-start)))
 
         
-    def ComputeFlux(self, U1, U2, S):
+    def ComputeJSTFlux(self, Ull: np.ndarray, Ul: np.ndarray, Ur: np.ndarray, Urr: np.ndarray, S: np.ndarray) -> np.ndarray :
         """
-        Compute the vector flux between the two elements defined by their conservative vectors, and the surface vector oriented from 1 to 2.
-        """
-        f1 = EulerFluxFromConservatives(U1, S, self.fluid.gmma)
-        f2 = EulerFluxFromConservatives(U2, S, self.fluid.gmma)
-        f = 0.5*(f1+f2)
-
-        return f
+        Compute the vector flux between the left and right points defined by their conservative vectors. 
+        The surface vector oriented from left to right.
+        Formulation taken from `The Origins and Further Development of the Jameson-Schmidt-Turkel (JST) Scheme`, by Jameson.
         
+        Parameters
+        ---------------------
 
-                    
+        `Ull`: conservative vector of the node to the left of the left node
 
+        `Ul`: conservative vector of the node to the left
+        
+        `Ur`: conservative vector of the node to the right 
+
+        `Urr`: conservative vector of the node to the right of the right node
+
+        `S`: surface vector going from left to right point
+        """
+        kappa2 = 1
+        kappa4 = 1/32
+        c4 = 2
+
+        area = np.linalg.norm(S)
+        U_avg = 0.5*(Ul+Ur)
+        
+        # get the primitives
+        Wll = GetPrimitivesFromConservatives(Ull)
+        Wl = GetPrimitivesFromConservatives(Ul)
+        Wr = GetPrimitivesFromConservatives(Ur)
+        Wrr = GetPrimitivesFromConservatives(Urr)
+
+        def compute_r(prim):
+            u_mag = np.linalg.norm(prim[1:-1])
+            a = self.fluid.ComputeSoundSpeed_rho_u_et(prim[0], prim[1:-1], prim[4])
+            return np.abs(u_mag)+a
+        
+        def compute_s(prim1, prim2, prim3):
+            p1 = self.fluid.ComputePressure_rho_u_et(prim1[0], prim1[1:-1], prim1[4])
+            p2 = self.fluid.ComputePressure_rho_u_et(prim2[0], prim2[1:-1], prim2[4])
+            p3 = self.fluid.ComputePressure_rho_u_et(prim3[0], prim3[1:-1], prim3[4])
+            s = np.abs((p1-2*p2+p3)/(p1+2*p2+p3))
+            return s
+
+        r_factors = np.array([compute_r(Wl), compute_r(Wr)])
+        s_factors = np.array([compute_s(Wll, Wl, Wr), 
+                              compute_s(Wl, Wr, Wrr)])
+        
+        r = np.max(r_factors)
+        s = np.max(s_factors)
+        psi2 = kappa2*s*r
+        psi4 = np.max(np.array([0, kappa4*r-c4*psi2]))
+
+        flux_density = EulerFluxFromConservatives(U_avg, S, self.fluidGamma)
+        dissipation = psi2*(Wr-Wl)-psi4*((Wrr-Wr)-2*(Wr-Wl)+(Wl-Wll))
+        flux_density -= dissipation 
+
+        return flux_density*area
+    
+
+    def ImposeBoundaryConditions(self):
+        """
+        For every boundary of the domain, read the boundary conditions and store that data on the respective nodes
+        """
+        directions = ['i', 'j', 'k']
+        locations = ['begin', 'end']
+
+        for direction in directions:
+            for location in locations:
+                bc_type, bc_value = self.GetBoundaryCondition(direction, location)
+                new_patch = self.ComputeNewPatchValues(direction, location, bc_type, bc_value)
+
+
+    def ComputeNewPatchValues(self, direction: str, location: str, bc_type: str, bc_value):
+        """
+        Compute the new conservative variables values for all those nodes belonging to the specified patch, for a strong imposition of BCs
+
+        Parameters:
+
+        --------------------------------------
+
+        `direction`: i, j or k
+        
+        `location`: begin or end
+        
+        `bc_type`: boundary condition type (inlet, outlet, wall, periodic)
+        
+        `bc_value`: boundary condition value (e.g. for inlet type, total pressure, total temperature and flow direction)
+
+        """
+        pass
+        
+    
+    def ComputeTimeStep(self):
+        """
+        Compute the time step of the simulation for a certain CFL
+        """
+        CFL = self.config.GetCFL()
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    i_edge, j_edge, k_edge = self.mesh.GetElementEdges((i,j,k))
+                    vel = self.primitives[i,j,k,1:-1]
+                    rho = self.primitives[i,j,k,0]
+                    et = self.primitives[i,j,k,-1]
+                    e = self.fluid.ComputeStaticEnergy_rho_u_et(rho, vel, et)
+                    p = self.fluid.ComputePressure_rho_e(rho, e)
+                    a = self.fluid.ComputeSoundSpeed_p_rho(p, rho)
+
+                    dt_i = np.linalg.norm(i_edge) / (np.abs(np.dot(vel, i_edge))+a)
+                    dt_j = np.linalg.norm(j_edge) / (np.abs(np.dot(vel, j_edge))+a)
+                    dt_k = np.linalg.norm(k_edge) / (np.abs(np.dot(vel, k_edge))+a)
+
+                    self.time_step[i,j,k] = min(dt_i, dt_j, dt_k)

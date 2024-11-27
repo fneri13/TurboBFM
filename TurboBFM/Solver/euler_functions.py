@@ -81,4 +81,4 @@ def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, gmma: float) 
         flux[3] = prim[0]*vel_n*prim[3] + p*normal[2]
         flux[4] = vel_n*(prim[0]*prim[4]+p)
 
-        return flux*area
+        return flux

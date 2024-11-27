@@ -81,7 +81,7 @@ class CConfig:
         return markers
     
     def GetBoundaryTypeK(self):
-        mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_J')
+        mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_K')
         assert(len(mark.split())==2)
         mark = mark.split(',')
         markers = (mark[0].strip(), mark[1].strip())
@@ -89,6 +89,11 @@ class CConfig:
     
     def GetInletValue(self):
         inlet = self.config_parser.get('CFD', 'INLET_VALUE')
+        inlet = [float(x.strip()) for x in inlet.split(',')]
+        return inlet
+    
+    def GetPeriodicValue(self):
+        inlet = self.config_parser.get('CFD', 'PERIODIC_VALUE')
         inlet = [float(x.strip()) for x in inlet.split(',')]
         return inlet
     
@@ -114,4 +119,7 @@ class CConfig:
             return 2 
         else:
             raise ValueError('INIT_DIRECTION not recognized. Select between x,y and z')
+    
+    def GetCFL(self):
+        return float(self.config_parser.get('CFD', 'CFL'))
     

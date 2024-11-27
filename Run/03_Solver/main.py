@@ -11,8 +11,12 @@ with open('../02_ControlVolumes/Mesh/Mesh_20_10_05.pik', 'rb') as file:
     mesh = pickle.load(file)
 config = CConfig('input.ini')
 solver = CSolver(config, mesh)
+
+
+# solver.ContoursCheck('primitives', 'j')
+solver.ContoursCheck('conservatives', 'k')
+
 solver.Solve()
-solver.ContoursCheck('primitives')
-solver.ContoursCheck('conservatives')
+# to do -> fluxes, and boundary conditions
 
 plt.show()
