@@ -3,16 +3,21 @@ import numpy as np
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 
-x = np.linspace(0 , 5, 6)
-y = np.linspace(0, 4 , 5)
-z = np.linspace(0, 2, 3)
+# test dimensions
+LX = 5
+LY = 3
+LZ = 4
+
+x = np.linspace(0 , LX, LX+1)
+y = np.linspace(0, LY, LY+1)
+z = np.linspace(0, LZ, LZ+1)
 X, Y, Z = np.meshgrid(x,y,z, indexing='ij')
 grid = {'X': X, 'Y': Y, 'Z': Z}
 config = CConfig('input.ini')
 mesh = CMesh(config, grid)
 ni,nj,nk = mesh.X.shape
 
-class TestGrid(unittest.TestCase):
+class TestMesh(unittest.TestCase):
     def test_surface(self):
         for i in range(1,ni-1):
             for j in range(1,nj-1):
@@ -68,7 +73,6 @@ class TestGrid(unittest.TestCase):
         n_faces = mesh.Si[:,:,:,0].size + mesh.Sj[:,:,:,0].size + mesh.Sk[:,:,:,0].size
         ref_elems = ni*nj*nk
         ref_faces = (ni+1)*nj*nk + (nj+1)*ni*nk + (nk+1)*ni*nj
-
         self.assertEqual(n_elems, ni*nj*nk)
         self.assertEqual(n_faces, ref_faces)
         
