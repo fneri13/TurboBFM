@@ -49,7 +49,7 @@ class CSchemeJST():
         Wrr = GetPrimitivesFromConservatives(self.Urr)
         return Wll, Wl, Wr, Wrr
     
-    def ComputeFlux(self):
+    def ComputeFluxJameson(self):
         
 
         Wll, Wl, Wr, Wrr = self.ComputePrimitives()
@@ -63,10 +63,48 @@ class CSchemeJST():
         psi4 = np.max(np.array([0, self.kappa4*r-self.c4*psi2]))
 
         flux = EulerFluxFromConservatives(self.U_avg, self.S, self.fluid)
-        dissipation = psi2*(Wr-Wl)-psi4*((Wrr-Wr)-2*(Wr-Wl)+(Wl-Wll))
+        dissipation = psi2*(self.Ur-self.Ul)-psi4*((self.Urr-self.Ur)-2*(self.Ur-self.Ul)+(self.Ul-self.Ull))
         flux -= dissipation 
 
         return flux
+    
+    def ComputeFluxBlazek(self):
+        """
+        Compute the flux (density) using the formulation given in the book by blazek
+        """
+        
+        Wll, Wl, Wr, Wrr = self.ComputePrimitives()
+
+        def compute_lambda(W):
+            """
+            Compute the scaling term given in the book, but divided the surface area. W is the primitive variable vector
+            """
+            u = W[1:-1]
+            a = self.fluid.ComputeSoundSpeed_rho_u_et(W[0], W[1:-1], W[-1])
+            un = np.dot(u, self.S_dir)
+            lmbda = np.abs(un)+a
+            return lmbda
+
+        lambda_l = compute_lambda(Wl)
+        lambda_r = compute_lambda(Wr)
+        lambda_avg = 0.5*(lambda_l+lambda_r)
+
+        def pressure_sensor(W1, W2, W3):
+            p1 = self.fluid.ComputePressure_rho_u_et(W1[0], W1[1:-1], W1[-1])
+            p2 = self.fluid.ComputePressure_rho_u_et(W2[0], W2[1:-1], W2[-1])
+            p3 = self.fluid.ComputePressure_rho_u_et(W3[0], W3[1:-1], W3[-1])
+            return np.abs(p3-2*p2+p1)/(p3+2*p2+p1)
+
+        psi_2 = self.kappa2*np.maximum(pressure_sensor(Wll, Wl, Wr),
+                                       pressure_sensor(Wl, Wr, Wrr))
+        psi_4 = self.kappa2*np.maximum(0, 
+                                       self.kappa4-psi_2)
+        
+        diss = lambda_avg*(psi_2*(self.Ur-self.Ul) - psi_4*(self.Urr-3*self.Ur+3*self.Ul-self.Ull))
+        U_avg = 0.5*(self.Ul+self.Ur)
+        flux = EulerFluxFromConservatives(U_avg, self.S, self.fluid)
+
+        return flux-diss
 
 
     def Compute_r(self, prim):

@@ -189,9 +189,11 @@ class CSolver():
             
             sol_old = self.conservatives.copy()
             self.CheckConservativeVariables(sol_old, it+1)
-            self.ContoursCheck('conservatives', 'i')
-            self.ContoursCheck('conservatives', 'j')
-            plt.show()
+            if self.verbosity==3:
+                self.CheckConservativeVariables(sol_old, it+1)
+                self.ContoursCheck('conservatives', 'k')
+                # self.ContoursCheck('conservatives', 'j')
+                plt.show()
             
             # i-fluxes
             niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
@@ -302,7 +304,7 @@ class CSolver():
         `S`: surface vector going from left to right point
         """
         jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
-        flux = jst.ComputeFlux()
+        flux = jst.ComputeFluxBlazek()
         return flux
     
 
