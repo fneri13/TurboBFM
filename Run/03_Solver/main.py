@@ -14,7 +14,4 @@ solver = CSolver(config, mesh)
 solver.Solve()
 
 
-
-# to do -> boundary conditions
-
 plt.show()
