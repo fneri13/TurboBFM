@@ -42,6 +42,9 @@ class CSolver():
         self.InitializeSolution()
     
     def InstantiateFields(self):
+        """
+        Instantiate basic fields.
+        """
         self.conservatives = np.zeros((self.ni, self.nj, self.nk, 5))
         self.time_step = np.zeros((self.ni, self.nj, self.nk))
 
@@ -125,7 +128,7 @@ class CSolver():
         `perp_direction`: select between i,j,k to choose the on which doing the contour
         """
         if group.lower()=='primitives':
-            fields = self.primitives
+            fields = self.ConvertConservativesToPrimitives()
             names = [r'$\rho$', r'$u_x$', r'$u_y$', r'$u_z$', r'$e_t$']
         elif group.lower()=='conservatives':
             fields = self.conservatives
@@ -162,10 +165,83 @@ class CSolver():
         elif perp_direction.lower()=='k':
             idx = self.nk//2
             contour_template(fields, names, perp_direction, idx)
-            
-
     
-    def ComputeInitFields(self, M, T, P, dir):
+
+    def ConvertConservativesToPrimitives(self) -> np.ndarray:
+        """
+        Compute primitive variables from conservatives.
+        """
+        primitives = np.zeros_like(self.conservatives)
+        ni, nj, nk = primitives.shape
+        for i in range(ni):
+            for j in range(nj):
+                for k in range(nk):
+                    primitives[i,j,k,:] = GetPrimitivesFromConservatives(self.conservatives[i,j,k,:])
+        return primitives
+
+
+    def ContoursCheckMeridional(self, group: str):
+        """
+        Plot the contour of the required group of variables perpendicular to the direction index `perp_direction`, at mid length (for the moment).
+
+        Parameters:
+        ------------------------
+
+        `group`: select between primitives or conservatives
+        `perp_direction`: select between i,j,k to choose the on which doing the contour
+        """
+        if group.lower()=='primitives':
+            fields = self.ConvertConservativesToPrimitives()
+            names = [r'$\rho$', r'$u_x$', r'$u_y$', r'$u_z$', r'$e_t$']
+        elif group.lower()=='conservatives':
+            fields = self.conservatives
+            names = [r'$\rho$', r'$\rho u_x$', r'$\rho u_y$', r'$\rho u_z$', r'$\rho e_t$']
+
+        # function to make contours on different directions
+        def contour_template(fields, names, idx_cut):
+            fig, ax = plt.subplots(2, 3, figsize=(16,9))
+            for iField in range(len(names)):
+                X = self.mesh.X[:,:,idx_cut]
+                Y = self.mesh.Y[:,:,idx_cut]
+                iplot = iField//3
+                jplot = iField-3*iplot
+                cnt = ax[iplot][jplot].contourf(X, Y, fields[:,:,idx_cut,iField], cmap='jet', levels=20)
+                xlabel = 'x [m]'
+                ylabel = 'y [m]'
+                plt.colorbar(cnt, ax=ax[iplot][jplot])
+                ax[iplot][jplot].set_title(names[iField])
+                ax[iplot][jplot].set_xlabel(xlabel)
+                ax[iplot][jplot].set_ylabel(ylabel)
+        
+        # call the contour function depending on the chosen direction
+        idx = self.nk//2
+        contour_template(fields, names, idx)
+            
+    
+    def ComputeInitFields(self, M: float, T: float, P: float, dir: np.ndarray):
+        """
+        Compute initialization values from the specified parameters
+
+        Parameters
+        -----------------------------
+
+        `M`: Mach number
+
+        `T`: static temperature
+
+        `P`: static pressure
+
+        `dir`: direction vector
+
+        Returns
+        -----------------------------
+
+        `rho`: density
+
+        `u`: velocity vector
+
+        `et`: total energy
+        """
         gmma = self.config.GetFluidGamma()
         R = self.config.GetFluidRConstant()
         ss = np.sqrt(gmma*R*T)
@@ -193,7 +269,7 @@ class CSolver():
             self.CheckConservativeVariables(sol_old, it+1)
             if self.verbosity==3:
                 self.CheckConservativeVariables(sol_old, it+1)
-                self.ContoursCheck('conservatives', 'k')
+                self.ContoursCheckMeridional('conservatives')
                 # self.ContoursCheck('conservatives', 'j')
                 plt.show()
             
@@ -348,39 +424,6 @@ class CSolver():
         jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
         flux = jst.ComputeFluxBlazek()
         return flux
-    
-
-    def ImposeBoundaryConditions(self):
-        """
-        For every boundary of the domain, read the boundary conditions and store that data on the respective nodes
-        """
-        directions = ['i', 'j', 'k']
-        locations = ['begin', 'end']
-
-        for direction in directions:
-            for location in locations:
-                bc_type, bc_value = self.GetBoundaryCondition(direction, location)
-                new_patch = self.ComputeNewPatchValues(direction, location, bc_type, bc_value)
-
-
-    def ComputeNewPatchValues(self, direction: str, location: str, bc_type: str, bc_value):
-        """
-        Compute the new conservative variables values for all those nodes belonging to the specified patch, for a strong imposition of BCs
-
-        Parameters:
-
-        --------------------------------------
-
-        `direction`: i, j or k
-        
-        `location`: begin or end
-        
-        `bc_type`: boundary condition type (inlet, outlet, wall, periodic)
-        
-        `bc_value`: boundary condition value (e.g. for inlet type, total pressure, total temperature and flow direction)
-
-        """
-        pass
         
     
     def ComputeTimeStep(self):
@@ -404,7 +447,11 @@ class CSolver():
 
                     self.time_step[i,j,k] = min(dt_i, dt_j, dt_k)
 
+
     def CheckConservativeVariables(self, array, nIter):
+        """
+        Check the array of solutions to stop the simulation in case something is wrong
+        """
         if np.isnan(array).any():
             raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))
         

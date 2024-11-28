@@ -12,14 +12,17 @@ from TurboBFM.Preprocess.grid_generation import transfinite_grid_generation
 Generate a 2D rectangular geometry, that will be used as verification
 """
 OUTPUT_FOLDER = 'Grid'
+LX = 0.3
+LY = 0.1
+LZ = 0.01
 NX = 50
 NY = 20
 NZ = 3
 
-x = np.linspace(0, NX-1, NX)
-y = np.linspace(0, NY-1, NY)
+x = np.linspace(0, LX, NX)
+y = np.linspace(0, LY, NY)
 if NZ>1:
-    z = np.linspace(0, NZ-1, NZ)
+    z = np.linspace(0, LZ, NZ)
 else:
     z = np.array([0])
 

@@ -6,6 +6,9 @@ import os
 
 class CConfig:
     def __init__(self, config_file='input.ini'):
+        """
+        Class used to retrieve input data across the solver
+        """
         self.config_parser = configparser.ConfigParser()
         self.config_parser.read(config_file)
 
