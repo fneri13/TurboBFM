@@ -43,7 +43,6 @@ class CSolver():
     
     def InstantiateFields(self):
         self.conservatives = np.zeros((self.ni, self.nj, self.nk, 5))
-        self.primitives = np.zeros((self.ni, self.nj, self.nk, 5))
         self.time_step = np.zeros((self.ni, self.nj, self.nk))
 
         
@@ -103,16 +102,17 @@ class CSolver():
         P = self.config.GetInitPressure()
         dir = self.config.GetInitDirection()
         rho, u , et = self.ComputeInitFields(M, T, P, dir)
-        self.primitives[:,:,:,0] = rho
-        self.primitives[:,:,:,1] = u[0]
-        self.primitives[:,:,:,2] = u[1]
-        self.primitives[:,:,:,3] = u[2]
-        self.primitives[:,:,:,4] = et
+        primitives = np.zeros((self.ni, self.nj, self.nk, 5))
+        primitives[:,:,:,0] = rho
+        primitives[:,:,:,1] = u[0]
+        primitives[:,:,:,2] = u[1]
+        primitives[:,:,:,3] = u[2]
+        primitives[:,:,:,4] = et
 
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
-                    self.conservatives[i,j,k,:] = GetConservativesFromPrimitives(self.primitives[i,j,k,:])
+                    self.conservatives[i,j,k,:] = GetConservativesFromPrimitives(primitives[i,j,k,:])
 
     def ContoursCheck(self, group: str, perp_direction: str = 'i'):
         """
@@ -170,8 +170,8 @@ class CSolver():
         R = self.config.GetFluidRConstant()
         ss = np.sqrt(gmma*R*T)
         u_mag = ss*M
-        u = np.zeros(3)
-        u[dir] = u_mag
+        dir /= np.linalg.norm(dir)
+        u = u_mag*dir
         rho = P/R/T
         et = (P / (gmma - 1) / rho) + 0.5*u_mag**2
         return rho, u, et
@@ -321,8 +321,6 @@ class CSolver():
                             self.conservatives[iFace, jFace, kFace, :] += flux*area*dt/self.mesh.V[iFace, jFace, kFace]
 
 
-
-
         end = time.time()
         print()
         print('For a (%i,%i,%i) grid, with %i internal faces, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, (niF*njF*nkF*3), nIter/(end-start)))
@@ -394,9 +392,10 @@ class CSolver():
             for j in range(self.nj):
                 for k in range(self.nk):
                     i_edge, j_edge, k_edge = self.mesh.GetElementEdges((i,j,k))
-                    vel = self.primitives[i,j,k,1:-1]
-                    rho = self.primitives[i,j,k,0]
-                    et = self.primitives[i,j,k,-1]
+                    W = GetPrimitivesFromConservatives(self.conservatives[i,j,k,:])
+                    vel = W[1:-1]
+                    rho = W[0]
+                    et = W[-1]
                     a = self.fluid.ComputeSoundSpeed_rho_u_et(rho, vel, et)
 
                     dt_i = np.linalg.norm(i_edge) / (np.abs(np.dot(vel, i_edge))+a)

@@ -111,14 +111,8 @@ class CConfig:
     
     def GetInitDirection(self):
         dir = self.config_parser.get('CFD', 'INIT_DIRECTION')
-        if dir.lower() == 'x':
-            return 0
-        elif dir.lower() == 'y':
-            return 1
-        elif dir.lower() == 'z':
-            return 2 
-        else:
-            raise ValueError('INIT_DIRECTION not recognized. Select between x,y and z')
+        dir = [float(x.strip()) for x in dir.split(',')]
+        return np.array(dir)
     
     def GetCFL(self):
         return float(self.config_parser.get('CFD', 'CFL'))
