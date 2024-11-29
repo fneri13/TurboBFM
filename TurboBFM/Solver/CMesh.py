@@ -27,10 +27,15 @@ class CMesh():
         self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
         self.n_elements = self.ni*self.nj*self.nk                                       # number of finite volumes (excluding ghost elements)
         
+        print('Computing Dual Grid..')
         self.ComputeDualGrid()
+
         self.ComputeInterfaces()
+
         self.ComputeVolumes()
+
         self.ComputeMeshQuality()
+
         self.PrintMeshInfo()
 
     def ComputeInterfaces(self):
@@ -43,6 +48,7 @@ class CMesh():
         For every point [i,j,k] only three surfaces are needed, since the other three come from the following points on the respective directions.
         The centers of gravity of every interface (CGi, CGj, CGk) follows the same indexing.
         """
+        print('Computing Interfaces..')
 
         def compute_surface_vector_and_cg(x1: float, x2: float, x3: float, x4: float, 
                                           y1: float, y2: float, y3: float, y4: float,
@@ -76,6 +82,7 @@ class CMesh():
         self.CGj = np.zeros((self.ni_dual-1, self.nj_dual, self.nk_dual-1, 3))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
         self.CGk = np.zeros((self.ni_dual-1, self.nj_dual-1, self.nk_dual, 3))           # center of face vector connecting point (i,j,k) to (i,j,k+1)
         
+        print('Computing i-interfaces')
         for i in range(self.ni_dual):
             for j in range(self.nj_dual-1):
                 for k in range(self.nk_dual-1):
@@ -83,13 +90,15 @@ class CMesh():
                                                                                         self.yv[i,j,k], self.yv[i, j+1, k], self.yv[i, j+1, k+1], self.yv[i, j, k+1], 
                                                                                         self.zv[i,j,k], self.zv[i, j+1, k], self.zv[i, j+1, k+1], self.zv[i, j, k+1])
         
+        print('Computing j-interfaces')
         for i in range(self.ni_dual-1):
             for j in range(self.nj_dual):
                 for k in range(self.nk_dual-1):
                     self.Sj[i,j,k,:], self.CGj[i,j,k,:] = compute_surface_vector_and_cg(self.xv[i,j,k], self.xv[i, j, k+1], self.xv[i+1, j, k+1], self.xv[i+1, j, k], 
                                                                                         self.yv[i,j,k], self.yv[i, j, k+1], self.yv[i+1, j, k+1], self.yv[i+1, j, k], 
                                                                                         self.zv[i,j,k], self.zv[i, j, k+1], self.zv[i+1, j, k+1], self.zv[i+1, j, k])
-            
+        
+        print('Computing k-interfaces') 
         for i in range(self.ni_dual-1):
             for j in range(self.nj_dual-1):
                 for k in range(self.nk_dual):
@@ -101,16 +110,19 @@ class CMesh():
         # Plot of the ij plane at k=0
         if self.verbosity==3:
             plt.figure()
-            def plot_grid_lines(xgrid, ygrid, color):
+            def plot_grid_lines(xgrid, ygrid, color, label):
                 ni, nj = xgrid.shape[0], xgrid.shape[1]
                 for i in range(ni):
-                    plt.plot(xgrid[i,:,0], ygrid[i,:,0], '%s' %(color), lw=0.75, mfc='none')
+                    if i==0:
+                        plt.plot(xgrid[i,:,0], ygrid[i,:,0], '%s' %(color), lw=0.75, mfc='none', label=label)
+                    else:
+                        plt.plot(xgrid[i,:,0], ygrid[i,:,0], '%s' %(color), lw=0.75, mfc='none')
                 for j in range(nj):
                     plt.plot(xgrid[:,j,0], ygrid[:,j,0], '%s' %(color), lw=0.75, mfc='none')
                 return None
             
-            plot_grid_lines(self.X, self.Y, 'ko')
-            plot_grid_lines(self.xv, self.yv, '--r^')
+            plot_grid_lines(self.X, self.Y, 'ko', label='Primary')
+            plot_grid_lines(self.xv, self.yv, '--r^', label='Dual')
             for i in range(self.ni_dual):
                 for j in range(self.nj_dual-1):
                     plt.quiver(self.CGi[i,j,0,0], self.CGi[i,j,0,1], self.Si[i,j,0,0], self.Si[i,j,0,1])
@@ -119,6 +131,7 @@ class CMesh():
                     plt.quiver(self.CGj[i,j,0,0], self.CGj[i,j,0,1], self.Sj[i,j,0,0], self.Sj[i,j,0,1])
             plt.xlabel('x')
             plt.ylabel('y')
+            plt.legend()
             plt.title('k=%i plane' %(0))
             plt.gca().set_aspect('equal', adjustable='box')
 
@@ -127,6 +140,7 @@ class CMesh():
         """
         Compute the volumes for every element, using Green Gauss Theorem. 
         """
+        print('Computing Volumes')
         def compute_volume(S, CG, iDir):
             """
             For the 6 surfaces enclosing an element, compute the volume using green gauss theorem. iDir stands for the direction used (0,1,2) for (x,y,z)
@@ -291,6 +305,7 @@ class CMesh():
         """
         Given the geometry information stored, compute some quality metrics. 
         """
+        print('Computing Mesh Quality')
         self.ComputeAspectRatio()
         self.ComputeSkewnessOrthogonality()
 
