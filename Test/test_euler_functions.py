@@ -1,11 +1,14 @@
 import unittest
 import numpy as np
 from TurboBFM.Solver.euler_functions import *
+from TurboBFM.Solver.CFluid import FluidIdeal
 
 arr0 = np.array([1, 1, 0, 0, 1])
 arr1 = np.array([2, 2, 3, 4, 5])
 arr2 = np.array([2, 0, 0, 0, 1])
 gmma = 1.4
+R = 100
+fluid = FluidIdeal(gmma, R)
 
 class TestGrid(unittest.TestCase):
     def test_GetPrimitivesFromConservatives(self):
@@ -45,7 +48,7 @@ class TestGrid(unittest.TestCase):
         prim = np.array([1, 1, 0, 0, 10])
         cons = GetConservativesFromPrimitives(prim)
         S = np.array([1,0,0])
-        flux = EulerFluxFromConservatives(cons, S, gmma)
+        flux = EulerFluxFromConservatives(cons, S, fluid)
         self.assertEqual(flux[0], 1)
         # self.assertEqual(flux[1], 1)
         self.assertEqual(flux[2], 0)
@@ -55,7 +58,7 @@ class TestGrid(unittest.TestCase):
         prim = np.array([1, 1, 0, 0, 10])
         cons = GetConservativesFromPrimitives(prim)
         S = np.array([0,1,0])
-        flux = EulerFluxFromConservatives(cons, S, gmma)
+        flux = EulerFluxFromConservatives(cons, S, fluid)
         self.assertEqual(flux[0], 0)
         self.assertEqual(flux[1], 0)
         # self.assertEqual(flux[2], 1)
