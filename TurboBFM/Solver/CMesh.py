@@ -14,6 +14,9 @@ class CMesh():
         Parameters
         -------------------------
 
+        `config`: CConfig object of the simulation
+
+        `coords`: dictionnary with X, Y, Z keys and associated 3D arrays
 
         """
         self.config = config

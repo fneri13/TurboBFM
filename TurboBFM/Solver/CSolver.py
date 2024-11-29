@@ -278,20 +278,22 @@ class CSolver():
             for iFace in range(niF):
                 for jFace in range(njF):
                     for kFace in range(nkF):
-                        if iFace==0: # flux coming from boundary istart
+                        if iFace==0: 
                             bc_type, bc_value = self.GetBoundaryCondition('i', 'begin')
                             Ub = sol_old[iFace, jFace, kFace, :]        # conservative vector on the boundary
-                            Uint = sol_old[iFace+1, jFace, kFace, :]    # conservative vector internal
+                            Uint = sol_old[iFace+1, jFace, kFace, :]    # conservative vector internal point
                             S = -self.mesh.Si[iFace, jFace, kFace, :]   # the normal is oriented towards the boundary
+                            Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace, 'west', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            self.conservatives[iFace, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace]
+                            self.conservatives[iFace, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace]     # a positive flux must leave the cell and go out of the domain
                         elif iFace==niF-1:
                             bc_type, bc_value = self.GetBoundaryCondition('i', 'end')
                             Ub = sol_old[iFace-1, jFace, kFace, :]      # conservative vector on the boundary
                             Uint = sol_old[iFace-2, jFace, kFace, :]    # conservative vector internal
                             S = self.mesh.Si[iFace, jFace, kFace, :]    # the normal is oriented towards the boundary
+                            Scheck = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
@@ -308,10 +310,10 @@ class CSolver():
                             except:
                                 U_rr = U_r + (U_r-U_l)
                             
-                            S, CG = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'all')  # surface oriented from left to right
+                            S, CG = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'all')  # surface oriented from U_l to U_r
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                            self.conservatives[iFace-1, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace-1, jFace, kFace]          
+                            self.conservatives[iFace-1, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace-1, jFace, kFace] # a positive flux leaves U_l and enters U_r
                             self.conservatives[iFace, jFace, kFace, :] += flux*area*dt/self.mesh.V[iFace, jFace, kFace]
             
             # j-fluxes
@@ -323,20 +325,22 @@ class CSolver():
                             bc_type, bc_value = self.GetBoundaryCondition('j', 'begin')
                             Ub = sol_old[iFace, jFace, kFace, :]        # conservative vector on the boundary
                             Uint = sol_old[iFace, jFace+1, kFace, :]    # conservative vector internal
-                            S = -self.mesh.Sj[iFace, jFace, kFace, :]   # surface oriented towards the wall      
+                            S = -self.mesh.Sj[iFace, jFace, kFace, :]   # surface oriented towards the wall     
+                            Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace, 'south', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            self.conservatives[iFace, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace]
+                            self.conservatives[iFace, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace]   # a positive flux leaves the cell and go out of the domain
                         elif jFace==njF-1:
                             bc_type, bc_value = self.GetBoundaryCondition('j', 'end')
                             Ub = sol_old[iFace, jFace-1, kFace, :]      # conservative vector on the boundary
                             Uint = sol_old[iFace, jFace-2, kFace, :]    # conservative vector internal
                             S = self.mesh.Sj[iFace, jFace, kFace, :]    # surface oriented towards the wall  
+                            Scheck = self.mesh.GetSurfaceData(iFace, jFace-1, kFace, 'north', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            self.conservatives[iFace, jFace-1, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace-1, kFace]
+                            self.conservatives[iFace, jFace-1, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace-1, kFace] # a positive flux leaves the cell and go out of the domain
                         else:
                             U_l = sol_old[iFace, jFace-1, kFace,:]
                             U_r = sol_old[iFace, jFace, kFace,:]
@@ -348,11 +352,10 @@ class CSolver():
                                 U_rr = sol_old[iFace, jFace+1, kFace,:]
                             except:
                                 U_rr = U_r + (U_r-U_l)
-                            
-                            S, CG = self.mesh.GetSurfaceData(iFace, jFace-1, kFace, 'north', 'all')  # surface oriented from left to right
+                            S, CG = self.mesh.GetSurfaceData(iFace, jFace-1, kFace, 'north', 'all')  # surface oriented from U_l to U_r
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                            self.conservatives[iFace, jFace-1, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace-1, kFace]          
+                            self.conservatives[iFace, jFace-1, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace-1, kFace] # a positive flux leaves U_l and enters U_r     
                             self.conservatives[iFace, jFace, kFace, :] += flux*area*dt/self.mesh.V[iFace, jFace, kFace]
             
             # k-fluxes
@@ -365,19 +368,21 @@ class CSolver():
                             Ub = sol_old[iFace, jFace, kFace, :]        # conservative vector on the boundary
                             Uint = sol_old[iFace, jFace, kFace+1, :]    # conservative vector internal
                             S = -self.mesh.Sk[iFace, jFace, kFace, :]   # surface oriented towards the wall      
+                            Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace, 'bottom', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            self.conservatives[iFace, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace]
+                            self.conservatives[iFace, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace] # a positive flux leaves the cell and goes out of the domain
                         elif kFace==nkF-1:
                             bc_type, bc_value = self.GetBoundaryCondition('k', 'end')
                             Ub = sol_old[iFace, jFace, kFace-1, :]      # conservative vector on the boundary
                             Uint = sol_old[iFace, jFace, kFace-2, :]    # conservative vector internal
                             S = self.mesh.Sk[iFace, jFace, kFace-1, :]  # surface oriented towards the wall  
+                            Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace-1, 'top', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            self.conservatives[iFace, jFace, kFace-1, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace-1]
+                            self.conservatives[iFace, jFace, kFace-1, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace-1] # a positive flux leaves the cell and goes out of the domain
                         else:
                             U_l = sol_old[iFace, jFace, kFace-1,:]
                             U_r = sol_old[iFace, jFace, kFace,:]
@@ -389,7 +394,6 @@ class CSolver():
                                 U_rr = sol_old[iFace, jFace, kFace+1,:]
                             except:
                                 U_rr = U_r + (U_r-U_l)
-                            
                             S, CG = self.mesh.GetSurfaceData(iFace, jFace, kFace-1, 'top', 'all')  # surface oriented from left to right
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)

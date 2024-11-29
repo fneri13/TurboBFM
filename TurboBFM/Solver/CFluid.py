@@ -57,5 +57,9 @@ class FluidIdeal():
         p = self.ComputePressure_rho_u_et(rho, u, et)
         s = p/(rho**self.gmma)
         return s
+    
+    def ComputeDensity_p_T(self, p, T):
+        rho = p/(self.R*T)
+        return rho
 
 

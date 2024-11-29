@@ -1,6 +1,4 @@
-import numpy as np
 import pickle
-import pyvista as pv
 import matplotlib.pyplot as plt
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CSolver import CSolver
