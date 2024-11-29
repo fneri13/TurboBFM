@@ -43,6 +43,9 @@ class CSchemeJST():
         self.U_avg = 0.5*(self.Ul+self.Ur)
     
     def ComputePrimitives(self):
+        """
+        Compute all the primitives for all conservatives
+        """
         Wll = GetPrimitivesFromConservatives(self.Ull)
         Wl = GetPrimitivesFromConservatives(self.Ul)
         Wr = GetPrimitivesFromConservatives(self.Ur)
@@ -50,8 +53,9 @@ class CSchemeJST():
         return Wll, Wl, Wr, Wrr
     
     def ComputeFluxJameson(self):
-        
-
+        """
+        Compute the flux following the formulation of Jameson
+        """
         Wll, Wl, Wr, Wrr = self.ComputePrimitives()
 
         r_factors = np.array([self.Compute_r(Wl), self.Compute_r(Wr)])
@@ -101,8 +105,7 @@ class CSchemeJST():
                                        self.kappa4-psi_2)
         
         diss = lambda_avg*(psi_2*(self.Ur-self.Ul) - psi_4*(self.Urr-3*self.Ur+3*self.Ul-self.Ull))
-        U_avg = 0.5*(self.Ul+self.Ur)
-        flux = EulerFluxFromConservatives(U_avg, self.S, self.fluid)
+        flux = EulerFluxFromConservatives(self.U_avg, self.S, self.fluid)
 
         return flux-diss
 
