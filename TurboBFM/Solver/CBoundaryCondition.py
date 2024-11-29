@@ -52,7 +52,6 @@ class CBoundaryCondition():
             flux = self.ComputeBCFlux_Outlet()
         else:
             raise ValueError('Boundary condition <%s> not recognized or not available' %(self.bc_type))
-        
         return flux
 
 
@@ -118,7 +117,6 @@ class CBoundaryCondition():
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
         flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
-        
         return flux
 
 
