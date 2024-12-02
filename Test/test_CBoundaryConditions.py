@@ -10,7 +10,7 @@ fluid = FluidIdeal(gmma, R)
 
 
 class TestBoundaryConditions(unittest.TestCase):
-    def test_WallBoundary(self):
+    def test_WallBoundaryDirection(self):
         """
         Verify the correct implementation and direction. A flux is positive when entering the wall and leaving the domain
         """
@@ -100,6 +100,112 @@ class TestBoundaryConditions(unittest.TestCase):
             self.assertEqual(flux[i], 2*flux[i+1])
         for i in range(1, 4):
             self.assertLess(flux[i], 0)
+    
+    def test_wallBoundaryIntensity(self):
+        bc_type = 'wall'
+        bc_value = None
+        Ub = np.array([1.5, 100, 5, 0, 200e3])
+        Uint = np.array([1.5, 100, 7, 0, 200e3])
+        Wb = GetPrimitivesFromConservatives(Ub)
+        p_wall = fluid.ComputePressure_rho_u_et(Wb[0], Wb[1:-1], Wb[-1])
+        Wint = GetPrimitivesFromConservatives(Uint)
+
+        S = np.array([-0.7,0,0]) 
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], -p_wall)
+        self.assertEqual(flux[2], 0)
+        self.assertEqual(flux[3], 0)
+        self.assertEqual(flux[4], 0)
+
+        S = np.array([0.7,0,0]) 
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], p_wall)
+        self.assertEqual(flux[2], 0)
+        self.assertEqual(flux[3], 0)
+        self.assertEqual(flux[4], 0)
+
+        S = np.array([0,-0.3,0]) 
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], 0)
+        self.assertEqual(flux[2], -p_wall)
+        self.assertEqual(flux[3], 0)
+        self.assertEqual(flux[4], 0)
+
+        S = np.array([0,0.3,0]) 
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], 0)
+        self.assertEqual(flux[2], p_wall)
+        self.assertEqual(flux[3], 0)
+        self.assertEqual(flux[4], 0)
+
+        S = np.array([0,0,-0.1]) 
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], 0)
+        self.assertEqual(flux[2], 0)
+        self.assertEqual(flux[3], -p_wall)
+        self.assertEqual(flux[4], 0)
+
+        S = np.array([0,0,0.1]) 
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+        self.assertEqual(flux[0], 0)
+        self.assertEqual(flux[1], 0)
+        self.assertEqual(flux[2], 0)
+        self.assertEqual(flux[3], p_wall)
+        self.assertEqual(flux[4], 0)
+    
+
+    def test_BCFlux_Inlet_direction(self):
+        bc_type = 'inlet'
+        bc_value = np.array([100e3, 300, 0.5, 0, 0])
+        Ub = np.array([2, 100, 0, 0, 200e3])
+        Uint = np.array([2, 100, 0, 0, 200e3])
+        Wb = GetPrimitivesFromConservatives(Ub)
+        Wint = GetPrimitivesFromConservatives(Uint)
+
+
+        S = np.array([-0.5, 0, 0])
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+
+        S *= 10
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux2 = bc.ComputeFlux()
+        for i in range(5):
+            self.assertEqual(flux[i], flux2[i])
+    
+
+    def test_BCFlux_Outlet_direction(self):
+        bc_type = 'outlet'
+        bc_value = 100e3
+        Ub = np.array([2, 100, 0, 0, 200e3])
+        Uint = np.array([2, 100, 0, 0, 200e3])
+        Wb = GetPrimitivesFromConservatives(Ub)
+        Wint = GetPrimitivesFromConservatives(Uint)
+
+
+        S = np.array([-0.5, 0, 0])
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux = bc.ComputeFlux()
+
+        S *= 10
+        bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
+        flux2 = bc.ComputeFlux()
+        for i in range(5):
+            self.assertEqual(flux[i], flux2[i])
+
+
+
 
             
 

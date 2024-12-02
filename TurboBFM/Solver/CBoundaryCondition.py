@@ -47,7 +47,8 @@ class CBoundaryCondition():
         if self.bc_type=='wall':
             flux = self.ComputeBCFlux_Wall()
         elif self.bc_type=='inlet':
-            flux = self.ComputeBCFlux_Inlet()
+            # flux = self.ComputeBCFlux_Inlet()
+            flux = self.ComputeBCFlux_Inlet2()
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet()
         else:
@@ -87,8 +88,40 @@ class CBoundaryCondition():
         T_b = self.fluid.ComputeStaticTemperature_Tt_M(self.bc_value[1], M_b)
         rho_b = self.fluid.ComputeDensity_p_T(p_b, T_b)
         e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
-        et_b = e_b+0.5*un_b**2
+        u_b = np.array([un_b*S_dir_int[0], un_b*S_dir_int[1], un_b*S_dir_int[2]])
+        umag_b = np.linalg.norm(u_b)
+        et_b = e_b+0.5*umag_b**2
         W_b = np.array([rho_b, un_b*S_dir_int[0], un_b*S_dir_int[1], un_b*S_dir_int[2], et_b])
+        U_b = GetConservativesFromPrimitives(W_b)
+        flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
+        return flux
+    
+    def ComputeBCFlux_Inlet2(self):
+        """
+        Assumption of normal inflow for the moment. Formulation taken from NASA report.
+        """
+        gmma = self.fluid.gmma
+        ht_i = self.fluid.ComputeTotalEnthalpy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
+        a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
+        Rplus = -np.linalg.norm(self.Wint[1:-1])-2*a_int/(self.fluid.gmma-1)
+
+        #quadratic solution
+        a = 1+2/(gmma-1)
+        b = 2*Rplus
+        c = (gmma-1)/2*(Rplus**2-2*ht_i)
+        a_b = np.array([-b/2/a+np.sqrt(b**2-4*a*c)/2/a,
+                        -b/2/a-np.sqrt(b**2-4*a*c)/2/a])
+        a_b = np.max(a_b)
+        umag_b = -2*a_b/(gmma-1)-Rplus
+        M_b = umag_b/a_b
+        pt_b = self.bc_value[0]
+        Tt_b = self.bc_value[1]
+        p_b = self.fluid.ComputeStaticPressure_pt_M(pt_b, M_b)
+        T_b = self.fluid.ComputeStaticTemperature_Tt_M(Tt_b, M_b)
+        rho_b = p_b/self.fluid.R/T_b
+        e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
+        et_b = e_b+0.5*umag_b**2
+        W_b = np.array([p_b/self.fluid.R/T_b, -umag_b*self.S_dir[0], -umag_b*self.S_dir[1], -umag_b*self.S_dir[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
         flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
         return flux

@@ -267,13 +267,15 @@ class CSolver():
 
             u = fields[:, :, idx_cut, 1]
             v = fields[:, :, idx_cut, 2]
-            magnitude = np.sqrt(u**2 + v**2)
+            w = fields[:, :, idx_cut, 3]
+            magnitude = np.sqrt(u**2 + v**2 + w**2)
             plt.figure()
-            plt.contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure, cmap='jet', levels=20)
+            plt.contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], magnitude, cmap='jet', levels=20)
             plt.colorbar()
             plt.quiver(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], u, v)
             ax = plt.gca()
             ax.set_aspect('equal')
+            plt.title(r'$|u| \ \rm{[m/s]}$')
 
 
         # call the contour function depending on the chosen direction
@@ -319,7 +321,7 @@ class CSolver():
         return rho, u, et
         
 
-    def Solve(self, nIter : int = 100) -> None:
+    def Solve(self, nIter : int = 1000) -> None:
         """
         Solve the system explicitly in time.
         """
@@ -475,7 +477,9 @@ class CSolver():
 
             self.conservatives = self.conservatives + delta_sol
 
-
+        self.ContoursCheckMeridional('conservatives')
+        # self.ContoursCheck('conservatives', 'j')
+        plt.show()
         end = time.time()
         print()
         print('For a (%i,%i,%i) grid, with %i internal faces, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, (niF*njF*nkF*3), nIter/(end-start)))
