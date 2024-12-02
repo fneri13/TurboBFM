@@ -265,6 +265,16 @@ class CSolver():
             plt.colorbar(cnt, ax=ax[2][2])
             ax[2][2].set_title(r'$T \ \rm{[K]}$')
 
+            u = fields[:, :, idx_cut, 1]
+            v = fields[:, :, idx_cut, 2]
+            magnitude = np.sqrt(u**2 + v**2)
+            plt.figure()
+            plt.contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure, cmap='jet', levels=20)
+            plt.colorbar()
+            plt.quiver(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], u, v)
+            ax = plt.gca()
+            ax.set_aspect('equal')
+
 
         # call the contour function depending on the chosen direction
         idx = self.nk//2
@@ -357,15 +367,16 @@ class CSolver():
                             delta_sol[iFace-1, jFace, kFace, :] -= flux*area*dt/self.mesh.V[iFace-1, jFace, kFace]
                         else:
                             U_l = self.conservatives[iFace-1, jFace, kFace,:]
-                            U_r = self.conservatives[iFace, jFace, kFace,:]
-                            try:
-                                U_ll = self.conservatives[iFace-2, jFace, kFace,:]
-                            except:
-                                U_ll = U_l - (U_r-U_l)
-                            try:
+                            U_r = self.conservatives[iFace, jFace, kFace,:]  
+                            if iFace==1:
+                                U_ll = U_l
                                 U_rr = self.conservatives[iFace+1, jFace, kFace,:]
-                            except:
-                                U_rr = U_r + (U_r-U_l)
+                            elif iFace==niF-2:
+                                U_ll = self.conservatives[iFace-2, jFace, kFace,:]
+                                U_rr = U_r
+                            else:
+                                U_ll = self.conservatives[iFace-2, jFace, kFace,:]
+                                U_rr = self.conservatives[iFace+1, jFace, kFace,:]
                             
                             S, CG = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'all')  # surface oriented from U_l to U_r
                             area = np.linalg.norm(S)
@@ -401,14 +412,15 @@ class CSolver():
                         else:
                             U_l = self.conservatives[iFace, jFace-1, kFace,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]
-                            try:
-                                U_ll = self.conservatives[iFace, jFace-2, kFace,:]
-                            except:
-                                U_ll = U_l - (U_r-U_l)
-                            try:
+                            if jFace==1:
+                                U_ll = U_l
                                 U_rr = self.conservatives[iFace, jFace+1, kFace,:]
-                            except:
-                                U_rr = U_r + (U_r-U_l)
+                            elif jFace==njF-2:
+                                U_ll = self.conservatives[iFace, jFace-2, kFace,:]
+                                U_rr = U_r
+                            else:
+                                U_ll = self.conservatives[iFace, jFace-2, kFace,:]
+                                U_rr = self.conservatives[iFace, jFace+1, kFace,:]
                             S, CG = self.mesh.GetSurfaceData(iFace, jFace-1, kFace, 'north', 'all')  # surface oriented from U_l to U_r
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
@@ -443,14 +455,18 @@ class CSolver():
                         else:
                             U_l = self.conservatives[iFace, jFace, kFace-1,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]
-                            try:
-                                U_ll = self.conservatives[iFace, jFace, kFace-2,:]
-                            except:
+                            if kFace==1:
                                 U_ll = U_l - (U_r-U_l)
-                            try:
+                                try:
+                                    U_rr = self.conservatives[iFace, jFace, kFace+1,:]
+                                except:
+                                    U_rr = U_r
+                            elif kFace==nkF-2:
+                                U_ll = self.conservatives[iFace, jFace, kFace-2,:]
+                                U_rr = U_r
+                            else:
+                                U_ll = self.conservatives[iFace, jFace, kFace-2,:]
                                 U_rr = self.conservatives[iFace, jFace, kFace+1,:]
-                            except:
-                                U_rr = U_r + (U_r-U_l)
                             S, CG = self.mesh.GetSurfaceData(iFace, jFace, kFace-1, 'top', 'all')  # surface oriented from left to right
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)

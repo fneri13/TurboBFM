@@ -59,7 +59,7 @@ class CBoundaryCondition():
         """
         Compute the flux coming from a wall due to tangential velocity condition
         """
-        p = self.fluid.ComputePressure_rho_u_et(self.Ub[0], self.Ub[1:-1], self.Ub[-1])
+        p = self.fluid.ComputePressure_rho_u_et(self.Wb[0], self.Wb[1:-1], self.Wb[-1])
         flux = np.array([0, p*self.S_dir[0], p*self.S_dir[1], p*self.S_dir[2], 0])
         return flux
 
@@ -100,7 +100,7 @@ class CBoundaryCondition():
         of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
         """
         S_dir_int = -self.S_dir
-        s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
+        s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wb[0], self.Wb[1:-1], self.Wb[-1])
         u_int = self.Wint[1:-1]
         un_int = np.dot(u_int, S_dir_int)
         a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
