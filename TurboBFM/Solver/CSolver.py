@@ -172,7 +172,7 @@ class CSolver():
         Compute primitive variables from conservatives.
         """
         primitives = np.zeros_like(self.conservatives)
-        ni, nj, nk = primitives.shape
+        ni, nj, nk = primitives[:,:,:,0].shape
         for i in range(ni):
             for j in range(nj):
                 for k in range(nk):
@@ -195,11 +195,11 @@ class CSolver():
             names = [r'$\rho$', r'$u_x$', r'$u_y$', r'$u_z$', r'$e_t$']
         elif group.lower()=='conservatives':
             fields = self.conservatives
-            names = [r'$\rho$', r'$\rho u_x$', r'$\rho u_y$', r'$\rho u_z$', r'$\rho e_t$']
+            names = [r'$\rho \ \rm{[kg/m^3]}$', r'$\rho u_x  \ \rm{[kg \cdot m/s]}$', r'$\rho u_y  \ \rm{[kg \cdot m/s]}$', r'$\rho u_z  \ \rm{[kg \cdot m/s]}$', r'$\rho e_t   \ \rm{[J/m^3]]}$']
 
         # function to make contours on different directions
         def contour_template(fields, names, idx_cut):
-            fig, ax = plt.subplots(2, 3, figsize=(16,9))
+            fig, ax = plt.subplots(3, 3, figsize=(20,10))
             for iField in range(len(names)):
                 X = self.mesh.X[:,:,idx_cut]
                 Y = self.mesh.Y[:,:,idx_cut]
@@ -210,12 +210,72 @@ class CSolver():
                 ylabel = 'y [m]'
                 plt.colorbar(cnt, ax=ax[iplot][jplot])
                 ax[iplot][jplot].set_title(names[iField])
-                ax[iplot][jplot].set_xlabel(xlabel)
-                ax[iplot][jplot].set_ylabel(ylabel)
+                if jplot==0:
+                    ax[iplot][jplot].set_ylabel(ylabel)
+                if iplot==2:
+                    ax[iplot][jplot].set_xlabel(xlabel)
+
+            for iplot in range(3):
+                for jplot in range(3):    
+                    ax[iplot][jplot].set_xticks([])
+                    ax[iplot][jplot].set_yticks([])
+                    if jplot==0:
+                        ax[iplot][jplot].set_ylabel(ylabel)
+                    if iplot==2:
+                        ax[iplot][jplot].set_xlabel(xlabel)
+
+            fields = self.ConvertConservativesToPrimitives()
+            entropy = np.zeros((self.ni, self.nj))
+            for i in range(self.ni):
+                for j in range(self.nj):
+                    entropy[i,j] = self.fluid.ComputeEntropy_rho_u_et(fields[i,j,idx_cut,0],
+                                                                      fields[i,j,idx_cut,1:-1], 
+                                                                      fields[i,j,idx_cut,-1])
+            cnt = ax[1][2].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], entropy[:,:], cmap='jet', levels=20)
+            plt.colorbar(cnt, ax=ax[1][2])
+            ax[1][2].set_title(r'$s \ \rm{[J/kgK]}$')
+
+            pressure = np.zeros((self.ni, self.nj))
+            for i in range(self.ni):
+                for j in range(self.nj):
+                    pressure[i,j] = self.fluid.ComputePressure_rho_u_et(fields[i,j,idx_cut,0],
+                                                                        fields[i,j,idx_cut,1:-1], 
+                                                                        fields[i,j,idx_cut,-1])
+            cnt = ax[2][0].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure[:,:], cmap='jet', levels=20)
+            plt.colorbar(cnt, ax=ax[2][0])
+            ax[2][0].set_title(r'$s \ \rm{[J/kgK]}$')
+
+            ht = np.zeros((self.ni, self.nj))
+            for i in range(self.ni):
+                for j in range(self.nj):
+                    ht[i,j] = self.fluid.ComputeTotalEnthalpy_rho_u_et(fields[i,j,idx_cut,0],
+                                                                             fields[i,j,idx_cut,1:-1], 
+                                                                             fields[i,j,idx_cut,-1])
+            cnt = ax[2][1].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], ht[:,:], cmap='jet', levels=20)
+            plt.colorbar(cnt, ax=ax[2][1])
+            ax[2][1].set_title(r'$h_t \ \rm{[J/kg]}$')
+
+            temperature = np.zeros((self.ni, self.nj))
+            for i in range(self.ni):
+                for j in range(self.nj):
+                    temperature[i,j] = self.fluid.ComputeStaticTemperature_rho_u_et(fields[i,j,idx_cut,0],
+                                                                             fields[i,j,idx_cut,1:-1], 
+                                                                             fields[i,j,idx_cut,-1])
+            cnt = ax[2][2].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], temperature, cmap='jet', levels=20)
+            plt.colorbar(cnt, ax=ax[2][2])
+            ax[2][2].set_title(r'$T \ \rm{[K]}$')
+
+
+
+
+
         
         # call the contour function depending on the chosen direction
         idx = self.nk//2
         contour_template(fields, names, idx)
+
+        
+        
             
     
     def ComputeInitFields(self, M: float, T: float, P: float, dir: np.ndarray):

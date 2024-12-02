@@ -49,6 +49,11 @@ class FluidIdeal():
         p = pt*(1+(self.gmma-1)/2*M**2)**(-self.gmma/(self.gmma-1))
         return p 
     
+    def ComputeStaticTemperature_rho_u_et(self, rho, u, et):
+        p = self.ComputePressure_rho_u_et(rho, u, et)
+        T = p/self.R/rho
+        return T
+    
     def ComputeStaticTemperature_Tt_M(self, Tt, M):
         T = Tt*(1+(self.gmma-1)/2*M**2)**(-1)
         return T
