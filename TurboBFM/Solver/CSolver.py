@@ -192,10 +192,10 @@ class CSolver():
         """
         if group.lower()=='primitives':
             fields = self.ConvertConservativesToPrimitives()
-            names = [r'$\rho$', r'$u_x$', r'$u_y$', r'$u_z$', r'$e_t$']
+            names = [r'$\rho \ \rm{[kg/m^3]}$', r'$u_x \ \rm{[m/s]}$', r'$u_y  \ \rm{[m/s]}$', r'$u_z \ \rm{[m/s]}$', r'$e_t  \ \rm{[J/kg]}$']
         elif group.lower()=='conservatives':
             fields = self.conservatives
-            names = [r'$\rho \ \rm{[kg/m^3]}$', r'$\rho u_x  \ \rm{[kg \cdot m/s]}$', r'$\rho u_y  \ \rm{[kg \cdot m/s]}$', r'$\rho u_z  \ \rm{[kg \cdot m/s]}$', r'$\rho e_t   \ \rm{[J/m^3]]}$']
+            names = [r'$\rho \ \rm{[kg/m^3]}$', r'$\rho u_x  \ \rm{[kg \cdot m^2/s]}$', r'$\rho u_y  \ \rm{[kg \cdot m^2/s]}$', r'$\rho u_z  \ \rm{[kg \cdot m^2/s]}$', r'$\rho e_t   \ \rm{[J/m^3]}$']
 
         # function to make contours on different directions
         def contour_template(fields, names, idx_cut):
@@ -241,9 +241,9 @@ class CSolver():
                     pressure[i,j] = self.fluid.ComputePressure_rho_u_et(fields[i,j,idx_cut,0],
                                                                         fields[i,j,idx_cut,1:-1], 
                                                                         fields[i,j,idx_cut,-1])
-            cnt = ax[2][0].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure[:,:], cmap='jet', levels=20)
+            cnt = ax[2][0].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure[:,:]/1e3, cmap='jet', levels=20)
             plt.colorbar(cnt, ax=ax[2][0])
-            ax[2][0].set_title(r'$s \ \rm{[J/kgK]}$')
+            ax[2][0].set_title(r'$p \ \rm{[kPa]}$')
 
             ht = np.zeros((self.ni, self.nj))
             for i in range(self.ni):
@@ -266,10 +266,6 @@ class CSolver():
             ax[2][2].set_title(r'$T \ \rm{[K]}$')
 
 
-
-
-
-        
         # call the contour function depending on the chosen direction
         idx = self.nk//2
         contour_template(fields, names, idx)
