@@ -153,7 +153,6 @@ class CMesh():
             plt.legend()
             plt.title('k=%i plane' %(0))
             plt.gca().set_aspect('equal', adjustable='box')
-            plt.show()
 
 
     def ComputeVolumes(self):
