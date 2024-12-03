@@ -50,8 +50,8 @@ def GetConservativesFromPrimitives(primitive: np.ndarray) -> np.ndarray:
 
 def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, fluid: FluidIdeal) -> np.ndarray:
         """
-        Compute Euler flux vector from conservative variables, passing through a surface defined by vector S. Ideal gas version
-        for the moment. The flux is already integrated on the surface [quantity/second], is not a flux density [quantity/second/surface]
+        Compute Euler flux (density) vector from conservative variables, passing through a surface defined by vector S. Ideal gas version
+        for the moment. The flux is NOT already integrated on the surface [quantity/second]. It is a flux density [quantity/second/surface]
 
         Parameters
         -----------

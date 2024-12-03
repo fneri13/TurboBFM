@@ -334,7 +334,7 @@ class CSolver():
             self.ComputeTimeStep()
             dt = np.min(self.time_step)
             print('     Time step: %.3e\n' %(dt))
-            delta_sol = np.zeros_like(self.conservatives)
+            delta_sol = np.zeros_like(self.conservatives)  # conservative solution update
             self.CheckConservativeVariables(self.conservatives, it+1)
             
             if self.verbosity==3:
@@ -474,8 +474,8 @@ class CSolver():
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
                             delta_sol[iFace, jFace, kFace-1, :] -= flux*area*dt/self.mesh.V[iFace, jFace, kFace-1]          
                             delta_sol[iFace, jFace, kFace, :] += flux*area*dt/self.mesh.V[iFace, jFace, kFace]
-
-            self.conservatives = self.conservatives + delta_sol
+            
+            self.conservatives += delta_sol  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
         # self.ContoursCheck('conservatives', 'j')
