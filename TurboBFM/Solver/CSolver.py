@@ -520,15 +520,18 @@ class CSolver():
             for j in range(self.nj):
                 for k in range(self.nk):
                     i_edge, j_edge, k_edge = self.mesh.GetElementEdges((i,j,k))
+                    i_dir = i_edge/np.linalg.norm(i_edge)
+                    j_dir = i_edge/np.linalg.norm(j_edge)
+                    k_dir = i_edge/np.linalg.norm(k_edge)
                     W = GetPrimitivesFromConservatives(self.conservatives[i,j,k,:])
                     vel = W[1:-1]
                     rho = W[0]
                     et = W[-1]
                     a = self.fluid.ComputeSoundSpeed_rho_u_et(rho, vel, et)
 
-                    dt_i = np.linalg.norm(i_edge) / (np.abs(np.dot(vel, i_edge))+a)
-                    dt_j = np.linalg.norm(j_edge) / (np.abs(np.dot(vel, j_edge))+a)
-                    dt_k = np.linalg.norm(k_edge) / (np.abs(np.dot(vel, k_edge))+a)
+                    dt_i = np.linalg.norm(i_edge) / (np.abs(np.dot(vel, i_dir))+a)
+                    dt_j = np.linalg.norm(j_edge) / (np.abs(np.dot(vel, j_dir))+a)
+                    dt_k = np.linalg.norm(k_edge) / (np.abs(np.dot(vel, k_dir))+a)
 
                     self.time_step[i,j,k] = min(dt_i, dt_j, dt_k)
 
