@@ -10,25 +10,44 @@ class CMesh():
         """
         Starting from the grid points coordinates, generate the array of Volumes associated to the points, and the array of surfaces associated to the interfaces between the points (Dual grid formulation).
         If the grid has (ni,nj,nk) structured points, it has (ni,nj,nk) elements.
+        The Mesh for 2D geometries is handled like openfoam (one cell in the k-direction, with thickness 1 for correct evaluation of volumes and surfaces)
 
         Parameters
         -------------------------
 
         `config`: CConfig object of the simulation
 
-        `coords`: dictionnary with X, Y, Z keys and associated 3D arrays
+        `coords`: dictionnary with the coordinates
 
         """
         self.config = config
         self.verbosity = self.config.GetVerbosity()
-        self.X, self.Y, self.Z = coords['X'], coords['Y'], coords['Z']                  # store a local copy of the primary grid coordinates
+        self.X = coords['X']
+        self.Y = coords['Y']
+        if len(coords['X'].shape)==3:
+            self.nDim = 3
+            self.X, self.Y, self.Z = coords['X'], coords['Y'], coords['Z']
+            self.ni, self.nj, self.nk = self.X.shape
+        elif len(coords['X'].shape)==2:
+            self.nDim = 2
+            self.ni, self.nj = coords['X'].shape
+            self.nk = 1
+            self.X = np.zeros((self.ni, self.nj, self.nk))
+            self.Y = np.zeros((self.ni, self.nj, self.nk))
+            self.Z = np.zeros((self.ni, self.nj, self.nk))
+            self.X[:,:,0] = coords['X']
+            self.Y[:,:,0] = coords['Y']
+        else:
+            raise ValueError('The coordinates arrays must have dimension 2 or 3')
 
-        self.ni, self.nj, self.nk = self.X.shape                                        # these are the number of primary nodes
         self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
         self.n_elements = self.ni*self.nj*self.nk                                       # number of finite volumes (excluding ghost elements)
         
         print('Computing Dual Grid..')
-        self.ComputeDualGrid()
+        if self.nDim==2:
+            self.ComputeDualGrid2D()
+        else:
+            self.ComputeDualGrid3D()
 
         self.ComputeInterfaces()
 
@@ -134,6 +153,7 @@ class CMesh():
             plt.legend()
             plt.title('k=%i plane' %(0))
             plt.gca().set_aspect('equal', adjustable='box')
+            plt.show()
 
 
     def ComputeVolumes(self):
@@ -180,10 +200,16 @@ class CMesh():
                         print()
             print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
         
+        if self.nDim==3:
+            total_intf = self.ni_dual*(self.nj_dual-1)*(self.nk_dual-1) + self.nj_dual*(self.ni_dual-1)*(self.nk_dual-1) + self.nk_dual*(self.ni_dual-1)*(self.nj_dual-1)
+        else:
+            total_intf = self.ni_dual*(self.nj_dual-1) + self.nj_dual*(self.ni_dual-1)
+
         if self.verbosity>0:
             print('='*25 + ' MESH INFORMATION ' + '='*25)
             print('Number of elements:                  %i' %(self.n_elements))
-            print('Number of interfaces:                %i' %(len(self.orthogonality)))
+            print('Number of total interfaces:          %i' %(total_intf))
+            print('Number of internal interfaces:       %i' %(len(self.orthogonality)))
             print('Aspect Ratio:')
             print('                                     min: %.12f' %(np.min(self.aspect_ratio)))
             print('                                     max: %.12f' %(np.max(self.aspect_ratio)))
@@ -203,7 +229,66 @@ class CMesh():
 
 
 
-    def ComputeDualGrid(self):
+    def ComputeDualGrid2D(self):
+        """
+        Compute the dual grid points. The openfoam modeling is applied, where the thickness is equivalent to 1 for every cell. Therefore
+        the k=0 plane is located at z=0, and the k=1 plane is located at z=1.
+        """
+        # Compute the vertices of the dual grid
+        # (the dual grid nodes are equal to the primary grid nodes + 1 in every direction)
+        xv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
+        yv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
+        zv = np.zeros((self.ni_dual, self.nj_dual, self.nk_dual))
+
+        # fix the internal points
+        def fix_internals(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The internal dual points are found as baricenter of 8 surrounding points
+            """
+            arr1[1:-1, 1:-1] = (arr2[0:-1,0:-1] + arr2[1:,0:-1] + arr2[0:-1,1:] + arr2[1:,1:])/4.0
+            return arr1
+        xv[:,:,0] = fix_internals(xv[:,:,0], self.X[:,:,0])
+        yv[:,:,0] = fix_internals(yv[:,:,0], self.Y[:,:,0])
+
+        # fix the corners
+        def fix_corners(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The corners of the dual grid coincide with the corners of the primary grid
+            """
+            arr1[0,0] = arr2[0,0]
+            arr1[0,-1] = arr2[0,-1]
+            arr1[-1,-1] = arr2[-1,-1]
+            arr1[-1,0] = arr2[-1,0]
+            return arr1
+        xv[:,:,0] = fix_corners(xv[:,:,0], self.X[:,:,0])
+        yv[:,:,0] = fix_corners(yv[:,:,0], self.Y[:,:,0])
+
+        # fix the edges
+        def fix_edges(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The dual grid nodes on the edges are found halfway between two successive primary grid nodes on that edge
+            """
+            # i oriented edges
+            arr1[1:-1,0] = (arr2[0:-1,0]+arr2[1:,0])/2.0
+            arr1[1:-1,-1] = (arr2[0:-1,-1]+arr2[1:,-1])/2.0
+            # j oriented edges
+            arr1[0,1:-1] = (arr2[0,0:-1]+arr2[0,1:])/2.0
+            arr1[-1,1:-1] = (arr2[-1,0:-1]+arr2[-1,1:])/2.0
+            return arr1
+        xv[:,:,0] = fix_edges(xv[:,:,0], self.X[:,:,0])
+        yv[:,:,0] = fix_edges(yv[:,:,0], self.Y[:,:,0])
+
+        # fix also the second plane in k-direction
+        xv[:,:,1] = xv[:,:,0]       # same x-coordinates
+        yv[:,:,1] = yv[:,:,0]       # same y-coordinates
+        zv[:,:,1] = zv[:,:,0]+1     # thickness value of 1 everywhere 
+
+        # mantain a copy of the vertices, to compute also the quality
+        self.xv, self.yv, self.zv = xv, yv, zv
+
+
+
+    def ComputeDualGrid3D(self):
         """
         Compute the dual grid points.
         """
@@ -327,7 +412,10 @@ class CMesh():
                     i_edge = np.linalg.norm(pt_i-pt_0)
                     j_edge = np.linalg.norm(pt_j-pt_0)
                     k_edge = np.linalg.norm(pt_k-pt_0)
-                    ar = max(i_edge, j_edge, k_edge)/min(i_edge, j_edge, k_edge)
+                    if self.nDim==3:
+                        ar = max(i_edge, j_edge, k_edge)/min(i_edge, j_edge, k_edge)
+                    else:
+                        ar = max(i_edge, j_edge)/min(i_edge, j_edge)
                     self.aspect_ratio.append(ar)
         self.aspect_ratio = np.array(self.aspect_ratio)
     
@@ -347,9 +435,9 @@ class CMesh():
             v2_dir = v2 / np.linalg.norm(v2)
             return np.arccos(np.dot(v1_dir, v2_dir))
 
-        # interfaces along i
+        # internal interfaces along i
         ni, nj, nk = self.Si[:,:,:,0].shape
-        for i in range(1, ni-1):
+        for i in range(1,ni-1):
             for j in range(nj):
                 for k in range(nk):
                     pt_0 = np.array([self.X[i-1,j,k], self.Y[i-1,j,k], self.Z[i-1,j,k]])
@@ -364,10 +452,10 @@ class CMesh():
                     angle = compute_angle(l2, S)
                     self.orthogonality.append(angle)
         
-        # interfaces along j
+        # internal interfaces along j
         ni, nj, nk = self.Sj[:,:,:,0].shape
         for i in range(ni):
-            for j in range(1, nj-1):
+            for j in range(1,nj-1):
                 for k in range(nk):
                     pt_0 = np.array([self.X[i,j-1,k], self.Y[i,j-1,k], self.Z[i,j-1,k]])
                     pt_j = np.array([self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]])
@@ -381,22 +469,25 @@ class CMesh():
                     angle = compute_angle(l2, S)
                     self.orthogonality.append(angle)
         
-        # interfaces along k
-        ni, nj, nk = self.Sk[:,:,:,0].shape
-        for i in range(ni):
-            for j in range(nj):
-                for k in range(1, nk-1):
-                    pt_0 = np.array([self.X[i,j,k-1], self.Y[i,j,k-1], self.Z[i,j,k-1]])
-                    pt_k = np.array([self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]])
-                    midpoint = pt_0 + 0.5*(pt_k-pt_0)   
-                    CG = self.CGk[i,j,k,:]             
-                    l1 = np.linalg.norm(midpoint-CG)
-                    l2 = np.linalg.norm(pt_k-pt_0)
-                    self.skewness.append(l1/l2)
-                    S = self.Sk[i,j,k,:]
-                    l2 = pt_k-pt_0 
-                    angle = compute_angle(l2, S)
-                    self.orthogonality.append(angle)
+        # internal interfaces along k
+        if self.nDim==3:
+            ni, nj, nk = self.Sk[:,:,:,0].shape
+            for i in range(ni):
+                for j in range(nj):
+                    for k in range(1, nk-1):
+                        pt_0 = np.array([self.X[i,j,k-1], self.Y[i,j,k-1], self.Z[i,j,k-1]])
+                        pt_k = np.array([self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]])
+                        midpoint = pt_0 + 0.5*(pt_k-pt_0)   
+                        CG = self.CGk[i,j,k,:]             
+                        l1 = np.linalg.norm(midpoint-CG)
+                        l2 = np.linalg.norm(pt_k-pt_0)
+                        self.skewness.append(l1/l2)
+                        S = self.Sk[i,j,k,:]
+                        l2 = pt_k-pt_0 
+                        angle = compute_angle(l2, S)
+                        self.orthogonality.append(angle)
+        else:
+            pass
         
         self.skewness = np.array(self.skewness)
         self.orthogonality = np.array(self.orthogonality)
