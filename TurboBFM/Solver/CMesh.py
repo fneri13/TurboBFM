@@ -47,13 +47,16 @@ class CMesh():
             self.ComputeDualGrid3D()
             self.ComputeInterfaces3D()
             self.ComputeVolumes3D()
+            self.ComputeMeshQuality3D()
+            self.PrintMeshInfo3D()
         else:
             self.ComputeDualGrid2D()
             self.ComputeInterfaces2D()
             self.ComputeVolumes2D()
+            self.ComputeMeshQuality2D()
+            self.PrintMeshInfo2D()
         
-        self.ComputeMeshQuality()
-        self.PrintMeshInfo()
+        
 
     def ComputeInterfaces3D(self):
         """
@@ -273,7 +276,7 @@ class CMesh():
                 CG = (self.CGi[i,j,:], self.CGj[i,j,:], self.CGi[i+1,j,:], self.CGj[i, j+1, :])
                 self.V[i,j] = compute_volume(S, CG, 0)
     
-    def PrintMeshInfo(self):
+    def PrintMeshInfo3D(self):
         """
         Print relevant information for the mesh
         """
@@ -292,6 +295,32 @@ class CMesh():
                         print('                         Vol=%.4e' %(self.V[i,j,k]))
                         print()
             print('='*20 + ' END ELEMENTS INFORMATION ' + '='*20)
+        
+        if self.verbosity>0:
+            print('='*25 + ' MESH INFORMATION ' + '='*25)
+            print('Number of elements:                  %i' %(self.n_elements))
+            print('Number of interfaces:                %i' %(len(self.orthogonality)))
+            print('Aspect Ratio:')
+            print('                                     min: %.12f' %(np.min(self.aspect_ratio)))
+            print('                                     max: %.12f' %(np.max(self.aspect_ratio)))
+            print('                                     average: %.12f' %(np.mean(self.aspect_ratio)))
+            print('                                     std: %.12f' %(np.std(self.aspect_ratio)))
+            print('Skewness:')
+            print('                                     min: %.12f' %(np.min(self.skewness)))
+            print('                                     max: %.12f' %(np.max(self.skewness)))
+            print('                                     average: %.12f' %(np.mean(self.skewness)))
+            print('                                     std: %.12f' %(np.std(self.skewness)))
+            print('Orthogonality [deg]:')
+            print('                                     min: %.12f' %(np.min(self.orthogonality)*180/np.pi))
+            print('                                     max: %.12f' %(np.max(self.orthogonality)*180/np.pi))
+            print('                                     average: %.12f' %(np.mean(self.orthogonality)*180/np.pi))
+            print('                                     std: %.12f' %(np.std(self.orthogonality)*180/np.pi))
+            print('='*25 + ' END MESH INFORMATION ' + '='*25)
+    
+    def PrintMeshInfo2D(self):
+        """
+        Print relevant information for the mesh
+        """
         
         if self.verbosity>0:
             print('='*25 + ' MESH INFORMATION ' + '='*25)
@@ -468,16 +497,24 @@ class CMesh():
 
 
 
-    def ComputeMeshQuality(self):
+    def ComputeMeshQuality3D(self):
         """
         Given the geometry information stored, compute some quality metrics. 
         """
         print('Computing Mesh Quality')
-        self.ComputeAspectRatio()
-        self.ComputeSkewnessOrthogonality()
+        self.ComputeAspectRatio3D()
+        self.ComputeSkewnessOrthogonality3D()
+    
+    def ComputeMeshQuality2D(self):
+        """
+        Given the geometry information stored, compute some quality metrics. 
+        """
+        print('Computing Mesh Quality')
+        self.ComputeAspectRatio2D()
+        self.ComputeSkewnessOrthogonality2D()
 
 
-    def ComputeAspectRatio(self):
+    def ComputeAspectRatio3D(self):
         """
         Compute aspect ratio defined as longest to shortes cell edge.
         """
@@ -498,7 +535,25 @@ class CMesh():
                     self.aspect_ratio.append(ar)
         self.aspect_ratio = np.array(self.aspect_ratio)
     
-    def ComputeSkewnessOrthogonality(self):
+    def ComputeAspectRatio2D(self):
+        """
+        Compute aspect ratio defined as longest to shortes cell edge.
+        """
+        ni, nj = self.X.shape
+        self.aspect_ratio = []
+
+        for i in range(ni):
+            for j in range(nj):
+                pt_0 = np.array([self.xv[i,j], self.yv[i,j]])
+                pt_i = np.array([self.xv[i+1,j], self.yv[i+1,j]])
+                pt_j = np.array([self.xv[i,j+1], self.yv[i,j+1]])
+                i_edge = np.linalg.norm(pt_i-pt_0)
+                j_edge = np.linalg.norm(pt_j-pt_0)
+                ar = max(i_edge, j_edge)/min(i_edge, j_edge)
+                self.aspect_ratio.append(ar)
+        self.aspect_ratio = np.array(self.aspect_ratio)
+    
+    def ComputeSkewnessOrthogonality3D(self):
         """
         Compute the mesh skewness, defined as the distance between the real center face and the midpoint connecting the two cells, normalized
         by the distance between the two elements center. Compute also the orthogonality, defined as the angle between the connecting line and the face normal.
@@ -564,6 +619,57 @@ class CMesh():
                     l2 = pt_k-pt_0 
                     angle = compute_angle(l2, S)
                     self.orthogonality.append(angle)
+        
+        self.skewness = np.array(self.skewness)
+        self.orthogonality = np.array(self.orthogonality)
+    
+    def ComputeSkewnessOrthogonality2D(self):
+        """
+        Compute the mesh skewness, defined as the distance between the real center face and the midpoint connecting the two cells, normalized
+        by the distance between the two elements center. Compute also the orthogonality, defined as the angle between the connecting line and the face normal.
+        """
+        self.skewness = []
+        self.orthogonality = []
+
+        def compute_angle(v1, v2):
+            """
+            Slightly modified angle calculation to account for those cases where the first vector has zero magnitude (when the node c)
+            """
+            v1_dir = v1 / np.linalg.norm(v1)
+            v2_dir = v2 / np.linalg.norm(v2)
+            return np.arccos(np.dot(v1_dir, v2_dir))
+
+        # interfaces along i
+        ni, nj = self.Si[:,:,0].shape
+        for i in range(1, ni-1):
+            for j in range(nj):
+                pt_0 = np.array([self.X[i-1,j], self.Y[i-1,j]])
+                pt_i = np.array([self.X[i,j], self.Y[i,j]])
+                midpoint = pt_0 + 0.5*(pt_i-pt_0)   
+                CG = self.CGi[i,j,:]             
+                l1 = np.linalg.norm(midpoint-CG)
+                l2 = np.linalg.norm(pt_i-pt_0)
+                self.skewness.append(l1/l2)
+                S = self.Si[i,j,:]
+                l2 = pt_i-pt_0 
+                angle = compute_angle(l2, S)
+                self.orthogonality.append(angle)
+        
+        # interfaces along j
+        ni, nj = self.Sj[:,:,0].shape
+        for i in range(ni):
+            for j in range(1, nj-1):
+                pt_0 = np.array([self.X[i,j-1], self.Y[i,j-1]])
+                pt_j = np.array([self.X[i,j], self.Y[i,j]])
+                midpoint = pt_0 + 0.5*(pt_j-pt_0)   
+                CG = self.CGj[i,j,:]             
+                l1 = np.linalg.norm(midpoint-CG)
+                l2 = np.linalg.norm(pt_j-pt_0)
+                self.skewness.append(l1/l2)
+                S = self.Sj[i,j,:]
+                l2 = pt_j-pt_0 
+                angle = compute_angle(l2, S)
+                self.orthogonality.append(angle)
         
         self.skewness = np.array(self.skewness)
         self.orthogonality = np.array(self.orthogonality)
