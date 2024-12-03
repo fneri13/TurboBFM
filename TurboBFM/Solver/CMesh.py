@@ -21,24 +21,41 @@ class CMesh():
         """
         self.config = config
         self.verbosity = self.config.GetVerbosity()
-        self.X, self.Y, self.Z = coords['X'], coords['Y'], coords['Z']                  # store a local copy of the primary grid coordinates
+        self.X = coords['X']
+        self.Y = coords['Y']
+        if len(self.X.shape)==2:
+            self.nDim = 2
+            self.Z = np.zeros_like(self.X)
+        elif len(self.X.shape)==3:
+            self.nDim = 3
+            self.Z = coords['Z']
+        else:
+            raise ValueError('Coordinate arrays must be of dimension 2 or 3')
 
-        self.ni, self.nj, self.nk = self.X.shape                                        # these are the number of primary nodes
-        self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
+        if self.nDim==2:
+            self.ni, self.nj = self.X.shape
+            self.nk = 1
+            self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk    
+        else:
+            self.ni, self.nj, self.nk = self.X.shape
+            self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1
+        
         self.n_elements = self.ni*self.nj*self.nk                                       # number of finite volumes (excluding ghost elements)
         
         print('Computing Dual Grid..')
-        self.ComputeDualGrid()
-
-        self.ComputeInterfaces()
-
-        self.ComputeVolumes()
-
+        if self.nDim==3:
+            self.ComputeDualGrid3D()
+            self.ComputeInterfaces3D()
+            self.ComputeVolumes3D()
+        else:
+            self.ComputeDualGrid2D()
+            self.ComputeInterfaces2D()
+            self.ComputeVolumes2D()
+        
         self.ComputeMeshQuality()
-
         self.PrintMeshInfo()
 
-    def ComputeInterfaces(self):
+    def ComputeInterfaces3D(self):
         """
         Build the interfaces arrays.
         The ordering respect the following ideas:
@@ -134,9 +151,82 @@ class CMesh():
             plt.legend()
             plt.title('k=%i plane' %(0))
             plt.gca().set_aspect('equal', adjustable='box')
+    
+    def ComputeInterfaces2D(self):
+        """
+        Build the interfaces arrays.
+        The ordering respect the following ideas:
+        - Si[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i+1,j,k].
+        - Sj[i,j,k,:] are the three components of the normal surface interfacing the primary grid point [i,j,k] with [i,j+1,k].
+        For every point [i,j,k] only three surfaces are needed, since the other three come from the following points on the respective directions.
+        The centers of gravity of every interface (CGi, CGj, CGk) follows the same indexing.
+        """
+        print('Computing Interfaces..')
+
+        def compute_surface_vector_and_cg(x1: float, x2: float, 
+                                          y1: float, y2: float):
+            """
+            Compute the surface vector associated between the interface formed by the 2 vertices (A and B).
+            The surface vector has z-component=0, and is used for the fluxes. The normal is obtained rotating the edge direction by 90 deg in clockwise direction
+            """
+            OA = np.array([x1, y1])
+            AB = np.array([x2-x1, y2-y1])
+            S = np.array([AB[1], -AB[0]]) # rotated 90 deg in clockwise direction 
+            CG = OA+AB/2
+            return S, CG
+        
+        """
+        Si has ni dual components in the i direction, while only nj-1 and nk-1 dual components in the j,k directions. Analogous thing for Sj and Sk.
+        """
+        self.Si = np.zeros((self.ni_dual, self.nj_dual-1, 2))            # surface vector connecting point (i,j,k) to (i+1,j,k)
+        self.Sj = np.zeros((self.ni_dual-1, self.nj_dual, 2))            # surface vector connecting point (i,j,k) to (i,j+1,k)
+        self.CGi = np.zeros((self.ni_dual, self.nj_dual-1, 2))           # center of face vector connecting point (i,j,k) to (i+1,j,k)
+        self.CGj = np.zeros((self.ni_dual-1, self.nj_dual, 2))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
+        
+        print('Computing i-interfaces')
+        for i in range(self.ni_dual):
+            for j in range(self.nj_dual-1):
+                self.Si[i,j,:], self.CGi[i,j,:] = compute_surface_vector_and_cg(self.xv[i,j], self.xv[i, j+1], 
+                                                                            self.yv[i,j], self.yv[i, j+1])
+        
+        print('Computing j-interfaces')
+        for i in range(self.ni_dual-1):
+            for j in range(self.nj_dual):
+                self.Sj[i,j,:], self.CGj[i,j,:] = compute_surface_vector_and_cg(self.xv[i+1,j], self.xv[i, j], 
+                                                                            self.yv[i+1,j], self.yv[i, j])
+        
+        # Plot of the ij plane at k=0
+        if self.verbosity==3:
+            plt.figure()
+            def plot_grid_lines(xgrid, ygrid, color, label):
+                ni, nj = xgrid.shape[0], xgrid.shape[1]
+                for i in range(ni):
+                    if i==0:
+                        plt.plot(xgrid[i,:], ygrid[i,:], '%s' %(color), lw=0.75, mfc='none', label=label)
+                    else:
+                        plt.plot(xgrid[i,:], ygrid[i,:], '%s' %(color), lw=0.75, mfc='none')
+                for j in range(nj):
+                    plt.plot(xgrid[:,j], ygrid[:,j], '%s' %(color), lw=0.75, mfc='none')
+                return None
+            
+            plot_grid_lines(self.X, self.Y, 'ko', label='Primary')
+            plot_grid_lines(self.xv, self.yv, '--r^', label='Dual')
+            for i in range(self.ni_dual):
+                for j in range(self.nj_dual-1):
+                    plt.quiver(self.CGi[i,j,0], self.CGi[i,j,1], 
+                               self.Si[i,j,0], self.Si[i,j,1])
+            for i in range(self.ni_dual-1):
+                for j in range(self.nj_dual):
+                    plt.quiver(self.CGj[i,j,0], self.CGj[i,j,1], 
+                               self.Sj[i,j,0], self.Sj[i,j,1])
+            plt.xlabel('x [m]')
+            plt.ylabel('y [m]')
+            plt.legend()
+            plt.gca().set_aspect('equal', adjustable='box')
+            plt.show()
 
 
-    def ComputeVolumes(self):
+    def ComputeVolumes3D(self):
         """
         Compute the volumes for every element, using Green Gauss Theorem. 
         """
@@ -159,6 +249,29 @@ class CMesh():
                     S = (-self.Si[i,j,k,:], -self.Sj[i,j,k,:], -self.Sk[i,j,k,:], self.Si[i+1,j,k,:], self.Sj[i,j+1,k,:], self.Sk[i,j,k+1,:])
                     CG = (self.CGi[i,j,k,:], self.CGj[i,j,k,:], self.CGk[i,j,k,:], self.CGi[i+1,j,k,:], self.CGj[i,j+1,k,:], self.CGk[i,j,k+1,:])
                     self.V[i,j,k] = compute_volume(S, CG, 0)
+    
+    def ComputeVolumes2D(self):
+        """
+        Compute the volumes for every element, considering a thickness of 1 for every cell. 
+        """
+        print('Computing Volumes')
+        def compute_volume(S, CG, iDir):
+            """
+            For the 6 surfaces enclosing an element, compute the volume using green gauss theorem. iDir stands for the direction used (0,1,2) for (x,y,z)
+            """
+            assert(len(S)==len(CG))
+            vol = 0
+            for iFace in range(len(S)):
+                vol += CG[iFace][iDir]*S[iFace][iDir]
+            return vol
+
+        self.V = np.zeros((self.ni,self.nj)) # the ghost point volumes will be zero for the moment
+        for i in range(0,self.ni):
+            for j in range(0,self.nj):
+                # assemble the tuple of Surfaces enclosing the element, being careful to set the facing outside
+                S = (-self.Si[i,j,:], -self.Sj[i,j,:], self.Si[i+1,j,:], self.Sj[i,j+1, :])
+                CG = (self.CGi[i,j,:], self.CGj[i,j,:], self.CGi[i+1,j,:], self.CGj[i, j+1, :])
+                self.V[i,j] = compute_volume(S, CG, 0)
     
     def PrintMeshInfo(self):
         """
@@ -203,7 +316,7 @@ class CMesh():
 
 
 
-    def ComputeDualGrid(self):
+    def ComputeDualGrid3D(self):
         """
         Compute the dual grid points.
         """
@@ -298,6 +411,60 @@ class CMesh():
 
         # mantain a copy of the vertices, to compute also the quality
         self.xv, self.yv, self.zv = xv, yv, zv
+    
+    def ComputeDualGrid2D(self):
+        """
+        Compute the dual grid points, 2D version.
+        """
+        # Compute the vertices of the dual grid
+        # (the dual grid nodes are equal to the primary grid nodes + 1 in every direction)
+        xv = np.zeros((self.ni_dual, self.nj_dual))
+        yv = np.zeros((self.ni_dual, self.nj_dual))
+
+        # fix the internal points
+        def fix_internals(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The internal dual points are found as baricenter of 8 surrounding points
+            """
+            arr1[1:-1, 1:-1] = (arr2[0:-1,0:-1] + arr2[1:,0:-1] + arr2[0:-1,1:] + arr2[1:,1:])/4.0
+            return arr1
+        xv = fix_internals(xv, self.X)
+        yv = fix_internals(yv, self.Y)
+        
+
+        # fix the corners
+        def fix_corners(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The corners of the dual grid coincide with the corners of the primary grid
+            """
+            arr1[0,0] = arr2[0,0]
+            arr1[0,-1] = arr2[0,-1]
+            arr1[-1,-1] = arr2[-1,-1]
+            arr1[-1,0] = arr2[-1,0]
+            return arr1
+        xv = fix_corners(xv, self.X)
+        yv = fix_corners(yv, self.Y)
+
+
+        # fix the edges
+        def fix_edges(arr1 : np.ndarray, arr2 : np.ndarray) -> np.ndarray:
+            """
+            The dual grid nodes on the edges are found halfway between two successive primary grid nodes on that edge
+            """
+            # i oriented edges
+            arr1[1:-1,0] = (arr2[0:-1,0]+arr2[1:,0])/2.0
+            arr1[1:-1,-1] = (arr2[0:-1,-1]+arr2[1:,-1])/2.0
+
+            # j oriented edges
+            arr1[0,1:-1] = (arr2[0,0:-1]+arr2[0,1:])/2.0
+            arr1[-1,1:-1] = (arr2[-1,0:-1]+arr2[-1,1:])/2.0
+
+            return arr1
+        xv = fix_edges(xv, self.X)
+        yv = fix_edges(yv, self.Y)
+
+        # mantain a copy of the vertices, to compute also the quality
+        self.xv, self.yv, self.zv = xv, yv, np.zeros_like(xv)
 
 
 
