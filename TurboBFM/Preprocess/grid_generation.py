@@ -2,19 +2,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 
-def transfinite_grid_generation(c_left, c_bottom, c_right, c_top, block_topology='internal', streamwise_coeff=1, spanwise_coeff=1, nx=None,
-                                ny=None):
+def transfinite_grid_generation(c_left: np.ndarray, c_bottom: np.ndarray, c_right: np.ndarray, c_top: np.ndarray, 
+                                stretch_type_stream='both', stretch_type_span='both', 
+                                streamwise_coeff=1, spanwise_coeff=1, 
+                                nx=None, ny=None):
     """
     Method used to generate the grid with transfinite grid interpolation method.
-    :param c_left: left border points (x, y)
-    :param c_bottom: bottom border points (x, y)
-    :param c_right: right border points (x, y)
-    :param c_top: top border points (x, y)
-    :param block_topology: inlet, internal, or outlet to impose the right stretching functions
-    :param streamwise_coeff: coefficient of stretching function along streamwise direction
-    :param spanwise_coeff: coefficient of stretching function along spanwise direction
-    :param nx: number of points in streamwise direction (if None, default is used)
-    :param ny: number of points in spanwise direction (if None, default is used)
+
+    Parameters
+    ----------------------------------------
+    `c_left`: left border points (x, y)
+    
+    `c_bottom`: bottom border points (x, y)
+    
+    `c_right`: right border points (x, y)
+    
+    `c_top`: top border points (x, y)
+    
+    `stretch_type_stream`: left, both, or right to impose the stretching functions in the streamwise direction
+
+    `stretch_type_span`: bottom, both, or up to impose the stretching functions in the spanwise direction
+    
+    `streamwise_coeff`: coefficient of stretching function along streamwise direction
+    
+    `spanwise_coeff`: coefficient of stretching function along spanwise direction
+    
+    `nx`: number of points in streamwise direction (if None, default is used)
+    
+    `ny`: number of points in spanwise direction (if None, default is used)
     """
     if nx is None:
         nx = c_bottom.shape[1]
@@ -36,29 +51,30 @@ def transfinite_grid_generation(c_left, c_bottom, c_right, c_top, block_topology
     splinex_right = CubicSpline(t_spanwise, c_right[0, :])
     spliney_right = CubicSpline(t_spanwise, c_right[1, :])
 
-    # plt.figure()
-    # plt.plot(splinex_bottom(t_streamwise), spliney_bottom(t_streamwise), 'o')
-    # plt.plot(splinex_top(t_streamwise), spliney_top(t_streamwise), 'o')
-    # plt.plot(splinex_left(t_spanwise), spliney_left(t_spanwise), 'o')
-    # plt.plot(splinex_right(t_spanwise), spliney_right(t_spanwise), 'o')
-
     xi = np.linspace(0, 1, nx)
     eta = np.linspace(0, 1, ny)
 
     # stretching functions applied to the computational cordinates. if the coefficients are equal to 1 and 1, no stretching
     # (this is needed because eriksson with a value of 1 is different from no stretching)
     if streamwise_coeff != 1:
-        if block_topology.lower() == 'inlet':
+        if stretch_type_stream.lower() == 'right':
             xi = eriksson_stretching_function_final(xi, streamwise_coeff)
-        elif block_topology.lower() == 'internal':
+        elif stretch_type_stream.lower() == 'both':
             xi = eriksson_stretching_function_both(xi, streamwise_coeff)
-        elif block_topology.lower() == 'outlet':
+        elif stretch_type_stream.lower() == 'left':
             xi = eriksson_stretching_function_initial(xi, streamwise_coeff)
         else:
             raise ValueError('Unrecognized block topology')
 
     if spanwise_coeff != 1:
-        eta = eriksson_stretching_function_both(eta, spanwise_coeff)
+        if stretch_type_span.lower() == 'up':
+            eta = eriksson_stretching_function_final(eta, streamwise_coeff)
+        elif stretch_type_span.lower() == 'both':
+            eta = eriksson_stretching_function_both(eta, streamwise_coeff)
+        elif stretch_type_span.lower() == 'bottom':
+            eta = eriksson_stretching_function_initial(eta, streamwise_coeff)
+        else:
+            raise ValueError('Unrecognized block topology')
 
     XI, ETA = np.meshgrid(xi, eta, indexing='ij')
     X, Y = XI * 0, ETA * 0
