@@ -327,6 +327,7 @@ class CSolver():
         Solve the system explicitly in time.
         """
         nIter = self.config.GetNIterations()
+        time_physical = 0
         start = time.time()
 
         for it in range(nIter):            
@@ -471,7 +472,8 @@ class CSolver():
                                 residuals[iFace, jFace, kFace-1, :] += flux*area         
                                 residuals[iFace, jFace, kFace, :] -= flux*area
             
-            self.printInfoResiduals(residuals, it)
+            self.PrintInfoResiduals(residuals, it, time_physical)
+            time_physical += dt
             for iEq in range(5):
                 self.conservatives[:,:,:,iEq] -= residuals[:,:,:,iEq]*dt/self.mesh.V  # update the conservative solution
 
@@ -480,7 +482,8 @@ class CSolver():
         print()
         print('For a (%i,%i,%i) grid, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, nIter/(end-start)))
 
-    def printInfoResiduals(self, residuals, it, col_width = 14):
+
+    def PrintInfoResiduals(self, residuals, it, time, col_width = 14):
         """
         Print the residuals during the simulation
         """
@@ -491,13 +494,13 @@ class CSolver():
                 res[i] = np.log10(res[i])
         if it==0:
         # Header
-            print("|" + "-" * ((col_width*6)-1) + "|")
-            print(f"{'|Iteration':<{col_width}}{'|rms[Rho]':<{col_width}}{'|rms[RhoU]':<{col_width}}{'|rms[RhoV]':<{col_width}}{'|rms[RhoW]':<{col_width}}{'|rms[RhoE]':<{col_width}}{'|'}")
-            print("|" + "-" * ((col_width*6)-1) + "|")
+            print("|" + "-" * ((col_width)*7+6) + "|")
+            print(f"{'|'}{'Iteration':<{col_width}}{'|'}{'Time[s]':<{col_width}}{'|'}{'rms[Rho]':>{col_width}}{'|'}{'rms[RhoU]':>{col_width}}{'|'}{'rms[RhoV]':>{col_width}}{'|'}{'rms[RhoW]':>{col_width}}{'|'}{'rms[RhoE]':>{col_width}}{'|'}")
+            print("|" + "-" * ((col_width)*7+6) + "|")
 
         # Data row
         print(
-            f"{'|'}{it:<{col_width-1}}{'|'}{res[0]:<{col_width-1}.6f}{'|'}{res[1]:<{col_width-1}.6f}{'|'}{res[2]:<{col_width-1}.6f}{'|'}{res[3]:<{col_width-1}.6f}{'|'}{res[4]:<{col_width-1}.6f}{'|'}"
+            f"{'|'}{it:<{col_width}}{'|'}{time:<{col_width}.3e}{'|'}{res[0]:>{col_width}.6f}{'|'}{res[1]:>{col_width}.6f}{'|'}{res[2]:>{col_width}.6f}{'|'}{res[3]:>{col_width}.6f}{'|'}{res[4]:>{col_width}.6f}{'|'}"
         )
 
         
