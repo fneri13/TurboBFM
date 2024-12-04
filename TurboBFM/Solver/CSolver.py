@@ -322,11 +322,11 @@ class CSolver():
         return rho, u, et
         
 
-    def Solve(self, nIter : int = 1000) -> None:
+    def Solve(self) -> None:
         """
         Solve the system explicitly in time.
         """
-        # self.ImposeBoundaryConditions()  # before calculating the flux, the conditions on the boundary must be known and used
+        nIter = self.config.GetNIterations()
         start = time.time()
 
         for it in range(nIter):            
@@ -336,8 +336,7 @@ class CSolver():
             self.CheckConservativeVariables(self.conservatives, it+1)
             
             if self.verbosity==3:
-                self.ContoursCheckMeridional('conservatives')
-                # self.ContoursCheck('conservatives', 'j')
+                self.ContoursCheckMeridional('primitives')
                 plt.show()
             
             # i-fluxes
@@ -477,25 +476,28 @@ class CSolver():
                 self.conservatives[:,:,:,iEq] -= residuals[:,:,:,iEq]*dt/self.mesh.V  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
-        # self.ContoursCheck('conservatives', 'j')
-        plt.show()
         end = time.time()
         print()
-        print('For a (%i,%i,%i) grid, with %i internal faces, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, (niF*njF*nkF*3), nIter/(end-start)))
+        print('For a (%i,%i,%i) grid, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, nIter/(end-start)))
 
-    def printInfoResiduals(self, residuals, it, col_width = 15):
+    def printInfoResiduals(self, residuals, it, col_width = 14):
+        """
+        Print the residuals during the simulation
+        """
         res = np.zeros(5)
         for i in range(5):
-            res[i] = np.linalg.norm(residuals[:,:,:,i].flatten())
-        
+            res[i] = np.linalg.norm(residuals[:,:,:,i].flatten())/len(residuals[:,:,:,i].flatten())
+            if res[i]!=0:
+                res[i] = np.log10(res[i])
         if it==0:
         # Header
-            print(f"{'Iteration':<{col_width}}{'res[U1]':<{col_width}}{'res[U2]':<{col_width}}{'res[U3]':<{col_width}}{'res[U4]':<{col_width}}{'res[U5]':<{col_width}}")
-            print("-" * col_width*6)
+            print("|" + "-" * ((col_width*6)-1) + "|")
+            print(f"{'|Iteration':<{col_width}}{'|rms[Rho]':<{col_width}}{'|rms[RhoU]':<{col_width}}{'|rms[RhoV]':<{col_width}}{'|rms[RhoW]':<{col_width}}{'|rms[RhoE]':<{col_width}}{'|'}")
+            print("|" + "-" * ((col_width*6)-1) + "|")
 
         # Data row
         print(
-            f"{it:<{col_width}}{res[0]:<{col_width}.3e}{res[1]:<{col_width}.3e}{res[2]:<{col_width}.3e}{res[3]:<{col_width}.3e}{res[4]:<{col_width}.3e}"
+            f"{'|'}{it:<{col_width-1}}{'|'}{res[0]:<{col_width-1}.6f}{'|'}{res[1]:<{col_width-1}.6f}{'|'}{res[2]:<{col_width-1}.6f}{'|'}{res[3]:<{col_width-1}.6f}{'|'}{res[4]:<{col_width-1}.6f}{'|'}"
         )
 
         

@@ -47,8 +47,8 @@ class CBoundaryCondition():
         if self.bc_type=='wall':
             flux = self.ComputeBCFlux_Wall()
         elif self.bc_type=='inlet':
-            # flux = self.ComputeBCFlux_Inlet()
-            flux = self.ComputeBCFlux_Inlet2()
+            flux = self.ComputeBCFlux_Inlet()
+            # flux = self.ComputeBCFlux_Inlet2()
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet()
         else:

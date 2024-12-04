@@ -119,4 +119,7 @@ class CConfig:
     
     def GetCFL(self):
         return float(self.config_parser.get('CFD', 'CFL'))
+
+    def GetNIterations(self):
+        return int(self.config_parser.get('CFD', 'N_ITERATIONS'))
     

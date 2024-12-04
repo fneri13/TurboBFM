@@ -127,7 +127,7 @@ class CMesh():
 
         
         # Plot of the ij plane at k=0
-        if self.verbosity==3:
+        if self.verbosity==4:
             plt.figure()
             def plot_grid_lines(xgrid, ygrid, color, label):
                 ni, nj = xgrid.shape[0], xgrid.shape[1]
