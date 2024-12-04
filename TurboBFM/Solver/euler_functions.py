@@ -59,7 +59,7 @@ def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, fluid: FluidI
 
         `cons`: conservative variable vector (rho, rho ux, rho uy, rho uz, rho et)
 
-        `surf`: surface vector (nx, ny, nz)
+        `surf`: surface vector (nx, ny, nz). It must point outwards of the source cell, towards the sink cell
 
         `gamma`: cp/cv ratio
 
