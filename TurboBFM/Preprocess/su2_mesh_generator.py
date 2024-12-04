@@ -1,13 +1,21 @@
 import numpy as np
 
-def generate_SU2mesh(*coords, kind_elem, kind_bound, full_annulus=False, filename='mesh.su2'):
+def generate_SU2mesh(*coords, kind_elem, kind_bound, full_annulus=False, filename='mesh.su2') -> None:
     """
-    Functions to generate a su2 mesh file starting from coords arrays.
-    :param coords: coordinate arrays (x,y,x)
-    :param kind_elem: element kind of the mesh
-    :param kind_bound: kind of the boundary elements
-    :param full_annulus: if True select a full-annulus mesh generation (no periodic boundaries)
-    :param filename: file name of the mesh.su2 saved
+    Functions to generate a su2 mesh file starting from coordinates arrays.
+    
+    Parameters
+    -------------------------------
+
+    `coords`: coordinate arrays (x,y,z)
+    
+    `kind_elem`: element kind of the mesh (9 for 2D Quadrilateral, 12 for 3D Hexahedra)
+    
+    `kind_bound`: kind of the boundary elements (3 for 2D lines, 9 for 3D quadrilaterals)
+    
+    `full_annulus`: if True select a full-annulus mesh generation (no periodic boundaries)
+    
+    `filename`: file name of the mesh file to save (without extension)
     """
     if len(coords) == 2:
         X = coords[0]
@@ -116,14 +124,20 @@ def generate_2Dmesh_quads(X: np.ndarray, Y: np.ndarray, filename: str) -> None:
     Mesh_File.close()
 
 
-def generate_3Dmesh_full(X, Y, Z, filename):
+def generate_3Dmesh_full(X: np.ndarray, Y: np.ndarray, Z: np.ndarray, filename: str) -> None:
     """
     Compute full annulus mesh, starting from 3D arrays. In theory the past k-plane of the arrays should be equal to k-0
     plane if 360deg are covered from the point coordinates.
-    :param X: 3d arrays of x
-    :param Y: 3d arrays of y
-    :param Z: 3d arrays of z
-    :param filename: name of the mesh.su2 to save
+
+    Parameters
+    ----------------------------
+    `X`: 3D array of x coordinates
+    
+    `Y`: 3D array of y coordinates
+
+    `Z`: 3D array of z coordinates
+
+    `filename`: name of the mesh to save (without extensions)
     """
     X = X[:, :, 0:-1]
     Y = Y[:, :, 0:-1]
@@ -266,14 +280,20 @@ def generate_3Dmesh_full(X, Y, Z, filename):
     Mesh_File.close()
 
 
-def generate_3Dmesh_sector(X, Y, Z, filename):
+def generate_3Dmesh_sector(X: np.ndarray, Y: np.ndarray, Z: np.ndarray, filename: str) -> None:
     """
     Compute the sector of the annulus mesh, starting from 3D arrays.
     The first and last k planes are related through periodic boundary conditions.
-    :param X: 3d arrays of x
-    :param Y: 3d arrays of y
-    :param Z: 3d arrays of z
-    :param filename: name of the mesh.su2 to save
+    
+    Parameters
+    ----------------------------
+    `X`: 3D array of x coordinates
+    
+    `Y`: 3D array of y coordinates
+
+    `Z`: 3D array of z coordinates
+
+    `filename`: name of the mesh to save (without extensions)
     """
     KindElem = 12  # Quad
     KindBound = 9  # Line

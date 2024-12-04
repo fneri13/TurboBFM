@@ -99,14 +99,21 @@ def transfinite_grid_generation(c_left: np.ndarray, c_bottom: np.ndarray, c_righ
         plt.plot(X[:, j], Y[:, j], 'k', lw=0.5)
     plt.gca().set_aspect('equal', adjustable='box')
 
-
     return X, Y
 
 
 
-def eriksson_stretching_function_initial(x, alpha):
+def eriksson_stretching_function_initial(x: np.ndarray, alpha: float) -> np.ndarray:
     """
-    equation 4.93 Farrashkhalvat Book. Gives clustering at the initial part of the computational domain
+    Function to cluster points at the beginning of the domain [0, 1].
+    Equation 4.93 Farrashkhalvat Book.
+
+    Parameters
+    -------------------------------
+
+    `x`: array of points describing the domain on which sampling with clustering
+
+    `alpha`: stretching intensity parameter (1=no stretching)
     """
     f = (np.exp(alpha * x) - 1) / (np.exp(alpha) - 1)
     # plt.figure()
@@ -119,7 +126,15 @@ def eriksson_stretching_function_initial(x, alpha):
 
 def eriksson_stretching_function_final(x, alpha):
     """
-    equation 4.95 Farrashkhalvat Book. Gives clustering at the final part of the computational domain
+    Function to cluster points at the end of the domain [0, 1].
+    Equation 4.93 Farrashkhalvat Book.
+
+    Parameters
+    -------------------------------
+
+    `x`: array of points describing the domain on which sampling with clustering
+
+    `alpha`: stretching intensity parameter (1=no stretching)
     """
     f = (np.exp(alpha) - np.exp(alpha * (1 - x))) / (np.exp(alpha) - 1)
     # plt.figure()
@@ -132,7 +147,15 @@ def eriksson_stretching_function_final(x, alpha):
 
 def eriksson_stretching_function_both(x, alpha):
     """
-    equation 4.97 Farrashkhalvat Book. Gives clustering at the initial and final part of the computational domain
+    Function to cluster points at the beginning and the end of the domain [0, 1].
+    Equation 4.93 Farrashkhalvat Book.
+
+    Parameters
+    -------------------------------
+
+    `x`: array of points describing the domain on which sampling with clustering
+
+    `alpha`: stretching intensity parameter (1=no stretching)
     """
     x_midpoint = 0.5
     f = np.zeros_like(x)
@@ -151,13 +174,20 @@ def eriksson_stretching_function_both(x, alpha):
     return f
 
 
-def compute_three_dimensional_mesh(Z, R, theta_max, nodes_number):
+def compute_three_dimensional_mesh_revolution(Z: np.ndarray, R: np.ndarray, theta_max: float, nodes_number: int):
         """
-        Compute the structured three-dimensional mesh X,Y,Z as 3D arrays, starting from 2D Z,R grids.
-        :param conserve_AR: if True, tries to conserve the AR choosing the correct delta-theta between each tang. node
-        :param theta_max: [deg] angle of the mesh sector.
-        :param nodes_number: number of nodes from zero to theta_max
-        :param dimensional: if True, reconverts the coordinates to original dimensions in [m]
+        Compute the structured three-dimensional grid (X,Y,Z) as 3D arrays, revolving the 2D meridional grids (Z,R).
+
+        Parameters
+        ---------------------------------
+
+        `Z`: 2D array of axial coordinates
+
+        `R`: 2D array of radial coordinates
+
+        `theta_max`: angle [deg] of the revolution.
+        
+        `nodes_number`: number of nodes to generate along the circumferential direction, from theta=0 to theta=`theta_max`
         """
         NZ = Z.shape[0]
         NR = Z.shape[1]
@@ -173,5 +203,5 @@ def compute_three_dimensional_mesh(Z, R, theta_max, nodes_number):
                     X_mesh[i, j, k] = R[i, j] * np.cos(theta[k])
                     Y_mesh[i, j, k] = R[i, j] * np.sin(theta[k])
                     Z_mesh[i, j, k] = Z[i, j]
-        
+
         return X_mesh, Y_mesh, Z_mesh
