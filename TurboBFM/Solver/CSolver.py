@@ -41,6 +41,38 @@ class CSolver():
         self.InstantiateFields()
         self.ReadBoundaryConditions()
         self.InitializeSolution()
+        self.PrintInfoSolver()
+    
+    def PrintInfoSolver(self):
+        """
+        Print basic information before running the solver
+        """
+        dir = self.config.GetInitDirection()
+
+        if self.verbosity>0:
+            print('='*25 + ' SOLVER INFORMATION ' + '='*25)
+            print('Number of dimensions:                    %i' %(self.nDim))
+            print('Fluid name:                              %s' %(self.fluidName))
+            print('Fluid cp/cv ratio [-]:                   %.2f' %(self.fluidGamma))
+            print('Fluid model:                             %s' %(self.fluidModel))
+            print('Fluid R constant [J/kgK]:                %s' %(self.fluidR))
+            print('Initial Mach [-]:                        %.2f' %(self.config.GetInitMach()))
+            print('Initial Temperature [K]:                 %.2f' %(self.config.GetInitTemperature()))
+            print('Initial Pressure [kPa]:                  %.2f' %(self.config.GetInitPressure()/1e3))
+            print('Initial flow direction [-]:              (%.2f, %.2f, %.2f)' %(dir[0], dir[1], dir[2]))
+            print('Boundary type at i=0:                    %s' %(self.GetBoundaryCondition('i', 'begin')[0]))
+            print('Boundary type at i=ni:                   %s' %(self.GetBoundaryCondition('i', 'end')[0]))
+            print('Boundary type at j=0:                    %s' %(self.GetBoundaryCondition('j', 'begin')[0]))
+            print('Boundary type at j=nj:                   %s' %(self.GetBoundaryCondition('j', 'end')[0]))
+            if self.nDim==3:
+                print('Boundary type at k=0:                    %s' %(self.GetBoundaryCondition('k', 'begin')[0]))
+                print('Boundary type at k=nk:                   %s' %(self.GetBoundaryCondition('k', 'end')[0]))
+            print('Inlet Total Pressure [kPa]:              %.2f' %(self.config.GetInletValue()[0]/1e3))
+            print('Inlet Total Temperature [K]:             %.2f' %(self.config.GetInletValue()[1]))
+            print('Inlet flow direction [-]:                (%.2f, %.2f, %.2f)' %(self.config.GetInletValue()[2], self.config.GetInletValue()[3], self.config.GetInletValue()[4]))
+            print('Outlet static pressure [kPa]:            %.2f' %(self.config.GetOutletValue()/1e3))
+            print('='*25 + ' END SOLVER INFORMATION ' + '='*25)
+            print()
     
     def InstantiateFields(self):
         """
@@ -191,6 +223,8 @@ class CSolver():
         `group`: select between primitives or conservatives
         `perp_direction`: select between i,j,k to choose the on which doing the contour
         """
+        N_levels = 20
+        color_map = 'jet'
         if group.lower()=='primitives':
             fields = self.ConvertConservativesToPrimitives()
             names = [r'$\rho \ \rm{[kg/m^3]}$', r'$u_x \ \rm{[m/s]}$', r'$u_y  \ \rm{[m/s]}$', r'$u_z \ \rm{[m/s]}$', r'$e_t  \ \rm{[J/kg]}$']
@@ -206,7 +240,7 @@ class CSolver():
                 Y = self.mesh.Y[:,:,idx_cut]
                 iplot = iField//3
                 jplot = iField-3*iplot
-                cnt = ax[iplot][jplot].contourf(X, Y, fields[:,:,idx_cut,iField], cmap='jet', levels=20)
+                cnt = ax[iplot][jplot].contourf(X, Y, fields[:,:,idx_cut,iField], cmap=color_map, levels=N_levels)
                 xlabel = 'x [m]'
                 ylabel = 'y [m]'
                 plt.colorbar(cnt, ax=ax[iplot][jplot])
@@ -232,7 +266,7 @@ class CSolver():
                     entropy[i,j] = self.fluid.ComputeEntropy_rho_u_et(fields[i,j,idx_cut,0],
                                                                       fields[i,j,idx_cut,1:-1], 
                                                                       fields[i,j,idx_cut,-1])
-            cnt = ax[1][2].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], entropy[:,:], cmap='jet', levels=20)
+            cnt = ax[1][2].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], entropy[:,:], cmap=color_map, levels=N_levels)
             plt.colorbar(cnt, ax=ax[1][2])
             ax[1][2].set_title(r'$s \ \rm{[J/kgK]}$')
 
@@ -242,7 +276,7 @@ class CSolver():
                     pressure[i,j] = self.fluid.ComputePressure_rho_u_et(fields[i,j,idx_cut,0],
                                                                         fields[i,j,idx_cut,1:-1], 
                                                                         fields[i,j,idx_cut,-1])
-            cnt = ax[2][0].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure[:,:]/1e3, cmap='jet', levels=20)
+            cnt = ax[2][0].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], pressure[:,:]/1e3, cmap=color_map, levels=N_levels)
             plt.colorbar(cnt, ax=ax[2][0])
             ax[2][0].set_title(r'$p \ \rm{[kPa]}$')
 
@@ -252,7 +286,7 @@ class CSolver():
                     ht[i,j] = self.fluid.ComputeTotalEnthalpy_rho_u_et(fields[i,j,idx_cut,0],
                                                                              fields[i,j,idx_cut,1:-1], 
                                                                              fields[i,j,idx_cut,-1])
-            cnt = ax[2][1].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], ht[:,:], cmap='jet', levels=20)
+            cnt = ax[2][1].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], ht[:,:], cmap=color_map, levels=N_levels)
             plt.colorbar(cnt, ax=ax[2][1])
             ax[2][1].set_title(r'$h_t \ \rm{[J/kg]}$')
 
@@ -262,7 +296,7 @@ class CSolver():
                     temperature[i,j] = self.fluid.ComputeStaticTemperature_rho_u_et(fields[i,j,idx_cut,0],
                                                                              fields[i,j,idx_cut,1:-1], 
                                                                              fields[i,j,idx_cut,-1])
-            cnt = ax[2][2].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], temperature, cmap='jet', levels=20)
+            cnt = ax[2][2].contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], temperature, cmap=color_map, levels=N_levels)
             plt.colorbar(cnt, ax=ax[2][2])
             ax[2][2].set_title(r'$T \ \rm{[K]}$')
 
@@ -271,7 +305,7 @@ class CSolver():
             w = fields[:, :, idx_cut, 3]
             magnitude = np.sqrt(u**2 + v**2 + w**2)
             plt.figure()
-            plt.contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], magnitude, cmap='jet', levels=20)
+            plt.contourf(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], magnitude, cmap=color_map, levels=N_levels)
             plt.colorbar()
             plt.quiver(self.mesh.X[:,:,idx_cut], self.mesh.Y[:,:,idx_cut], u, v)
             ax = plt.gca()
@@ -367,11 +401,11 @@ class CSolver():
                             U_l = self.conservatives[iFace-1, jFace, kFace,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]  
                             if iFace==1:
-                                U_ll = U_l
+                                U_ll = U_l-(U_r-U_l)
                                 U_rr = self.conservatives[iFace+1, jFace, kFace,:]
                             elif iFace==niF-2:
                                 U_ll = self.conservatives[iFace-2, jFace, kFace,:]
-                                U_rr = U_r
+                                U_rr = U_r+(U_r-U_l)
                             else:
                                 U_ll = self.conservatives[iFace-2, jFace, kFace,:]
                                 U_rr = self.conservatives[iFace+1, jFace, kFace,:]
@@ -392,7 +426,6 @@ class CSolver():
                             Ub = self.conservatives[iFace, jFace, kFace, :]        # conservative vector on the boundary
                             Uint = self.conservatives[iFace, jFace+1, kFace, :]    # conservative vector internal
                             S = -self.mesh.Sj[iFace, jFace, kFace, :]   # surface oriented towards the wall     
-                            Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace, 'south', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
@@ -402,7 +435,6 @@ class CSolver():
                             Ub = self.conservatives[iFace, jFace-1, kFace, :]      # conservative vector on the boundary
                             Uint = self.conservatives[iFace, jFace-2, kFace, :]    # conservative vector internal
                             S = self.mesh.Sj[iFace, jFace, kFace, :]    # surface oriented towards the wall  
-                            Scheck = self.mesh.GetSurfaceData(iFace, jFace-1, kFace, 'north', 'surface')
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
@@ -411,11 +443,11 @@ class CSolver():
                             U_l = self.conservatives[iFace, jFace-1, kFace,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]
                             if jFace==1:
-                                U_ll = U_l
+                                U_ll = U_l-(U_r-U_l)
                                 U_rr = self.conservatives[iFace, jFace+1, kFace,:]
                             elif jFace==njF-2:
                                 U_ll = self.conservatives[iFace, jFace-2, kFace,:]
-                                U_rr = U_r
+                                U_rr = U_r+(U_r-U_l)
                             else:
                                 U_ll = self.conservatives[iFace, jFace-2, kFace,:]
                                 U_rr = self.conservatives[iFace, jFace+1, kFace,:]

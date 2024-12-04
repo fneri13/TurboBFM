@@ -43,7 +43,7 @@ class CMesh():
         self.ni_dual, self.nj_dual, self.nk_dual = self.ni+1, self.nj+1, self.nk+1      # these are the number of dual grid points
         self.n_elements = self.ni*self.nj*self.nk                                       # number of finite volumes (excluding ghost elements)
         
-        print('Computing Dual Grid..')
+        if self.verbosity>2: print('Computing Grid..')
         if self.nDim==2:
             self.ComputeDualGrid2D()
         else:
@@ -67,7 +67,7 @@ class CMesh():
         For every point [i,j,k] only three surfaces are needed, since the other three come from the following points on the respective directions.
         The centers of gravity of every interface (CGi, CGj, CGk) follows the same indexing.
         """
-        print('Computing Interfaces..')
+        if self.verbosity>2: print('Computing Interfaces..')
 
         def compute_surface_vector_and_cg(x1: float, x2: float, x3: float, x4: float, 
                                           y1: float, y2: float, y3: float, y4: float,
@@ -101,7 +101,7 @@ class CMesh():
         self.CGj = np.zeros((self.ni_dual-1, self.nj_dual, self.nk_dual-1, 3))           # center of face vector connecting point (i,j,k) to (i,j+1,k)
         self.CGk = np.zeros((self.ni_dual-1, self.nj_dual-1, self.nk_dual, 3))           # center of face vector connecting point (i,j,k) to (i,j,k+1)
         
-        print('Computing i-interfaces')
+        if self.verbosity>2: print('Computing i-interfaces')
         for i in range(self.ni_dual):
             for j in range(self.nj_dual-1):
                 for k in range(self.nk_dual-1):
@@ -109,7 +109,7 @@ class CMesh():
                                                                                         self.yv[i,j,k], self.yv[i, j+1, k], self.yv[i, j+1, k+1], self.yv[i, j, k+1], 
                                                                                         self.zv[i,j,k], self.zv[i, j+1, k], self.zv[i, j+1, k+1], self.zv[i, j, k+1])
         
-        print('Computing j-interfaces')
+        if self.verbosity>2: print('Computing j-interfaces')
         for i in range(self.ni_dual-1):
             for j in range(self.nj_dual):
                 for k in range(self.nk_dual-1):
@@ -117,7 +117,7 @@ class CMesh():
                                                                                         self.yv[i,j,k], self.yv[i, j, k+1], self.yv[i+1, j, k+1], self.yv[i+1, j, k], 
                                                                                         self.zv[i,j,k], self.zv[i, j, k+1], self.zv[i+1, j, k+1], self.zv[i+1, j, k])
         
-        print('Computing k-interfaces') 
+        if self.verbosity>2: print('Computing k-interfaces') 
         for i in range(self.ni_dual-1):
             for j in range(self.nj_dual-1):
                 for k in range(self.nk_dual):
@@ -159,7 +159,7 @@ class CMesh():
         """
         Compute the volumes for every element, using Green Gauss Theorem. 
         """
-        print('Computing Volumes')
+        if self.verbosity>2: print('Computing Volumes')
         def compute_volume(S, CG, iDir):
             """
             For the 6 surfaces enclosing an element, compute the volume using green gauss theorem. iDir stands for the direction used (0,1,2) for (x,y,z)
@@ -225,6 +225,7 @@ class CMesh():
             print('                                     average: %.12f' %(np.mean(self.orthogonality)*180/np.pi))
             print('                                     std: %.12f' %(np.std(self.orthogonality)*180/np.pi))
             print('='*25 + ' END MESH INFORMATION ' + '='*25)
+            print()
 
 
 
@@ -389,7 +390,7 @@ class CMesh():
         """
         Given the geometry information stored, compute some quality metrics. 
         """
-        print('Computing Mesh Quality')
+        if self.verbosity>2: print('Computing Mesh Quality')
         self.ComputeAspectRatio()
         self.ComputeSkewnessOrthogonality()
 
