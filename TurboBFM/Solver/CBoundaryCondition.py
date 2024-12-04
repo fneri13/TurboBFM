@@ -23,21 +23,19 @@ class CBoundaryCondition():
 
         `Uint`: conservative vector on the first internal point
 
-        `S`: surface vector (from internal domain towards boundary)
+        `S`: surface vector (from internal cell towards boundary)
 
         `fluid`: fluid object
         """
         self.bc_type = bc_type
         self.bc_value = bc_value
-        self.Ub = Ub                # point on the boundary
-        self.Uint = Uint            # point inside the domain
-        self.Uout = Ub-(Uint-Ub)    # extrapolated point outside of the domain (ghost cell value)
+        self.Ub = Ub                
+        self.Uint = Uint            
         self.S = S                  
         self.fluid = fluid
         self.S_dir = self.S/np.linalg.norm(S)
         self.Wb = GetPrimitivesFromConservatives(self.Ub)
         self.Wint = GetPrimitivesFromConservatives(self.Uint)
-        self.Wout = GetPrimitivesFromConservatives(self.Uout)
     
 
     def ComputeFlux(self):
@@ -48,7 +46,14 @@ class CBoundaryCondition():
             flux = self.ComputeBCFlux_Wall()
         elif self.bc_type=='inlet':
             flux = self.ComputeBCFlux_Inlet()
-            # flux = self.ComputeBCFlux_Inlet2()
+            
+            # check if the two versions give the same results
+            # flux2 = self.ComputeBCFlux_Inlet2()
+            # if np.linalg.norm(flux2-flux)/np.linalg.norm(flux)>1e-1:
+            #     print("Version 1: ", flux)
+            #     print("Version 2: ", flux2)
+            #     print("norm difference: ", np.linalg.norm(flux2-flux)/np.linalg.norm(flux))
+            #     raise ValueError('The two inlet vesions differ')
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet()
         else:
@@ -73,7 +78,7 @@ class CBoundaryCondition():
         a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         ht_int = self.fluid.ComputeTotalEnthalpy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         u_int = self.Wint[1:-1]
-        S_dir_int = -self.S_dir # take a the normal towards interior of the domain
+        S_dir_int = +self.S_dir # what is the right direction????
         Jm = -np.dot(u_int, S_dir_int)+2*a_int/(self.fluid.gmma-1)
 
         def a_b_function(a_b):
@@ -132,7 +137,7 @@ class CBoundaryCondition():
         Assumption of normal outflow for the moment. Formulation taken from 'Formulation and Implementation 
         of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
         """
-        S_dir_int = -self.S_dir
+        S_dir_int = +self.S_dir # what is the right direction????
         s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wb[0], self.Wb[1:-1], self.Wb[-1])
         u_int = self.Wint[1:-1]
         un_int = np.dot(u_int, S_dir_int)

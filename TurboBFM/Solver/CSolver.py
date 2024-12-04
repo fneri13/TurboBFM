@@ -557,6 +557,15 @@ class CSolver():
         """
         jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
         flux = jst.ComputeFluxBlazek()
+        
+        # check if the two versions give the same results
+        # flux2 = jst.ComputeFluxJameson()
+        # if np.linalg.norm(flux2-flux)/np.linalg.norm(flux)>1e-1:
+        #     print("Blazek: ", flux)
+        #     print("Jameson: ", flux2)
+        #     print("norm difference: ", np.linalg.norm(flux2-flux)/np.linalg.norm(flux))
+        #     raise ValueError('The JST fluxes differ')
+        
         return flux
         
     
