@@ -7,7 +7,7 @@ from TurboBFM.Solver.CSolver import CSolver
 
 print("\n" + "=" * 80)
 print(" " * 25 + "🚀  Welcome to TurboBFM 🚀")
-print(" " * 22 + "CFD tool for Turbomachinery BFM")
+print(" " * 22 + "CFD tool for Turbomachinery BFM") 
 print("=" * 80)
 
 config = CConfig('input.ini')

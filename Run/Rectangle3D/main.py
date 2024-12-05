@@ -1,6 +1,4 @@
-import numpy as np
 import pickle
-import matplotlib.pyplot as plt
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CSolver import CSolver

@@ -67,6 +67,7 @@ class CBoundaryCondition():
         """
         p = self.fluid.ComputePressure_rho_u_et(self.Wb[0], self.Wb[1:-1], self.Wb[-1])
         flux = np.array([0, p*self.S_dir[0], p*self.S_dir[1], p*self.S_dir[2], 0])
+
         return flux
 
 
