@@ -5,7 +5,7 @@ import time
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.CConfig import CConfig
-from TurboBFM.Solver.euler_functions import EulerFluxFromConservatives, GetConservativesFromPrimitives, GetPrimitivesFromConservatives
+from TurboBFM.Solver.euler_functions import GetConservativesFromPrimitives, GetPrimitivesFromConservatives
 from TurboBFM.Solver.CScheme_JST import CSchemeJST
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 
@@ -412,10 +412,10 @@ class CSolver():
         start = time.time()
 
         for it in range(nIter):            
-            self.ComputeTimeStep()
+            self.ComputeTimeStepArray()
             dt = np.min(self.time_step)
-            residuals = np.zeros_like(self.conservatives)  # defined as flux going out of the cell
-            self.CheckConservativeVariables(self.conservatives, it+1)
+            residuals = np.zeros_like(self.conservatives)  # defined as flux*surface going out of the cell (i,j,k)
+            self.CheckConvergence(self.conservatives, it+1)
             
             # i-fluxes
             niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
@@ -553,7 +553,7 @@ class CSolver():
                 # self.ContoursCheckResiduals(residuals)
                 plt.show()
             for iEq in range(5):
-                self.conservatives[:,:,:,iEq] = self.conservatives[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V  # update the conservative solution
+                self.conservatives[:,:,:,iEq] = self.conservatives[:,:,:,iEq] - residuals[:,:,:,iEq]*self.time_step[:,:,:]/self.mesh.V[:,:,:]  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
         end = time.time()
@@ -561,9 +561,20 @@ class CSolver():
         print('For a (%i,%i,%i) grid, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, nIter/(end-start)))
 
 
-    def PrintInfoResiduals(self, residuals, it, time, col_width = 14):
+    def PrintInfoResiduals(self, residuals: np.ndarray, it: int, time: float, col_width: int = 14):
         """
-        Print the residuals during the simulation
+        Print the residuals during the simulation.
+
+        Parameters
+        -------------------------------
+
+        `residuals`: residuals array [ni,nj,nk,5]
+
+        `it`: iteration step number
+
+        `time`: current physical time (if global time step is active), otherwise just an indication
+
+        `col_width`: singular column width for the print
         """
         res = np.zeros(5)
         for i in range(5):
@@ -602,7 +613,7 @@ class CSolver():
         `S`: surface vector going from left to right point
         """
         jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
-        flux = jst.ComputeFluxHirsch()
+        flux = jst.ComputeFluxJameson()
         
         # check if the two versions give the same results
         # flux2 = jst.ComputeFluxJameson()
@@ -615,7 +626,7 @@ class CSolver():
         return flux
         
     
-    def ComputeTimeStep(self):
+    def ComputeTimeStepArray(self):
         """
         Compute the time step of the simulation for a certain CFL
         """
@@ -625,8 +636,8 @@ class CSolver():
                 for k in range(self.nk):
                     i_edge, j_edge, k_edge = self.mesh.GetElementEdges((i,j,k))
                     i_dir = i_edge/np.linalg.norm(i_edge)
-                    j_dir = i_edge/np.linalg.norm(j_edge)
-                    k_dir = i_edge/np.linalg.norm(k_edge)
+                    j_dir = j_edge/np.linalg.norm(j_edge)
+                    k_dir = k_edge/np.linalg.norm(k_edge)
                     W = GetPrimitivesFromConservatives(self.conservatives[i,j,k,:])
                     vel = W[1:-1]
                     rho = W[0]
@@ -643,9 +654,16 @@ class CSolver():
                         self.time_step[i,j,k] = CFL*min(dt_i, dt_j)
 
 
-    def CheckConservativeVariables(self, array, nIter):
+    def CheckConvergence(self, array, nIter):
         """
-        Check the array of solutions to stop the simulation in case something is wrong
+        Check the array of solutions to stop the simulation in case something is wrong.
+
+        Parameters
+        ----------------------------
+
+        `array`: array to check for nan, usually conservative solutions
+
+        `nIter`: current iteration number
         """
         if np.isnan(array).any():
             raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))

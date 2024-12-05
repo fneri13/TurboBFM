@@ -13,7 +13,9 @@ class CConfig:
         self.config_parser.read(config_file)
 
         cwd = os.getcwd()
+        print()
         print('Configuration file path: %s' % os.path.join(cwd, config_file))
+        print()
 
     def get_config_value(self, section, option, default=None):
         """
