@@ -74,29 +74,31 @@ class CBoundaryCondition():
         """
         Assumption of normal inflow for the moment. Formulation taken from 'Formulation and Implementation 
         of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
+        Note: _b and _int refer to boundary and internal points.
         """
+        gmma = self.fluid.gmma
         a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         ht_int = self.fluid.ComputeTotalEnthalpy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         u_int = self.Wint[1:-1]
-        S_dir_int = +self.S_dir # what is the right direction????
-        Jm = -np.dot(u_int, S_dir_int)+2*a_int/(self.fluid.gmma-1)
+        S_dir_int = -self.S_dir 
+        Jm = -np.linalg.norm(u_int)+2*a_int/(self.fluid.gmma-1)
 
-        def a_b_function(a_b):
-            f = ht_int-a_b**2/(self.fluid.gmma-1)+0.5*(Jm-2*a_b/(self.fluid.gmma-1))**2
-            return f
-        
-        a_b = fsolve(a_b_function, a_int)
-        a_b = np.max(a_b)
-        un_b = 2*a_b/(self.fluid.gmma-1)-Jm
+        # solve the quadratic equation (16) alpha*x**2+beta*x+zeta=0
+        alpha = 1/(gmma-1)+2/(gmma-1)**2
+        beta = -2*Jm/(gmma-1)
+        zeta = 0.5*Jm**2-ht_int
+        a_b = np.maximum((-beta+np.sqrt(beta**2-4*alpha*zeta))/2/alpha,
+                               (-beta-np.sqrt(beta**2-4*alpha*zeta))/2/alpha)
+
+        un_b = 2*a_b/(gmma-1)-Jm
         M_b = un_b/a_b
         p_b = self.fluid.ComputeStaticPressure_pt_M(self.bc_value[0], M_b)
         T_b = self.fluid.ComputeStaticTemperature_Tt_M(self.bc_value[1], M_b)
         rho_b = self.fluid.ComputeDensity_p_T(p_b, T_b)
         e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
         u_b = np.array([un_b*S_dir_int[0], un_b*S_dir_int[1], un_b*S_dir_int[2]])
-        umag_b = np.linalg.norm(u_b)
-        et_b = e_b+0.5*umag_b**2
-        W_b = np.array([rho_b, un_b*S_dir_int[0], un_b*S_dir_int[1], un_b*S_dir_int[2], et_b])
+        et_b = e_b+0.5*np.linalg.norm(u_b)**2
+        W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
         flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
         return flux
@@ -136,25 +138,27 @@ class CBoundaryCondition():
         """
         Assumption of normal outflow for the moment. Formulation taken from 'Formulation and Implementation 
         of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
+        Note: _b and _int refer to boundary and internal points.
         """
-        S_dir_int = +self.S_dir # what is the right direction????
-        s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wb[0], self.Wb[1:-1], self.Wb[-1])
+        S_dir_out = +self.S_dir     # unit normal directed outwards of the domain
+        rho_int = self.Wint[0]
+        s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         u_int = self.Wint[1:-1]
-        un_int = np.dot(u_int, S_dir_int)
+        un_int = np.dot(u_int, S_dir_out)
         a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
-        Jm = -un_int + 2*a_int/(self.fluid.gmma-1)
+        Jm = -un_int + 2*a_int/(self.fluid.gmma-1)  # Riemann invariant directed outwards
         p_b = self.bc_value
         a_b = np.sqrt(self.fluid.gmma*p_b**((self.fluid.gmma-1)/self.fluid.gmma)*s_b**(1/self.fluid.gmma))
-        Jp = Jm-4*a_b/(self.fluid.gmma-1)
+        Jp = Jm-4*a_b/(self.fluid.gmma-1)  # Riemann invariant directed inwards
         rho_b = (a_b**2/self.fluid.gmma/s_b)**(1/(self.fluid.gmma-1))
         un_b = -0.5*(Jm+Jp)
 
-        utan_int = u_int-un_int*S_dir_int
-        u_b = un_b*S_dir_int + utan_int
+        utan_int = u_int-un_int*S_dir_out
+        u_b = un_b*S_dir_out + utan_int
         et_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b) + 0.5*np.linalg.norm(u_b)**2
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
-        flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
+        flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)  # positive flux is directed outwards
         return flux
 
 
