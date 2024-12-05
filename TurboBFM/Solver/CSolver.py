@@ -410,15 +410,28 @@ class CSolver():
         nIter = self.config.GetNIterations()
         time_physical = 0
         start = time.time()
+        self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out = [], [], [], [], [], []
 
         for it in range(nIter):            
             self.ComputeTimeStepArray()
             dt = np.min(self.time_step)
+            
+            
+            self.mi_in.append(self.ComputeMassFlow('i', 'start'))
+            self.mi_out.append(self.ComputeMassFlow('i', 'end'))
+            self.mj_in.append(self.ComputeMassFlow('j', 'start'))
+            self.mj_out.append(self.ComputeMassFlow('j', 'end'))
+            self.mk_in.append(self.ComputeMassFlow('k', 'start'))
+            self.mk_out.append(self.ComputeMassFlow('k', 'end'))
+            
             residuals = np.zeros_like(self.conservatives)  # defined as flux*surface going out of the cell (i,j,k)
             self.CheckConvergence(self.conservatives, it+1)
             
             # i-fluxes
             niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
+            assert niF==self.ni+1, 'The number of i-interface in the i direction must be equal to ni+1'
+            assert njF==self.nj, 'The number of i-interface in the j direction must be equal to nj'
+            assert nkF==self.nk, 'The number of i-interface in the k direction must be equal to nk'
             for iFace in range(niF):
                 for jFace in range(njF):
                     for kFace in range(nkF):
@@ -444,23 +457,26 @@ class CSolver():
                             U_l = self.conservatives[iFace-1, jFace, kFace,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]  
                             if iFace==1:
-                                U_ll = U_l-(U_r-U_l)
+                                U_ll = U_l
                                 U_rr = self.conservatives[iFace+1, jFace, kFace,:]
                             elif iFace==niF-2:
                                 U_ll = self.conservatives[iFace-2, jFace, kFace,:]
-                                U_rr = U_r+(U_r-U_l)
+                                U_rr = U_r
                             else:
                                 U_ll = self.conservatives[iFace-2, jFace, kFace,:]
                                 U_rr = self.conservatives[iFace+1, jFace, kFace,:]
-                            
-                            S, CG = self.mesh.GetSurfaceData(iFace-1, jFace, kFace, 'east', 'all')  # surface oriented from U_l to U_r
+                            S = self.mesh.Si[iFace, jFace, kFace, :]  # surface oriented from U_l to U_r
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
                             residuals[iFace-1, jFace, kFace, :] += flux*area # a positive flux leaves U_l and enters U_r
                             residuals[iFace, jFace, kFace, :] -= flux*area
+                        assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
             
             # j-fluxes
             niF, njF, nkF = self.mesh.Sj[:, :, :, 0].shape
+            assert niF==self.ni, 'The number of i-interface in the i direction must be equal to ni'
+            assert njF==self.nj+1, 'The number of i-interface in the j direction must be equal to nj+1'
+            assert nkF==self.nk, 'The number of i-interface in the k direction must be equal to nk'
             for iFace in range(niF):
                 for jFace in range(njF):
                     for kFace in range(nkF):
@@ -486,23 +502,27 @@ class CSolver():
                             U_l = self.conservatives[iFace, jFace-1, kFace,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]
                             if jFace==1:
-                                U_ll = U_l-(U_r-U_l)
+                                U_ll = U_l
                                 U_rr = self.conservatives[iFace, jFace+1, kFace,:]
                             elif jFace==njF-2:
                                 U_ll = self.conservatives[iFace, jFace-2, kFace,:]
-                                U_rr = U_r+(U_r-U_l)
+                                U_rr = U_r
                             else:
                                 U_ll = self.conservatives[iFace, jFace-2, kFace,:]
                                 U_rr = self.conservatives[iFace, jFace+1, kFace,:]
-                            S, CG = self.mesh.GetSurfaceData(iFace, jFace-1, kFace, 'north', 'all')  # surface oriented from U_l to U_r
+                            S = self.mesh.Sj[iFace, jFace, kFace, :]  
                             area = np.linalg.norm(S)
                             flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                            residuals[iFace, jFace-1, kFace, :] += flux*area # a positive flux leaves U_l and enters U_r     
+                            residuals[iFace, jFace-1, kFace, :] += flux*area     
                             residuals[iFace, jFace, kFace, :] -= flux*area
+                        assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
             
             # k-fluxes
             if self.nDim==3:
                 niF, njF, nkF = self.mesh.Sk[:, :, :, 0].shape
+                assert niF==self.ni, 'The number of i-interface in the i direction must be equal to ni'
+                assert njF==self.nj, 'The number of i-interface in the j direction must be equal to nj'
+                assert nkF==self.nk+1, 'The number of i-interface in the k direction must be equal to nk+1'
                 for iFace in range(niF):
                     for jFace in range(njF):
                         for kFace in range(nkF):
@@ -528,13 +548,16 @@ class CSolver():
                                 U_l = self.conservatives[iFace, jFace, kFace-1,:]
                                 U_r = self.conservatives[iFace, jFace, kFace,:]
                                 if kFace==1:
-                                    U_ll = U_l - (U_r-U_l)
+                                    U_ll = U_l
                                     try:
                                         U_rr = self.conservatives[iFace, jFace, kFace+1,:]
                                     except:
                                         U_rr = U_r
                                 elif kFace==nkF-2:
-                                    U_ll = self.conservatives[iFace, jFace, kFace-2,:]
+                                    try:
+                                        U_ll = self.conservatives[iFace, jFace, kFace-2,:]
+                                    except:
+                                        U_ll = U_l
                                     U_rr = U_r
                                 else:
                                     U_ll = self.conservatives[iFace, jFace, kFace-2,:]
@@ -544,6 +567,7 @@ class CSolver():
                                 flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
                                 residuals[iFace, jFace, kFace-1, :] += flux*area         
                                 residuals[iFace, jFace, kFace, :] -= flux*area
+                            assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
             
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt
@@ -552,13 +576,17 @@ class CSolver():
             if self.verbosity==3:
                 # self.ContoursCheckResiduals(residuals)
                 plt.show()
+
+            assert self.conservatives.shape==residuals.shape, "The conservative and residual solutions must have same dimensions"
+            assert self.conservatives[:,:,:,0].shape==self.time_step.shape, "The conservative and time step arrays must have same dimensions"
+            assert self.conservatives[:,:,:,0].shape==self.mesh.V.shape, "The conservatives and volumes array must be coherent in number of grid points"
+            assert self.mesh.V.all()>0, "The elements volume must all be larger than 0"
             for iEq in range(5):
-                self.conservatives[:,:,:,iEq] = self.conservatives[:,:,:,iEq] - residuals[:,:,:,iEq]*self.time_step[:,:,:]/self.mesh.V[:,:,:]  # update the conservative solution
+                self.conservatives[:,:,:,iEq] = self.conservatives[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
         end = time.time()
-        print()
-        print('For a (%i,%i,%i) grid, %i explicit iterations are computed every second' %(self.ni, self.nj, self.nk, nIter/(end-start)))
+        self.PrintMassFlowPlot()
 
 
     def PrintInfoResiduals(self, residuals: np.ndarray, it: int, time: float, col_width: int = 14):
@@ -666,7 +694,70 @@ class CSolver():
         `nIter`: current iteration number
         """
         if np.isnan(array).any():
+            self.PrintMassFlowPlot()
+            plt.show()
             raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))
         
         if array[:,:,:,0].any()<=0:
+            self.PrintMassFlowPlot()
+            plt.show()
             raise ValueError("The simulation diverged. Negative density at iteration %i" %(nIter))
+    
+    def ComputeMassFlow(self, direction: str, location: str) -> float:
+        """
+        Compute the mass flow passing through a boundary defined by direction and location
+        
+        Parameters
+        -------------------------
+
+        `direction`: specify i,j,k
+
+        `location`: specify if `start` or `end` of the direction
+        """
+        if direction=='i' and location=='start':
+            rhoU = self.conservatives[0,:,:,1:-1]
+            S = self.mesh.Si[0,:,:,:]
+        elif direction=='i' and location=='end':
+            rhoU = self.conservatives[-1,:,:,1:-1]
+            S = self.mesh.Si[-1,:,:,:]
+        elif direction=='j' and location=='start':
+            rhoU = self.conservatives[:,0,:,1:-1]
+            S = self.mesh.Sj[:,0,:,:]
+        elif direction=='j' and location=='end':
+            rhoU = self.conservatives[:,-1,:,1:-1]
+            S = self.mesh.Sj[:,-1,:,:]
+        elif direction=='k' and location=='start':
+            rhoU = self.conservatives[:,:,0,1:-1]
+            S = self.mesh.Sk[:,:,0,:]
+        elif direction=='k' and location=='end':
+            rhoU = self.conservatives[:,:,-1,1:-1]
+            S = self.mesh.Sk[:,:,-1,:]
+        else:
+            raise ValueError('Direction and location dont correspond to acceptable values')
+        
+        mass_flow = 0
+        ni, nj = S[:,:,0].shape
+        for i in range(ni):
+            for j in range(nj):
+                area = np.linalg.norm(S[i,j,:])
+                normal = S[i,j,:]/area
+                rhoU_n = np.dot(rhoU[i,j,:], normal)
+                mass_flow += rhoU_n*area
+        
+        return mass_flow
+
+    def PrintMassFlowPlot(self):
+        plt.figure()
+        plt.plot(self.mi_in, label=r'$\dot{m}_{i,in}$')
+        plt.plot(self.mi_out, label=r'$\dot{m}_{i,out}$')
+        plt.plot(self.mj_in, label=r'$\dot{m}_{j,in}$')
+        plt.plot(self.mj_out, label=r'$\dot{m}_{j,out}$')
+        plt.plot(self.mk_in, label=r'$\dot{m}_{k,in}$')
+        plt.plot(self.mk_out, label=r'$\dot{m}_{k,out}$')
+        plt.xlabel('iteration')
+        plt.ylabel('mass flow')
+        plt.legend()
+        plt.grid(alpha=0.3)
+        plt.show()
+
+
