@@ -52,9 +52,30 @@ class CSchemeJST():
         Wrr = GetPrimitivesFromConservatives(self.Urr)
         return Wll, Wl, Wr, Wrr
     
+    def ComputeFluxHirsch(self):
+        """
+        Compute the flux following the formulation of Hirsch book, eq. 11.4.6
+        """
+        Wll, Wl, Wr, Wrr = self.ComputePrimitives()
+        kappa4 = 1/50
+
+        fluxL = EulerFluxFromConservatives(self.Ul, self.S, self.fluid)
+        fluxR = EulerFluxFromConservatives(self.Ur, self.S, self.fluid)
+        u_avg = (Wl[1:-1]+Wr[1:-1])*0.5
+        a_l = self.fluid.ComputeSoundSpeed_rho_u_et(Wl[0], Wl[1:-1], Wl[-1])
+        a_r = self.fluid.ComputeSoundSpeed_rho_u_et(Wr[0], Wr[1:-1], Wr[-1])
+        a_avg = (a_l+a_r)*0.5
+        gmma_diss = 0.5*kappa4*(np.dot(u_avg, self.S_dir)+a_avg)
+        dissipation = gmma_diss*(self.Urr-3*self.Ur+3*self.Ul-self.Ull)
+        if gmma_diss<0:
+            raise ValueError('negative dissipation detected')
+        flux = (0.5*(fluxL+fluxR)-dissipation)
+
+        return flux
+    
     def ComputeFluxJameson(self):
         """
-        Compute the flux following the formulation of Jameson
+        Compute the flux following the formulation of Jameson 
         """
         Wll, Wl, Wr, Wrr = self.ComputePrimitives()
 
