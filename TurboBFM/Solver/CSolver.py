@@ -316,6 +316,53 @@ class CSolver():
         # call the contour function depending on the chosen direction
         idx = self.nk//2
         contour_template(fields, names, idx)
+    
+
+    def ContoursCheckResiduals(self, array: np.ndarray):
+        """
+        Plot the contour of the residuals.
+
+        Parameters:
+        ------------------------
+
+        `array`: array storing the residual values
+        """
+        N_levels = 20
+        color_map = 'jet'
+        names = [r'$R(\rho)$', r'$R(\rho u_x)$', r'$R(\rho u_y)$', r'$R(\rho u_z)$', r'$R(\rho e_t)$']
+        
+        # function to make contours on different directions
+        def contour_template(fields, names, idx_cut):
+            xlabel = 'x [m]'
+            ylabel = 'y [m]'
+            fig, ax = plt.subplots(2, 3, figsize=(10,5))
+            for iField in range(len(names)):
+                X = self.mesh.X[:,:,idx_cut]
+                Y = self.mesh.Y[:,:,idx_cut]
+                iplot = iField//3
+                jplot = iField-3*iplot
+                cnt = ax[iplot][jplot].contourf(X, Y, fields[:,:,idx_cut,iField], cmap=color_map, levels=N_levels)
+                plt.colorbar(cnt, ax=ax[iplot][jplot])
+                ax[iplot][jplot].set_title(names[iField])
+                if jplot==0:
+                    ax[iplot][jplot].set_ylabel(ylabel)
+                if iplot==2:
+                    ax[iplot][jplot].set_xlabel(xlabel)
+                # ax[iplot][jplot].set_aspect('equal')
+
+            for iplot in range(2):
+                for jplot in range(3):    
+                    ax[iplot][jplot].set_xticks([])
+                    ax[iplot][jplot].set_yticks([])
+                    if jplot==0:
+                        ax[iplot][jplot].set_ylabel(ylabel)
+                    if iplot==2:
+                        ax[iplot][jplot].set_xlabel(xlabel)
+
+
+        # call the contour function depending on the chosen direction
+        idx = self.nk//2
+        contour_template(array, names, idx)
 
         
         
@@ -369,10 +416,6 @@ class CSolver():
             dt = np.min(self.time_step)
             residuals = np.zeros_like(self.conservatives)  # defined as flux going out of the cell
             self.CheckConservativeVariables(self.conservatives, it+1)
-            
-            if self.verbosity==3:
-                self.ContoursCheckMeridional('primitives')
-                plt.show()
             
             # i-fluxes
             niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
@@ -468,7 +511,6 @@ class CSolver():
                                 Ub = self.conservatives[iFace, jFace, kFace, :]        # conservative vector on the boundary
                                 Uint = self.conservatives[iFace, jFace, kFace+1, :]    # conservative vector internal
                                 S = -self.mesh.Sk[iFace, jFace, kFace, :]   # surface oriented towards the wall      
-                                Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace, 'bottom', 'surface')
                                 boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                                 flux = boundary.ComputeFlux()
                                 area = np.linalg.norm(S)
@@ -478,7 +520,6 @@ class CSolver():
                                 Ub = self.conservatives[iFace, jFace, kFace-1, :]      # conservative vector on the boundary
                                 Uint = self.conservatives[iFace, jFace, kFace-2, :]    # conservative vector internal
                                 S = self.mesh.Sk[iFace, jFace, kFace-1, :]  # surface oriented towards the wall  
-                                Scheck = self.mesh.GetSurfaceData(iFace, jFace, kFace-1, 'top', 'surface')
                                 boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                                 flux = boundary.ComputeFlux()
                                 area = np.linalg.norm(S)
@@ -506,8 +547,13 @@ class CSolver():
             
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt
+            if self.verbosity==3:
+                self.ContoursCheckMeridional('primitives')
+            if self.verbosity==3:
+                # self.ContoursCheckResiduals(residuals)
+                plt.show()
             for iEq in range(5):
-                self.conservatives[:,:,:,iEq] -= residuals[:,:,:,iEq]*dt/self.mesh.V  # update the conservative solution
+                self.conservatives[:,:,:,iEq] = self.conservatives[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
         end = time.time()
@@ -556,7 +602,7 @@ class CSolver():
         `S`: surface vector going from left to right point
         """
         jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
-        flux = jst.ComputeFluxBlazek()
+        flux = jst.ComputeFluxHirsch()
         
         # check if the two versions give the same results
         # flux2 = jst.ComputeFluxJameson()
@@ -591,7 +637,10 @@ class CSolver():
                     dt_j = np.linalg.norm(j_edge) / (np.abs(np.dot(vel, j_dir))+a)
                     dt_k = np.linalg.norm(k_edge) / (np.abs(np.dot(vel, k_dir))+a)
 
-                    self.time_step[i,j,k] = min(dt_i, dt_j, dt_k)
+                    if self.nDim==3:
+                        self.time_step[i,j,k] = CFL*min(dt_i, dt_j, dt_k)
+                    else:
+                        self.time_step[i,j,k] = CFL*min(dt_i, dt_j)
 
 
     def CheckConservativeVariables(self, array, nIter):
