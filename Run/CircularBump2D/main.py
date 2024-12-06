@@ -17,3 +17,6 @@ with open(config.GetGridFilepath(), 'rb') as file:
 mesh = CMesh(config, grid)
 solver = CSolver(config, mesh)
 solver.Solve()
+
+
+plt.show()

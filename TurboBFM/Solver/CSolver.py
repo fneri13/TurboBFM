@@ -8,6 +8,7 @@ from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.euler_functions import GetConservativesFromPrimitives, GetPrimitivesFromConservatives
 from TurboBFM.Solver.CScheme_JST import CSchemeJST
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
+from TurboBFM.Postprocess import styles
 
 
 class CSolver():
@@ -78,8 +79,19 @@ class CSolver():
         """
         Instantiate basic fields.
         """
-        self.conservatives = np.zeros((self.ni, self.nj, self.nk, 5))
-        self.time_step = np.zeros((self.ni, self.nj, self.nk))
+        self.conservatives = np.zeros((self.ni, self.nj, self.nk, 5))   # store all the conservative variables for all points
+        self.time_step = np.zeros((self.ni, self.nj, self.nk))          # store the CFL related time-step for each point at current step
+        self.residual_rho = []                                          # store the residual of continuity equation
+        self.residual_rhoU = []                                         # store the residual of x-mom equation
+        self.residual_rhoV = []                                         # store the residual of y-mom equation
+        self.residual_rhoW = []                                         # store the residual of z-mom equation
+        self.residual_rhoE = []                                         # store the residual of energy equation
+        self.mi_in = []                                                 # store the mass flow entering from i
+        self.mi_out = []                                                # store the mass flow exiting from i
+        self.mj_in = []                                                 # store the mass flow entering from j
+        self.mj_out = []                                                # store the mass flow exiting from j
+        self.mk_in = []                                                 # store the mass flow entering from k
+        self.mk_out = []                                                # store the mass flow exiting from k
 
         
     def ReadBoundaryConditions(self):
@@ -410,7 +422,6 @@ class CSolver():
         nIter = self.config.GetNIterations()
         time_physical = 0
         start = time.time()
-        self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out = [], [], [], [], [], []
 
         for it in range(nIter):            
             self.ComputeTimeStepArray()
@@ -587,6 +598,7 @@ class CSolver():
         self.ContoursCheckMeridional('conservatives')
         end = time.time()
         self.PrintMassFlowPlot()
+        self.PrintResidualsPlot()
 
 
     def PrintInfoResiduals(self, residuals: np.ndarray, it: int, time: float, col_width: int = 14):
@@ -619,6 +631,13 @@ class CSolver():
         print(
             f"{'|'}{it:<{col_width}}{'|'}{time:<{col_width}.3e}{'|'}{res[0]:>{col_width}.6f}{'|'}{res[1]:>{col_width}.6f}{'|'}{res[2]:>{col_width}.6f}{'|'}{res[3]:>{col_width}.6f}{'|'}{res[4]:>{col_width}.6f}{'|'}"
         )
+
+        # bookkeep the residuals for final plot
+        self.residual_rho.append(res[0])
+        self.residual_rhoU.append(res[1])
+        self.residual_rhoV.append(res[2])
+        self.residual_rhoW.append(res[3])
+        self.residual_rhoE.append(res[4])
 
         
     def ComputeJSTFlux(self, Ull: np.ndarray, Ul: np.ndarray, Ur: np.ndarray, Urr: np.ndarray, S: np.ndarray) -> np.ndarray :
@@ -695,11 +714,13 @@ class CSolver():
         """
         if np.isnan(array).any():
             self.PrintMassFlowPlot()
+            self.PrintResidualsPlot()
             plt.show()
             raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))
         
         if array[:,:,:,0].any()<=0:
             self.PrintMassFlowPlot()
+            self.PrintResidualsPlot()
             plt.show()
             raise ValueError("The simulation diverged. Negative density at iteration %i" %(nIter))
     
@@ -747,6 +768,9 @@ class CSolver():
         return mass_flow
 
     def PrintMassFlowPlot(self):
+        """
+        Print the plot of the mass passing through boundaries
+        """
         plt.figure()
         plt.plot(self.mi_in, label=r'$\dot{m}_{i,in}$')
         plt.plot(self.mi_out, label=r'$\dot{m}_{i,out}$')
@@ -754,10 +778,33 @@ class CSolver():
         plt.plot(self.mj_out, label=r'$\dot{m}_{j,out}$')
         plt.plot(self.mk_in, label=r'$\dot{m}_{k,in}$')
         plt.plot(self.mk_out, label=r'$\dot{m}_{k,out}$')
-        plt.xlabel('iteration')
-        plt.ylabel('mass flow')
+        plt.xlabel('iteration [-]')
+        plt.ylabel('mass flow [kg/s]')
         plt.legend()
         plt.grid(alpha=0.3)
-        plt.show()
+    
+    def PrintResidualsPlot(self):
+        """
+        Plot the residuals
+        """
+        self.residual_rho = np.array(self.residual_rho)
+        self.residual_rhoU = np.array(self.residual_rhoU)
+        self.residual_rhoV = np.array(self.residual_rhoV)
+        self.residual_rhoW = np.array(self.residual_rhoW)
+        self.residual_rhoE = np.array(self.residual_rhoE)
+
+        def shift_to_zero(array):
+            return array-array[0]
+
+        plt.figure()
+        plt.plot(shift_to_zero(self.residual_rho), label=r'$R[\rho]$')
+        plt.plot(shift_to_zero(self.residual_rhoU), label=r'$R[\rho U]$')
+        plt.plot(shift_to_zero(self.residual_rhoV), label=r'$R[\rho V]$')
+        plt.plot(shift_to_zero(self.residual_rhoW), label=r'$R[\rho W]$')
+        plt.plot(shift_to_zero(self.residual_rhoE), label=r'$R[\rho E]$')
+        plt.xlabel('iteration [-]')
+        plt.ylabel('residuals drop [-]')
+        plt.legend()
+        plt.grid(alpha=styles.grid_opacity)
 
 

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pyvista as pv
 from mpl_toolkits.mplot3d import Axes3D 
 from TurboBFM.Solver.CConfig import CConfig
+from TurboBFM.Postprocess import styles
 
 class CMesh():
     
@@ -140,19 +141,20 @@ class CMesh():
                     plt.plot(xgrid[:,j,0], ygrid[:,j,0], '%s' %(color), lw=0.75, mfc='none')
                 return None
             
-            plot_grid_lines(self.X, self.Y, 'ko', label='Primary')
-            plot_grid_lines(self.xv, self.yv, '--r^', label='Dual')
+            plot_grid_lines(self.X, self.Y, '-C0o', label='Primary')
+            plot_grid_lines(self.xv, self.yv, '--C1^', label='Dual')
             for i in range(self.ni_dual):
                 for j in range(self.nj_dual-1):
-                    plt.quiver(self.CGi[i,j,0,0], self.CGi[i,j,0,1], self.Si[i,j,0,0], self.Si[i,j,0,1])
+                    plt.quiver(self.CGi[i,j,0,0], self.CGi[i,j,0,1], self.Si[i,j,0,0], self.Si[i,j,0,1], color='black')
             for i in range(self.ni_dual-1):
                 for j in range(self.nj_dual):
-                    plt.quiver(self.CGj[i,j,0,0], self.CGj[i,j,0,1], self.Sj[i,j,0,0], self.Sj[i,j,0,1])
+                    plt.quiver(self.CGj[i,j,0,0], self.CGj[i,j,0,1], self.Sj[i,j,0,0], self.Sj[i,j,0,1], color='black')
             plt.xlabel('x')
             plt.ylabel('y')
             plt.legend()
-            plt.title('k=%i plane' %(0))
+            # plt.title('k=%i plane' %(0))
             plt.gca().set_aspect('equal', adjustable='box')
+            plt.show()
 
 
     def ComputeVolumes(self):
