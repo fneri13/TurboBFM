@@ -508,7 +508,7 @@ class CMesh():
         
         `k`: element index along third direction
 
-        `direction`: string defining the direction (i,j,k) -> (east or west, south or north, down or up)
+        `direction`: string defining the direction (i,j,k) -> (east or west, south or north, bottom or top)
 
         `data`: string specifying if you want the midpoint coordinates, or the surface vector, or all
         """

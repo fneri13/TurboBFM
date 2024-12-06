@@ -127,6 +127,40 @@ class TestMesh(unittest.TestCase):
         check_unique_points(mesh.CGi)
         check_unique_points(mesh.CGj)
         check_unique_points(mesh.CGk)
+    
+    
+    def test_surface_conservation(self):
+        """
+        Test that the interfaces between two elements are the same and opposite
+        """
+        def check_info(S1, S2, CG1, CG2):
+            """
+            opposite normal vectors and same locations
+            """
+            self.assertEqual(S1[0], -S2[0])
+            self.assertEqual(S1[1], -S2[1])
+            self.assertEqual(S1[2], -S2[2])
+            self.assertEqual(CG1[0], CG2[0])
+            self.assertEqual(CG1[1], CG2[1])
+            self.assertEqual(CG1[2], CG2[2])
+
+        ni,nj,nk = mesh.V.shape
+        for i in range(1,ni-1):
+            for j in range(1,nj-1):
+                for k in range(1,nk-1):
+                    S1, CG1 = mesh.GetSurfaceData(i,j,k,'west','all')
+                    S2, CG2 = mesh.GetSurfaceData(i-1,j,k,'east','all')
+                    check_info(S1, S2, CG1, CG2)
+
+                    S1, CG1 = mesh.GetSurfaceData(i,j,k,'north','all')
+                    S2, CG2 = mesh.GetSurfaceData(i,j+1,k,'south','all')
+                    check_info(S1, S2, CG1, CG2)
+
+                    S1, CG1 = mesh.GetSurfaceData(i,j,k,'top','all')
+                    S2, CG2 = mesh.GetSurfaceData(i,j,k+1,'bottom','all')
+                    check_info(S1, S2, CG1, CG2)
+                    
+                    
         
 
 

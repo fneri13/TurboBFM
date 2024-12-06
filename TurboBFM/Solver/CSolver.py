@@ -448,22 +448,22 @@ class CSolver():
                     for kFace in range(nkF):
                         if iFace==0: 
                             bc_type, bc_value = self.GetBoundaryCondition('i', 'begin')
-                            Ub = self.conservatives[iFace, jFace, kFace, :]        # conservative vector on the boundary
-                            Uint = self.conservatives[iFace+1, jFace, kFace, :]    # conservative vector internal point
-                            S = -self.mesh.Si[iFace, jFace, kFace, :]   # the normal is oriented towards the boundary
+                            Ub = self.conservatives[iFace, jFace, kFace, :]         # conservative vector on the boundary
+                            Uint = self.conservatives[iFace+1, jFace, kFace, :]     # conservative vector internal point
+                            S = -self.mesh.Si[iFace, jFace, kFace, :]               # the normal is oriented towards the boundary
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            residuals[iFace, jFace, kFace, :] += flux*area     # a positive flux must leave the cell and go out of the domain
+                            residuals[iFace, jFace, kFace, :] += flux*area          # +flux because the normal is directed outwards
                         elif iFace==niF-1:
                             bc_type, bc_value = self.GetBoundaryCondition('i', 'end')
-                            Ub = self.conservatives[iFace-1, jFace, kFace, :]      # conservative vector on the boundary
-                            Uint = self.conservatives[iFace-2, jFace, kFace, :]    # conservative vector internal
-                            S = self.mesh.Si[iFace, jFace, kFace, :]    # the normal is oriented towards the boundary
+                            Ub = self.conservatives[iFace-1, jFace, kFace, :]       # conservative vector on the boundary
+                            Uint = self.conservatives[iFace-2, jFace, kFace, :]     # conservative vector internal
+                            S = self.mesh.Si[iFace, jFace, kFace, :]                # the normal is oriented towards the boundary
                             boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                             flux = boundary.ComputeFlux()
                             area = np.linalg.norm(S)
-                            residuals[iFace-1, jFace, kFace, :] += flux*area
+                            residuals[iFace-1, jFace, kFace, :] += flux*area        # +flux because the normal is directed outwards
                         else:
                             U_l = self.conservatives[iFace-1, jFace, kFace,:]
                             U_r = self.conservatives[iFace, jFace, kFace,:]  
@@ -583,15 +583,10 @@ class CSolver():
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt
             if self.verbosity==3:
-                self.ContoursCheckMeridional('primitives')
-            if self.verbosity==3:
-                # self.ContoursCheckResiduals(residuals)
+                # self.ContoursCheckMeridional('primitives')
+                self.ContoursCheckResiduals(residuals)
                 plt.show()
 
-            assert self.conservatives.shape==residuals.shape, "The conservative and residual solutions must have same dimensions"
-            assert self.conservatives[:,:,:,0].shape==self.time_step.shape, "The conservative and time step arrays must have same dimensions"
-            assert self.conservatives[:,:,:,0].shape==self.mesh.V.shape, "The conservatives and volumes array must be coherent in number of grid points"
-            assert self.mesh.V.all()>0, "The elements volume must all be larger than 0"
             for iEq in range(5):
                 self.conservatives[:,:,:,iEq] = self.conservatives[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
 
