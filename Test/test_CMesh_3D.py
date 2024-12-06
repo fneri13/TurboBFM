@@ -19,6 +19,9 @@ ni,nj,nk = mesh.X.shape
 
 class TestMesh(unittest.TestCase):
     def test_surface(self):
+        """
+        Check the surface components magnitude
+        """
         for i in range(1,ni-1):
             for j in range(1,nj-1):
                 for k in range(1,nk-1):
@@ -47,6 +50,9 @@ class TestMesh(unittest.TestCase):
         self.assertEqual(Sk[2],  1)
     
     def test_volume(self):
+        """
+        Check the volume magnitude
+        """
         for i in range(1,ni-1):
             for j in range(1,nj-1):
                 for k in range(1,nk-1):
@@ -55,6 +61,9 @@ class TestMesh(unittest.TestCase):
     
 
     def test_get_surface_data(self):
+        """
+        Check the method to get surface data for every cell
+        """
         for i in range(1,ni-1):
             for j in range(1,nj-1):
                 for k in range(1,nk-1):
@@ -69,12 +78,58 @@ class TestMesh(unittest.TestCase):
                            self.assertEqual(S[idim],  solutions[idir][idim]) 
     
     def test_fundamental_entities_number(self):
+        """
+        Check the number of fundamental quantities
+        """
         n_elems = mesh.n_elements
         n_faces = mesh.Si[:,:,:,0].size + mesh.Sj[:,:,:,0].size + mesh.Sk[:,:,:,0].size
         ref_elems = ni*nj*nk
         ref_faces = (ni+1)*nj*nk + (nj+1)*ni*nk + (nk+1)*ni*nj
         self.assertEqual(n_elems, ni*nj*nk)
         self.assertEqual(n_faces, ref_faces)
+    
+    def test_no_zero_surface(self):
+        """
+        Check that there are no zero area surfaces
+        """
+        def check_surface_area(S):
+            ni, nj, nk = S[:,:,:,0].shape
+            for i in range(ni):
+                for j in range(nj):
+                    for k in range(nk):
+                        area = np.linalg.norm(S[i,j,k,:])
+                        self.assertGreater(area, 1e-12)
+        check_surface_area(mesh.Si)
+        check_surface_area(mesh.Sj)
+        check_surface_area(mesh.Sk)
+    
+    def test_no_zero_volume(self):
+        """
+        Check that there are no zero volume elements
+        """
+        ni, nj, nk = mesh.V.shape
+        for i in range(ni):
+            for j in range(nj):
+                for k in range(nk):
+                    volume = np.linalg.norm(mesh.V[i,j,k])
+                    self.assertGreater(volume, 1e-12)
+    
+    def test_cg_singular_locations(self):
+        """
+        Check that all the surface midpoints are unique
+        """
+        def check_unique_points(CG):
+            ni,nj,nk,nd = CG.shape
+            CG =np.reshape(CG, (ni*nj*nk,nd))
+            unique_points = np.unique(CG, axis=0)
+            self.assertEqual(len(CG), len(unique_points))
+        
+        check_unique_points(mesh.CGi)
+        check_unique_points(mesh.CGj)
+        check_unique_points(mesh.CGk)
+        
+
+
         
 
         

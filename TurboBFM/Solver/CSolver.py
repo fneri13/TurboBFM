@@ -12,7 +12,7 @@ from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 
 class CSolver():
     
-    def __init__(self, config, mesh):
+    def __init__(self, config: CConfig, mesh: CMesh):
         """
         Instantiate the Euler Solver, by using the information contained in the mesh object (Points, Volumes, and Surfaces)
         """

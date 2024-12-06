@@ -1,11 +1,13 @@
+import numpy as np
 import pickle
+import matplotlib.pyplot as plt
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CSolver import CSolver
 
 print("\n" + "=" * 80)
 print(" " * 25 + "🚀  Welcome to TurboBFM 🚀")
-print(" " * 22 + "CFD tool for Turbomachinery BFM")
+print(" " * 22 + "CFD tool for Turbomachinery BFM") 
 print("=" * 80)
 
 config = CConfig('input.ini')
