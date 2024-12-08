@@ -283,6 +283,7 @@ class CMesh():
         # fix also the second plane in k-direction
         xv[:,:,1] = xv[:,:,0]       # same x-coordinates
         yv[:,:,1] = yv[:,:,0]       # same y-coordinates
+        zv[:,:,0] = zv[:,:,0]-0.5   # so the nodes stay in the plane z=0
         zv[:,:,1] = zv[:,:,0]+1     # thickness value of 1 everywhere 
 
         # mantain a copy of the vertices, to compute also the quality

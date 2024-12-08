@@ -19,4 +19,4 @@ solver = CSolver(config, mesh)
 solver.Solve()
 
 
-plt.show()
+plt.show() 
