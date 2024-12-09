@@ -105,6 +105,11 @@ class CConfig:
         inlet = [float(x.strip()) for x in inlet.split(',')]
         return inlet
     
+    def GetAdvectionVelocity(self):
+        u = self.config_parser.get('CFD', 'ADVECTION_VELOCITY')
+        u = [float(x.strip()) for x in u.split(',')]
+        return u
+    
     def GetOutletValue(self):
         return float(self.config_parser.get('CFD', 'OUTLET_VALUE'))
     
@@ -124,6 +129,13 @@ class CConfig:
     
     def GetCFL(self):
         return float(self.config_parser.get('CFD', 'CFL'))
+    
+    def GetAdvectionRotation(self):
+        rot = str(self.config_parser.get('CFD', 'ADVECTION_ROTATION')).lower()
+        if rot=='yes':
+            return True
+        else:
+            return False
 
     def GetNIterations(self):
         return int(self.config_parser.get('CFD', 'N_ITERATIONS'))

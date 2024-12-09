@@ -15,7 +15,15 @@ with open(config.GetGridFilepath(), 'rb') as file:
     grid = pickle.load(file)
 
 mesh = CMesh(config, grid)
-solver = CEulerSolver(config, mesh)
+kind_solver = config.GetKindSolver()
+if kind_solver=='Euler':
+    solver = CEulerSolver(config, mesh)
+elif kind_solver=='Advection':
+    solver = CEulerSolver(config, mesh)
+solver.InstantiateFields()
+solver.ReadBoundaryConditions()
+solver.InitializeSolution()
+solver.PrintInfoSolver()
 solver.Solve()
 
 
