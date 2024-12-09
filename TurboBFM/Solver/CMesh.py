@@ -51,12 +51,10 @@ class CMesh():
             self.ComputeDualGrid3D()
 
         self.ComputeInterfaces()
-
         self.ComputeVolumes()
-
         self.ComputeMeshQuality()
-
         self.PrintMeshInfo()
+
 
     def ComputeInterfaces(self):
         """
@@ -181,6 +179,7 @@ class CMesh():
                     CG = (self.CGi[i,j,k,:], self.CGj[i,j,k,:], self.CGk[i,j,k,:], self.CGi[i+1,j,k,:], self.CGj[i,j+1,k,:], self.CGk[i,j,k+1,:])
                     self.V[i,j,k] = compute_volume(S, CG, 0)
     
+
     def PrintMeshInfo(self):
         """
         Print relevant information for the mesh
@@ -228,7 +227,6 @@ class CMesh():
             print('                                     std: %.12f' %(np.std(self.orthogonality)*180/np.pi))
             print('='*25 + ' END MESH INFORMATION ' + '='*25)
             print()
-
 
 
     def ComputeDualGrid2D(self):
@@ -288,7 +286,6 @@ class CMesh():
 
         # mantain a copy of the vertices, to compute also the quality
         self.xv, self.yv, self.zv = xv, yv, zv
-
 
 
     def ComputeDualGrid3D(self):
@@ -388,7 +385,6 @@ class CMesh():
         self.xv, self.yv, self.zv = xv, yv, zv
 
 
-
     def ComputeMeshQuality(self):
         """
         Given the geometry information stored, compute some quality metrics. 
@@ -422,6 +418,7 @@ class CMesh():
                     self.aspect_ratio.append(ar)
         self.aspect_ratio = np.array(self.aspect_ratio)
     
+
     def ComputeSkewnessOrthogonality(self):
         """
         Compute the mesh skewness, defined as the distance between the real center face and the midpoint connecting the two cells, normalized
@@ -572,6 +569,7 @@ class CMesh():
         ax[2].set_xlabel('Orthogonality [deg]')
         ax[2].set_ylabel('N')
     
+
     def VisualizeMesh(self):
         # Create a 3D scatter plot
         mesh = pv.StructuredGrid(self.X, self.Y, self.Z)
@@ -579,6 +577,7 @@ class CMesh():
         plotter.add_mesh(mesh, cmap='viridis', show_edges=True)
         plotter.show_axes()
         plotter.show()
+
 
     def GetDualNeighbours(self, idx: tuple) -> np.ndarray:
         """
@@ -597,6 +596,7 @@ class CMesh():
         
         return np.vstack((x, y, z))
     
+
     def GetElementEdges(self, idx: tuple) -> tuple:
         """
         Return the length of the three edges of an element
