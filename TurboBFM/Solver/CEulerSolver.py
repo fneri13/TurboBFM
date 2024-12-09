@@ -372,7 +372,82 @@ class CEulerSolver(CSolver):
         rho = P/R/T
         et = (P / (gmma - 1) / rho) + 0.5*u_mag**2
         return rho, u, et
+           
+
+    def SpatialIntegration(self, dir, Res):
+        """
+        Perform spatial integration loop in a certain direction. 
+
+        Parameters
+        -------------------------
+
+        `dir`: i,j or k
+
+        `res`: residual arrays of the current time-step that will be updated
+        """
+        if dir=='i':
+            step_mask = np.array([1, 0, 0])
+            Surf = self.mesh.Si
+        elif dir=='j':
+            step_mask = np.array([0, 1, 0])
+            Surf = self.mesh.Sj
+        else:
+            step_mask = np.array([0, 0, 1])
+            Surf = self.mesh.Sk
         
+        niF, njF, nkF = Surf[:,:,:,0].shape
+        
+        for iFace in range(niF):
+            for jFace in range(njF):
+                for kFace in range(nkF):
+                    
+                    # direction specific parameters
+                    if dir=='i':
+                        dir_face = iFace
+                        stop_face = niF-1  # index of the last volume elements along the specified direction
+                    elif dir=='j':
+                        dir_face = jFace
+                        stop_face = njF-1
+                    else:
+                        dir_face = kFace
+                        stop_face = nkF-1
+                    
+                    if dir_face==0: 
+                        bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
+                        Ub = self.solution[iFace, jFace, kFace, :]   
+                        Uint = self.solution[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2], :]     
+                        S = -Surf[iFace, jFace, kFace, :]               
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
+                        flux = boundary.ComputeFlux()
+                        area = np.linalg.norm(S)
+                        Res[iFace, jFace, kFace, :] += flux*area          
+                    elif dir_face==stop_face:
+                        bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
+                        Ub = self.solution[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
+                        Uint = self.solution[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2], :]     
+                        S = Surf[iFace, jFace, kFace, :]                
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
+                        flux = boundary.ComputeFlux()
+                        area = np.linalg.norm(S)
+                        Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
+                    else:
+                        U_l = self.solution[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2],:]
+                        U_r = self.solution[iFace, jFace, kFace,:]  
+                        if dir_face==1:
+                            U_ll = U_l
+                            U_rr = self.solution[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
+                        elif dir_face==stop_face-1:
+                            U_ll = self.solution[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2],:]
+                            U_rr = U_r
+                        else:
+                            U_ll = self.solution[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2],:]
+                            U_rr = self.solution[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
+                        S = Surf[iFace, jFace, kFace, :]
+                        area = np.linalg.norm(S)
+                        flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
+                        Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area 
+                        Res[iFace, jFace, kFace, :] -= flux*area
+
 
     @override
     def Solve(self) -> None:
@@ -387,7 +462,6 @@ class CEulerSolver(CSolver):
             self.ComputeTimeStepArray()
             dt = np.min(self.time_step)
             
-            
             self.mi_in.append(self.ComputeMassFlow('i', 'start'))
             self.mi_out.append(self.ComputeMassFlow('i', 'end'))
             self.mj_in.append(self.ComputeMassFlow('j', 'start'))
@@ -395,150 +469,13 @@ class CEulerSolver(CSolver):
             self.mk_in.append(self.ComputeMassFlow('k', 'start'))
             self.mk_out.append(self.ComputeMassFlow('k', 'end'))
             
-            residuals = np.zeros_like(self.solution)  # defined as flux*surface going out of the cell (i,j,k)
+            residuals = np.zeros_like(self.solution)
             self.CheckConvergence(self.solution, it+1)
             
-            # i-fluxes
-            niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
-            assert niF==self.ni+1, 'The number of i-interface in the i direction must be equal to ni+1'
-            assert njF==self.nj, 'The number of i-interface in the j direction must be equal to nj'
-            assert nkF==self.nk, 'The number of i-interface in the k direction must be equal to nk'
-            for iFace in range(niF):
-                for jFace in range(njF):
-                    for kFace in range(nkF):
-                        if iFace==0: 
-                            bc_type, bc_value = self.GetBoundaryCondition('i', 'begin')
-                            Ub = self.solution[iFace, jFace, kFace, :]         # conservative vector on the boundary
-                            Uint = self.solution[iFace+1, jFace, kFace, :]     # conservative vector internal point
-                            S = -self.mesh.Si[iFace, jFace, kFace, :]               # the normal is oriented towards the boundary
-                            boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                            flux = boundary.ComputeFlux()
-                            area = np.linalg.norm(S)
-                            residuals[iFace, jFace, kFace, :] += flux*area          # +flux because the normal is directed outwards
-                        elif iFace==niF-1:
-                            bc_type, bc_value = self.GetBoundaryCondition('i', 'end')
-                            Ub = self.solution[iFace-1, jFace, kFace, :]       # conservative vector on the boundary
-                            Uint = self.solution[iFace-2, jFace, kFace, :]     # conservative vector internal
-                            S = self.mesh.Si[iFace, jFace, kFace, :]                # the normal is oriented towards the boundary
-                            boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                            flux = boundary.ComputeFlux()
-                            area = np.linalg.norm(S)
-                            residuals[iFace-1, jFace, kFace, :] += flux*area        # +flux because the normal is directed outwards
-                        else:
-                            U_l = self.solution[iFace-1, jFace, kFace,:]
-                            U_r = self.solution[iFace, jFace, kFace,:]  
-                            if iFace==1:
-                                U_ll = U_l
-                                U_rr = self.solution[iFace+1, jFace, kFace,:]
-                            elif iFace==niF-2:
-                                U_ll = self.solution[iFace-2, jFace, kFace,:]
-                                U_rr = U_r
-                            else:
-                                U_ll = self.solution[iFace-2, jFace, kFace,:]
-                                U_rr = self.solution[iFace+1, jFace, kFace,:]
-                            S = self.mesh.Si[iFace, jFace, kFace, :]  # surface oriented from U_l to U_r
-                            area = np.linalg.norm(S)
-                            flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                            residuals[iFace-1, jFace, kFace, :] += flux*area # a positive flux leaves U_l and enters U_r
-                            residuals[iFace, jFace, kFace, :] -= flux*area
-                        assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
-            
-            # j-fluxes
-            niF, njF, nkF = self.mesh.Sj[:, :, :, 0].shape
-            assert niF==self.ni, 'The number of i-interface in the i direction must be equal to ni'
-            assert njF==self.nj+1, 'The number of i-interface in the j direction must be equal to nj+1'
-            assert nkF==self.nk, 'The number of i-interface in the k direction must be equal to nk'
-            for iFace in range(niF):
-                for jFace in range(njF):
-                    for kFace in range(nkF):
-                        if jFace==0:
-                            bc_type, bc_value = self.GetBoundaryCondition('j', 'begin')
-                            Ub = self.solution[iFace, jFace, kFace, :]        # conservative vector on the boundary
-                            Uint = self.solution[iFace, jFace+1, kFace, :]    # conservative vector internal
-                            S = -self.mesh.Sj[iFace, jFace, kFace, :]   # surface oriented towards the wall     
-                            boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                            flux = boundary.ComputeFlux()
-                            area = np.linalg.norm(S)
-                            residuals[iFace, jFace, kFace, :] += flux*area   # a positive flux leaves the cell and go out of the domain
-                        elif jFace==njF-1:
-                            bc_type, bc_value = self.GetBoundaryCondition('j', 'end')
-                            Ub = self.solution[iFace, jFace-1, kFace, :]      # conservative vector on the boundary
-                            Uint = self.solution[iFace, jFace-2, kFace, :]    # conservative vector internal
-                            S = self.mesh.Sj[iFace, jFace, kFace, :]    # surface oriented towards the wall  
-                            boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                            flux = boundary.ComputeFlux()
-                            area = np.linalg.norm(S)
-                            residuals[iFace, jFace-1, kFace, :] += flux*area # a positive flux leaves the cell and go out of the domain
-                        else:
-                            U_l = self.solution[iFace, jFace-1, kFace,:]
-                            U_r = self.solution[iFace, jFace, kFace,:]
-                            if jFace==1:
-                                U_ll = U_l
-                                U_rr = self.solution[iFace, jFace+1, kFace,:]
-                            elif jFace==njF-2:
-                                U_ll = self.solution[iFace, jFace-2, kFace,:]
-                                U_rr = U_r
-                            else:
-                                U_ll = self.solution[iFace, jFace-2, kFace,:]
-                                U_rr = self.solution[iFace, jFace+1, kFace,:]
-                            S = self.mesh.Sj[iFace, jFace, kFace, :]  
-                            area = np.linalg.norm(S)
-                            flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                            residuals[iFace, jFace-1, kFace, :] += flux*area     
-                            residuals[iFace, jFace, kFace, :] -= flux*area
-                        assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
-            
-            # k-fluxes
+            self.SpatialIntegration('i', residuals)
+            self.SpatialIntegration('j', residuals)
             if self.nDim==3:
-                niF, njF, nkF = self.mesh.Sk[:, :, :, 0].shape
-                assert niF==self.ni, 'The number of i-interface in the i direction must be equal to ni'
-                assert njF==self.nj, 'The number of i-interface in the j direction must be equal to nj'
-                assert nkF==self.nk+1, 'The number of i-interface in the k direction must be equal to nk+1'
-                for iFace in range(niF):
-                    for jFace in range(njF):
-                        for kFace in range(nkF):
-                            if kFace==0:
-                                bc_type, bc_value = self.GetBoundaryCondition('k', 'begin')
-                                Ub = self.solution[iFace, jFace, kFace, :]        # conservative vector on the boundary
-                                Uint = self.solution[iFace, jFace, kFace+1, :]    # conservative vector internal
-                                S = -self.mesh.Sk[iFace, jFace, kFace, :]   # surface oriented towards the wall      
-                                boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                                flux = boundary.ComputeFlux()
-                                area = np.linalg.norm(S)
-                                residuals[iFace, jFace, kFace, :] += flux*area # a positive flux leaves the cell and goes out of the domain
-                            elif kFace==nkF-1:
-                                bc_type, bc_value = self.GetBoundaryCondition('k', 'end')
-                                Ub = self.solution[iFace, jFace, kFace-1, :]      # conservative vector on the boundary
-                                Uint = self.solution[iFace, jFace, kFace-2, :]    # conservative vector internal
-                                S = self.mesh.Sk[iFace, jFace, kFace-1, :]  # surface oriented towards the wall  
-                                boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                                flux = boundary.ComputeFlux()
-                                area = np.linalg.norm(S)
-                                residuals[iFace, jFace, kFace-1, :] += flux*area # a positive flux leaves the cell and goes out of the domain
-                            else:
-                                U_l = self.solution[iFace, jFace, kFace-1,:]
-                                U_r = self.solution[iFace, jFace, kFace,:]
-                                if kFace==1:
-                                    U_ll = U_l
-                                    try:
-                                        U_rr = self.solution[iFace, jFace, kFace+1,:]
-                                    except:
-                                        U_rr = U_r
-                                elif kFace==nkF-2:
-                                    try:
-                                        U_ll = self.solution[iFace, jFace, kFace-2,:]
-                                    except:
-                                        U_ll = U_l
-                                    U_rr = U_r
-                                else:
-                                    U_ll = self.solution[iFace, jFace, kFace-2,:]
-                                    U_rr = self.solution[iFace, jFace, kFace+1,:]
-                                S, CG = self.mesh.GetSurfaceData(iFace, jFace, kFace-1, 'top', 'all')  # surface oriented from left to right
-                                area = np.linalg.norm(S)
-                                flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                                residuals[iFace, jFace, kFace-1, :] += flux*area         
-                                residuals[iFace, jFace, kFace, :] -= flux*area
-                            assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
+                self.SpatialIntegration('k', residuals)
             
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CEulerSolver import CEulerSolver
+from TurboBFM.Solver.CAdvectionSolver import CAdvectionSolver
 
 print("\n" + "=" * 80)
 print(" " * 25 + "🚀  Welcome to TurboBFM 🚀")
@@ -19,7 +20,7 @@ kind_solver = config.GetKindSolver()
 if kind_solver=='Euler':
     solver = CEulerSolver(config, mesh)
 elif kind_solver=='Advection':
-    solver = CEulerSolver(config, mesh)
+    solver = CAdvectionSolver(config, mesh)
 solver.InstantiateFields()
 solver.ReadBoundaryConditions()
 solver.InitializeSolution()
