@@ -3,7 +3,7 @@ import pickle
 import matplotlib.pyplot as plt
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
-from TurboBFM.Solver.CSolver import CSolver
+from TurboBFM.Solver.CEulerSolver import CEulerSolver
 
 print("\n" + "=" * 80)
 print(" " * 25 + "🚀  Welcome to TurboBFM 🚀")
@@ -15,7 +15,7 @@ with open(config.GetGridFilepath(), 'rb') as file:
     grid = pickle.load(file)
 
 mesh = CMesh(config, grid)
-solver = CSolver(config, mesh)
+solver = CEulerSolver(config, mesh)
 solver.Solve()
 
 

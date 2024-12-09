@@ -618,7 +618,7 @@ class CSolver():
                 res[i] = np.log10(res[i])
         if it==0:
         # Header
-            print("|" + "-" * ((col_width)*7+6) + "|")
+            print("-" + "-" * ((col_width)*7+6) + "-")
             print(f"{'|'}{'Iteration':<{col_width}}{'|'}{'Time[s]':<{col_width}}{'|'}{'rms[Rho]':>{col_width}}{'|'}{'rms[RhoU]':>{col_width}}{'|'}{'rms[RhoV]':>{col_width}}{'|'}{'rms[RhoW]':>{col_width}}{'|'}{'rms[RhoE]':>{col_width}}{'|'}")
             print("|" + "-" * ((col_width)*7+6) + "|")
 
