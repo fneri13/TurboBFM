@@ -70,6 +70,9 @@ class CConfig:
 
     def GetFluidModel(self):
         return str(self.config_parser.get('CFD', 'FLUID_MODEL'))
+
+    def GetKindSolver(self):
+        return str(self.config_parser.get('CFD', 'KIND_SOLVER'))
     
     def GetBoundaryTypeI(self):
         mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_I')
