@@ -8,28 +8,23 @@ from TurboBFM.Solver.euler_functions import *
 
 
 class RoeScheme_Base:
-    def __init__(self, rhoL, rhoR, uL, uR, pL, pR, fluid):
+    def __init__(self, U_l, U_r, fluid):
         """
         Roe scheme numerics for ideal gas. Parameters are left and right values of density, velocity and pressure, and the fluid object.
         Formulation based on x-split Riemann Solver in the book by Toro.
         """
-        self.rhoL = rhoL
-        self.rhoR = rhoR
-        self.uL = uL
-        self.uR = uR
-        self.pL = pL
-        self.pR = pR
+        Wl = GetPrimitivesFromConservatives(U_l)
+        Wr = GetPrimitivesFromConservatives(U_r)
         self.fluid = fluid
-        try: 
-            self.gmma = fluid.gmma
-        except:
-            self.gmma = 1.4
-        self.eL = fluid.ComputeStaticEnergy_p_rho(pL, rhoL)
-        self.eR = fluid.ComputeStaticEnergy_p_rho(pR, rhoR)
-        self.htL = self.ComputeTotalEnthalpy(rhoL, uL, pL, self.eL)
-        self.htR = self.ComputeTotalEnthalpy(rhoR, uR, pR, self.eR)
-        self.u1L, self.u2L, self.u3L = GetConservativesFromPrimitives(rhoL, uL, pL, self.fluid)
-        self.u1R, self.u2R, self.u3R = GetConservativesFromPrimitives(rhoR, uR, pR, self.fluid)
+        self.rhoL = Wl[0]
+        self.rhoR = Wr[0]
+        self.uL = Wl[1:-1]
+        self.uR = Wr[1:-1]
+        self.pL = fluid.ComputePressure_rho_u_et(Wl[0], Wl[1:-1], Wl[-1])
+        self.pR = fluid.ComputePressure_rho_u_et(Wr[0], Wr[1:-1], Wr[-1])
+        self.gmma = fluid.gmma
+        self.htL = fluid.ComputeTotalEnthalpy(Wl[0], Wl[1:-1], Wl[-1])
+        self.htR = fluid.ComputeTotalEnthalpy(Wr[0], Wr[1:-1], Wr[-1])
         self.aL = self.fluid.ComputeSoundSpeed_p_rho(self.pL, self.rhoL)
         self.aR = self.fluid.ComputeSoundSpeed_p_rho(self.pR, self.rhoR)
 
@@ -48,6 +43,8 @@ class RoeScheme_Base:
         """
         self.rhoAVG = sqrt(self.rhoL*self.rhoR)
         self.uAVG = self.RoeAVG(self.uL, self.uR)
+        self.vAVG = self.RoeAVG(self.vL, self.vR)
+        self.wAVG = self.RoeAVG(self.wL, self.wR)
         self.hAVG = self.RoeAVG(self.htL, self.htR)
         self.aAVG = sqrt((self.gmma-1)*(self.hAVG-0.5*self.uAVG**2))
     
@@ -71,7 +68,7 @@ class RoeScheme_Base:
         """
         Compute eigenvector matrix of the averaged flux Jacobian
         """
-        self.eigenvector_mat = np.zeros((3, 3))
+        self.eigenvector_mat = np.zeros((5, 5))
         
         self.eigenvector_mat[0, 0] = 1
         self.eigenvector_mat[1, 0] = self.uAVG-self.aAVG
@@ -90,7 +87,7 @@ class RoeScheme_Base:
         """
         Characteristic jumps due to initial conditions
         """
-        self.alphas = np.zeros(3)
+        self.alphas = np.zeros(5)
         self.alphas[0] = 1/2/self.aAVG**2 *(self.pR-self.pL-self.rhoAVG*self.aAVG*(self.uR-self.uL))
         self.alphas[1] = self.rhoR-self.rhoL - (self.pR-self.pL)/self.aAVG**2
         self.alphas[2] = 1/2/self.aAVG**2*(self.pR-self.pL + self.rhoAVG*self.aAVG*(self.uR-self.uL))
