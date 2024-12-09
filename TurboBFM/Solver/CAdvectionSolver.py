@@ -341,7 +341,7 @@ class CAdvectionSolver(CSolver):
         u_advection = self.config.GetAdvectionVelocity()
         theta = np.linspace(0, 2*np.pi*4, nIter)
 
-        fig, ax = plt.subplots(figsize=(13,4))
+        fig, ax = plt.subplots()
         cbar = None  # Initialize colorbar reference
         for it in range(nIter):            
             if self.config.GetAdvectionRotation():
@@ -364,15 +364,25 @@ class CAdvectionSolver(CSolver):
                     for kFace in range(nkF):
                         if iFace==0: 
                             U_r = self.solution[iFace, jFace, kFace,:]
-                            U_l = U_r.copy() 
+                            if self.boundary_types['i']['begin']=='transparent':
+                                U_l = U_r.copy() 
+                            elif self.boundary_types['i']['begin']=='periodic':
+                                U_l = self.solution[-1, jFace, kFace,:]
+                            else:
+                                raise ValueError('Unknown boundary condition at ni=0')
                             S = self.mesh.Si[iFace, jFace, kFace, :]
                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace, jFace, kFace, :] -= flux*area          
                         elif iFace==niF-1:
-                            U_l = self.solution[iFace-1, jFace, kFace, :]       
-                            U_r = U_r.copy()
+                            U_l = self.solution[iFace-1, jFace, kFace, :]  
+                            if self.boundary_types['i']['end']=='transparent':
+                                U_r = U_r.copy()
+                            elif self.boundary_types['i']['end']=='periodic':
+                                U_r = self.solution[0, jFace, kFace, :]
+                            else:
+                                raise ValueError('Unknown boundary condition at ni=0')
                             S = self.mesh.Si[iFace, jFace, kFace, :]                
                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
                             flux = scheme.ComputeFlux()
@@ -390,23 +400,30 @@ class CAdvectionSolver(CSolver):
             
             # j-fluxes
             niF, njF, nkF = self.mesh.Sj[:, :, :, 0].shape
-            assert niF==self.ni, 'The number of i-interface in the i direction must be equal to ni'
-            assert njF==self.nj+1, 'The number of i-interface in the j direction must be equal to nj+1'
-            assert nkF==self.nk, 'The number of i-interface in the k direction must be equal to nk'
             for iFace in range(niF):
                 for jFace in range(njF):
                     for kFace in range(nkF):
                         if jFace==0: 
                             U_r = self.solution[iFace, jFace, kFace,:]
-                            U_l = U_r.copy() 
+                            if self.boundary_types['j']['begin']=='transparent':
+                                U_l = U_r.copy() 
+                            elif self.boundary_types['j']['begin']=='periodic':
+                                U_l = self.solution[iFace, -1, kFace,:]
+                            else:
+                                raise ValueError('Unknown boundary condition at nj=0')
                             S = self.mesh.Sj[iFace, jFace, kFace, :]
                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace, jFace, kFace, :] -= flux*area          
                         elif jFace==njF-1:
-                            U_l = self.solution[iFace, jFace-1, kFace, :]       
-                            U_r = U_r.copy()
+                            U_l = self.solution[iFace, jFace-1, kFace, :]      
+                            if self.boundary_types['j']['end']=='transparent':
+                                U_r = U_l.copy()
+                            elif self.boundary_types['j']['end']=='periodic':
+                                U_r = self.solution[iFace, 0, kFace,:]
+                            else:
+                                raise ValueError('Unknown boundary condition at j=nj')
                             S = self.mesh.Sj[iFace, jFace, kFace, :]                
                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
                             flux = scheme.ComputeFlux()
@@ -425,54 +442,44 @@ class CAdvectionSolver(CSolver):
             # k-fluxes
             if self.nDim==3:
                 niF, njF, nkF = self.mesh.Sk[:, :, :, 0].shape
-                assert niF==self.ni, 'The number of i-interface in the i direction must be equal to ni'
-                assert njF==self.nj, 'The number of i-interface in the j direction must be equal to nj'
-                assert nkF==self.nk+1, 'The number of i-interface in the k direction must be equal to nk+1'
                 for iFace in range(niF):
                     for jFace in range(njF):
                         for kFace in range(nkF):
-                            if kFace==0:
-                                bc_type, bc_value = self.GetBoundaryCondition('k', 'begin')
-                                Ub = self.solution[iFace, jFace, kFace, :]        # conservative vector on the boundary
-                                Uint = self.solution[iFace, jFace, kFace+1, :]    # conservative vector internal
-                                S = -self.mesh.Sk[iFace, jFace, kFace, :]   # surface oriented towards the wall      
-                                boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                                flux = boundary.ComputeFlux()
+                            if kFace==0: 
+                                U_r = self.solution[iFace, jFace, kFace,:]
+                                if self.boundary_types['k']['begin']=='transparent':
+                                    U_l = U_r.copy() 
+                                elif self.boundary_types['k']['begin']=='periodic':
+                                    U_l = self.solution[iFace, jFace, -1,:]
+                                else:
+                                    raise ValueError('Unknown boundary condition at nk=0')
+                                S = self.mesh.Sk[iFace, jFace, kFace, :]
+                                scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                                flux = scheme.ComputeFlux()
                                 area = np.linalg.norm(S)
-                                residuals[iFace, jFace, kFace, :] += flux*area # a positive flux leaves the cell and goes out of the domain
+                                residuals[iFace, jFace, kFace, :] -= flux*area          
                             elif kFace==nkF-1:
-                                bc_type, bc_value = self.GetBoundaryCondition('k', 'end')
-                                Ub = self.solution[iFace, jFace, kFace-1, :]      # conservative vector on the boundary
-                                Uint = self.solution[iFace, jFace, kFace-2, :]    # conservative vector internal
-                                S = self.mesh.Sk[iFace, jFace, kFace-1, :]  # surface oriented towards the wall  
-                                boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
-                                flux = boundary.ComputeFlux()
+                                U_l = self.solution[iFace, jFace, kFace-1, :]       
+                                if self.boundary_types['k']['end']=='transparent':
+                                    U_r = U_l.copy()
+                                elif self.boundary_types['k']['end']=='periodic':
+                                    U_r = self.solution[iFace, jFace, 0,:]
+                                else:
+                                    raise ValueError('Unknown boundary condition at k=nk')
+                                S = self.mesh.Sk[iFace, jFace, kFace, :]                
+                                scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                                flux = scheme.ComputeFlux()
                                 area = np.linalg.norm(S)
-                                residuals[iFace, jFace, kFace-1, :] += flux*area # a positive flux leaves the cell and goes out of the domain
+                                residuals[iFace, jFace, kFace-1, :] += flux*area        
                             else:
                                 U_l = self.solution[iFace, jFace, kFace-1,:]
-                                U_r = self.solution[iFace, jFace, kFace,:]
-                                if kFace==1:
-                                    U_ll = U_l
-                                    try:
-                                        U_rr = self.solution[iFace, jFace, kFace+1,:]
-                                    except:
-                                        U_rr = U_r
-                                elif kFace==nkF-2:
-                                    try:
-                                        U_ll = self.solution[iFace, jFace, kFace-2,:]
-                                    except:
-                                        U_ll = U_l
-                                    U_rr = U_r
-                                else:
-                                    U_ll = self.solution[iFace, jFace, kFace-2,:]
-                                    U_rr = self.solution[iFace, jFace, kFace+1,:]
-                                S, CG = self.mesh.GetSurfaceData(iFace, jFace, kFace-1, 'top', 'all')  # surface oriented from left to right
+                                U_r = self.solution[iFace, jFace, kFace,:]  
+                                S = self.mesh.Sk[iFace, jFace, kFace, :]
+                                scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                                flux = scheme.ComputeFlux()
                                 area = np.linalg.norm(S)
-                                flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
-                                residuals[iFace, jFace, kFace-1, :] += flux*area         
+                                residuals[iFace, jFace, kFace-1, :] += flux*area 
                                 residuals[iFace, jFace, kFace, :] -= flux*area
-                            assert np.linalg.norm(S)>0, 'The surface of the cell face must have magnitude > 0'
             
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt
@@ -484,6 +491,9 @@ class CAdvectionSolver(CSolver):
             if cbar:
                 cbar.remove()
             cbar = fig.colorbar(contour, ax=ax)
+            # u_quiver = u_adv[0]+np.zeros_like(self.mesh.X[:, :, 0])
+            # v_quiver = u_adv[1]+np.zeros_like(self.mesh.X[:, :, 0])
+            # ax.quiver(self.mesh.X[:, :, 0], self.mesh.Y[:, :, 0], u_quiver, v_quiver, color='red')
             ax.set_aspect('equal')
             plt.pause(0.001)
 
