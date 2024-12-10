@@ -9,7 +9,7 @@ from TurboBFM.Solver.euler_functions import GetConservativesFromPrimitives, GetP
 from TurboBFM.Solver.CScheme_JST import CSchemeJST
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
-from TurboBFM.Postprocess import styles
+# from TurboBFM.Postprocess import styles
 from typing import override 
 
 
@@ -199,7 +199,7 @@ class CEulerSolver(CSolver):
         N_levels = 20
         color_map = 'jet'
         if group.lower()=='primitives':
-            fields = self.ConvertConservativesToPrimitives()
+            fields = self.ConvertSolutionToPrimitives(self.solution)
             names = [r'$\rho \ \rm{[kg/m^3]}$', r'$u_x \ \rm{[m/s]}$', r'$u_y  \ \rm{[m/s]}$', r'$u_z \ \rm{[m/s]}$', r'$e_t  \ \rm{[J/kg]}$']
         elif group.lower()=='conservatives':
             fields = self.solution
@@ -480,8 +480,8 @@ class CEulerSolver(CSolver):
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt
             if self.verbosity==3:
-                # self.ContoursCheckMeridional('primitives')
-                self.ContoursCheckResiduals(residuals)
+                self.ContoursCheckMeridional('primitives')
+                # self.ContoursCheckResiduals(residuals)
                 plt.show()
 
             for iEq in range(5):
