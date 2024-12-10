@@ -374,7 +374,7 @@ class CEulerSolver(CSolver):
         return rho, u, et
            
 
-    def SpatialIntegration(self, dir, Res):
+    def SpatialIntegration(self, dir, Sol, Res):
         """
         Perform spatial integration loop in a certain direction. 
 
@@ -383,7 +383,9 @@ class CEulerSolver(CSolver):
 
         `dir`: i,j or k
 
-        `res`: residual arrays of the current time-step that will be updated
+        `Sol`: array of the solution
+
+        `Res`: residual arrays of the current time-step that will be updated
         """
         if dir=='i':
             step_mask = np.array([1, 0, 0])
@@ -414,8 +416,8 @@ class CEulerSolver(CSolver):
                     
                     if dir_face==0: 
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
-                        Ub = self.solution[iFace, jFace, kFace, :]   
-                        Uint = self.solution[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2], :]     
+                        Ub = Sol[iFace, jFace, kFace, :]   
+                        Uint = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2], :]     
                         S = -Surf[iFace, jFace, kFace, :]               
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                         flux = boundary.ComputeFlux()
@@ -423,25 +425,25 @@ class CEulerSolver(CSolver):
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
-                        Ub = self.solution[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
-                        Uint = self.solution[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2], :]     
+                        Ub = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
+                        Uint = Sol[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2], :]     
                         S = Surf[iFace, jFace, kFace, :]                
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
                     else:
-                        U_l = self.solution[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2],:]
-                        U_r = self.solution[iFace, jFace, kFace,:]  
+                        U_l = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2],:]
+                        U_r = Sol[iFace, jFace, kFace,:]  
                         if dir_face==1:
                             U_ll = U_l
-                            U_rr = self.solution[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
+                            U_rr = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
                         elif dir_face==stop_face-1:
-                            U_ll = self.solution[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2],:]
+                            U_ll = Sol[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2],:]
                             U_rr = U_r
                         else:
-                            U_ll = self.solution[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2],:]
-                            U_rr = self.solution[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
+                            U_ll = Sol[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2],:]
+                            U_rr = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
                         S = Surf[iFace, jFace, kFace, :]
                         area = np.linalg.norm(S)
                         flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
@@ -469,28 +471,126 @@ class CEulerSolver(CSolver):
             self.mk_in.append(self.ComputeMassFlow('k', 'start'))
             self.mk_out.append(self.ComputeMassFlow('k', 'end'))
             
-            residuals = np.zeros_like(self.solution)
             self.CheckConvergence(self.solution, it+1)
-            
-            self.SpatialIntegration('i', residuals)
-            self.SpatialIntegration('j', residuals)
-            if self.nDim==3:
-                self.SpatialIntegration('k', residuals)
-            
+
+            rk_coeff = self.config.GetRungeKuttaCoeffs()
+            sol_old = self.solution.copy()
+            for iKutta in range(4):       
+                residuals = np.zeros_like(self.solution)     
+                sol_new = np.zeros_like(self.solution)
+                self.SpatialIntegration('i', sol_old, residuals)
+                self.SpatialIntegration('j', sol_old, residuals)
+                if self.nDim==3:
+                    self.SpatialIntegration('k', sol_old, residuals)
+                
+                for iEq in range(5):
+                    sol_new[:,:,:,iEq] = self.solution[:,:,:,iEq] - rk_coeff[iKutta]*residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
+                sol_new = self.CorrectBoundaryVelocities(sol_new)
+                sol_old = sol_new.copy()
+
+            self.solution = sol_old.copy()
             self.PrintInfoResiduals(residuals, it, time_physical)
             time_physical += dt
-            if self.verbosity==3:
+
+            if self.verbosity==3 and it%50==0:
                 self.ContoursCheckMeridional('primitives')
                 # self.ContoursCheckResiduals(residuals)
                 plt.show()
-
-            for iEq in range(5):
-                self.solution[:,:,:,iEq] -= residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
         end = time.time()
         self.PrintMassFlowPlot()
         self.PlotResidualsHistory()
+    
+
+    def CorrectBoundaryVelocities(self, sol):
+        """
+        For all nodes on wall boundaries, correct the velocities to be tangential to the boundaries.
+        """
+        dirs = ['i', 'j', 'k']
+        locs = ['begin', 'end']
+        
+        for dir in dirs:
+            for loc in locs:
+                bc_type, bc_value = self.GetBoundaryCondition(dir, loc)
+                if bc_type=='wall':
+                    sol = self.CorrectWallVelocities(dir, loc, sol)
+        
+        return sol
+    
+
+    def CorrectWallVelocities(self, dir, loc, sol):
+        
+        def project_vel(cons, S):
+            prim = GetPrimitivesFromConservatives(cons)
+            vel = prim[1:-1]
+            S_dir = S/np.linalg.norm(S)
+            vel_new = vel-np.dot(vel,S_dir)*S_dir
+            prim_new = prim.copy()
+            prim_new[1:-1] = vel_new
+            cons_new = GetConservativesFromPrimitives(prim_new)
+            return cons_new
+        
+        if dir=='i' and loc=='begin':
+            U = sol[0,:,:,:]
+            S = -self.mesh.Si[0,:,:,:]
+            nj,nk = U[0,:,:,0].shape
+            for j in range(nj):
+                for k in range(nk):
+                    sol[0,j,k,:] = project_vel(U[j,k,:], S[j,k,:])
+
+        elif dir=='i' and loc=='end':
+            U = sol[-1,:,:,:]
+            S = self.mesh.Si[-1,:,:,:]
+            nj,nk = U[-1,:,:,0].shape
+            for j in range(nj):
+                for k in range(nk):
+                    sol[-1,j,k,:] = project_vel(U[j,k,:], S[j,k,:])
+
+        elif dir=='j' and loc=='begin':
+            U = sol[:,0,:,:]
+            S = -self.mesh.Sj[:,0,:,:]
+            ni,nk = U[:,:,0].shape
+            for i in range(ni):
+                for k in range(nk):
+                    sol[i,0,k,:] = project_vel(U[i,k,:], S[i,k,:])
+
+        elif dir=='j' and loc=='end':
+            U = sol[:,-1,:,:]
+            S = self.mesh.Sj[:,-1,:,:]
+            ni,nk = U[:,:,0].shape
+            for i in range(ni):
+                for k in range(nk):
+                    sol[i,-1,k,:] = project_vel(U[i,k,:], S[i,k,:])
+
+        elif dir=='k' and loc=='begin':
+            U = sol[:,:,0,:]
+            S = -self.mesh.Sj[:,:,0,:]
+            ni,nj = U[:,:,0].shape
+            for i in range(ni):
+                for j in range(nj):
+                    sol[i,j,0,:] = project_vel(U[i,j,:], S[i,j,:])
+
+        elif dir=='k' and loc=='end':
+            U = sol[:,:,-1,:]
+            S = self.mesh.Sj[:,:,-1,:]
+            ni,nj = U[:,:,0].shape
+            for i in range(ni):
+                for j in range(nj):
+                    sol[i,j,-1,:] = project_vel(U[i,j,:], S[i,j,:])
+
+        else:
+            raise ValueError("Unknow combination of location and direction")
+        
+        return sol
+        
+        
+
+        
+        
+        
+
+                
 
 
     @override
@@ -552,6 +652,8 @@ class CEulerSolver(CSolver):
         """
         jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
         flux = jst.ComputeFluxJameson()
+        # flux = jst.ComputeFluxBlazek()
+        # flux = jst.ComputeFluxHirsch()
         
         # check if the two versions give the same results
         # flux2 = jst.ComputeFluxJameson()

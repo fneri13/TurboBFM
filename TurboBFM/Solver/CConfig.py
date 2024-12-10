@@ -163,5 +163,10 @@ class CConfig:
         dir = [float(x.strip()) for x in dir.split(',')]
         return np.array(dir)
     
+    def GetRungeKuttaCoeffs(self):
+        rk = self.config_parser.get('CFD', 'RUNGE_KUTTA_COEFFS')
+        rk = [float(x.strip()) for x in rk.split(',')]
+        return np.array(rk)
+    
         
     
