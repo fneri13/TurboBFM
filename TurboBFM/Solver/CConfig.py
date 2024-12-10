@@ -130,6 +130,9 @@ class CConfig:
     def GetCFL(self):
         return float(self.config_parser.get('CFD', 'CFL'))
     
+    def GetLaplaceDiffusivity(self):
+        return float(self.config_parser.get('CFD', 'LAPLACE_DIFFUSIVITY'))
+    
     def GetAdvectionRotation(self):
         rot = str(self.config_parser.get('CFD', 'ADVECTION_ROTATION')).lower()
         if rot=='yes':
@@ -153,5 +156,12 @@ class CConfig:
 
     def GetSolutionName(self):
         return str(self.config_parser.get('CFD', 'SOLUTION_NAME'))
+    
+
+    def GetDirichletValues(self):
+        dir = self.config_parser.get('CFD', 'DIRICHLET_VALUES')
+        dir = [float(x.strip()) for x in dir.split(',')]
+        return np.array(dir)
+    
         
     

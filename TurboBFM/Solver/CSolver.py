@@ -7,6 +7,7 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Postprocess import styles
+from TurboBFM.Solver.math import GreenGaussGradient
 from abc import ABC, abstractmethod
 
 
@@ -32,8 +33,10 @@ class CSolver(ABC):
             self.nEq = 5
         elif self.kindSolver=='Advection':
             self.nEq = 1
+        elif self.kindSolver=='Laplace':
+            self.nEq = 1
         else:
-            raise ValueError('Unknown kind of solver. Specify <Euler> or <Advection>')
+            raise ValueError('Unknown kind of solver. Specify <Euler>, <Advection> or <Laplace>')
         
         
     @abstractmethod
@@ -183,3 +186,54 @@ class CSolver(ABC):
                            'U': self.solution}
             with open('Results/%s' %file_name, 'wb') as file:
                 pickle.dump(results, file)
+    
+
+    def ComputeSolutionGradient(self):
+        """
+        Compute the gradient of the solution using Green-Gauss theorem
+        """
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    Sw, CGw = self.mesh.GetSurfaceData(i, j, k, 'west', 'all')
+                    Se, CGe = self.mesh.GetSurfaceData(i, j, k, 'east', 'all')
+                    Sn, CGn = self.mesh.GetSurfaceData(i, j, k, 'north', 'all')
+                    Ss, CGs = self.mesh.GetSurfaceData(i, j, k, 'south', 'all')
+                    Sb, CGb = self.mesh.GetSurfaceData(i, j, k, 'bottom', 'all')
+                    St, CGt = self.mesh.GetSurfaceData(i, j, k, 'top', 'all')
+                    for eq in range(self.nEq):
+                        Uw = self.InterpolateSolution(i, j, k, eq, 'west')
+                        Ue = self.InterpolateSolution(i, j, k, eq, 'east')
+                        Un = self.InterpolateSolution(i, j, k, eq, 'north')
+                        Us = self.InterpolateSolution(i, j, k, eq, 'south')
+                        Ut = self.InterpolateSolution(i, j, k, eq, 'top')
+                        Ub = self.InterpolateSolution(i, j, k, eq, 'bottom')
+                        self.solution_gradient[i,j,k,eq,:] = GreenGaussGradient((Sw, Se, Sn, Ss, St, Sb),
+                                                                                (Uw, Ue, Un, Us, Ut, Ub),
+                                                                                self.mesh.V[i,j,k])
+    
+
+
+    def InterpolateSolution(self, i, j, k, eq, dir):
+        """
+        Interpolate the solution between the nodes. Zero order, at the extremes, the extreme values is taken.
+        """
+        try:
+            if dir=='west':
+                u = (self.solution[i-1,j,k,eq] + self.solution[i,j,k,eq])/2.0
+            elif dir=='east':
+                u = (self.solution[i+1,j,k,eq] + self.solution[i,j,k,eq])/2.0
+            elif dir=='north':
+                u = (self.solution[i,j+1,k,eq] + self.solution[i,j,k,eq])/2.0
+            elif dir=='south':
+                u = (self.solution[i,j-1,k,eq] + self.solution[i,j,k,eq])/2.0
+            elif dir=='top':
+                u = (self.solution[i,j,k+1,eq] + self.solution[i,j,k,eq])/2.0
+            elif dir=='bottom':
+                u = (self.solution[i,j,k-1,eq] + self.solution[i,j,k,eq])/2.0
+        except:
+            u = self.solution[i,j,k,eq]
+        
+        return u
+
+        

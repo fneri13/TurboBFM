@@ -6,14 +6,14 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.euler_functions import GetConservativesFromPrimitives, GetPrimitivesFromConservatives
-from TurboBFM.Solver.CScheme_Upwind import CScheme_Upwind
+from TurboBFM.Solver.CScheme_Central import CScheme_Central
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Postprocess import styles
 from typing import override 
 
 
-class CAdvectionSolver(CSolver):
+class CLaplaceSolver(CSolver):
     
     def __init__(self, config: CConfig, mesh: CMesh):
         """
@@ -27,12 +27,9 @@ class CAdvectionSolver(CSolver):
         """
         Print basic information before running the solver
         """
-        u = self.config.GetAdvectionVelocity()
-
         if self.verbosity>0:
-            print('='*25 + ' ADVECTION SOLVER ' + '='*25)
+            print('='*25 + ' LAPLACE SOLVER ' + '='*25)
             print('Number of dimensions:                    %i' %(self.nDim))
-            print('Advection Velocity [m/s]:                (%.2f, %.2f, %.2f)' %(u[0], u[1], u[2]))
             print('Boundary type at i=0:                    %s' %(self.boundary_types['i']['begin']))
             print('Boundary type at i=ni:                   %s' %(self.boundary_types['i']['end']))
             print('Boundary type at j=0:                    %s' %(self.boundary_types['j']['begin']))
@@ -40,6 +37,14 @@ class CAdvectionSolver(CSolver):
             if self.nDim==3:
                 print('Boundary type at k=0:                    %s' %(self.boundary_types['k']['begin']))
                 print('Boundary type at k=nk:                   %s' %(self.boundary_types['k']['end']))
+            print('Boundary value at i=0:                    %.2f' %(self.boundary_values[0]))
+            print('Boundary value at i=ni:                   %.2f' %(self.boundary_values[1]))
+            print('Boundary value at j=0:                    %.2f' %(self.boundary_values[2]))
+            print('Boundary value at j=nj:                   %.2f' %(self.boundary_values[3]))
+            if self.nDim==3:
+                print('Boundary value at k=0:                    %.2f' %(self.boundary_values[4]))
+                print('Boundary value at k=nk:                   %.2f' %(self.boundary_values[5]))
+            print('')
             print('='*25 + ' END SOLVER INFORMATION ' + '='*25)
             print()
 
@@ -50,7 +55,11 @@ class CAdvectionSolver(CSolver):
         Instantiate basic fields.
         """
         super().InstantiateFields()
-        self.solution_names = [r'$\phi$']
+        self.solution_names = [r'$T$']
+
+        # store also the gradient of the solution (point i,j,k, solution variable nEq, and component of the gradient x,y,z)
+        self.solution_gradient = np.zeros((self.ni, self.nj, self.nk, self.nEq, 3)) 
+
 
 
     @override
@@ -59,34 +68,20 @@ class CAdvectionSolver(CSolver):
         Read the boundary conditions from the input file, and store the information in two dictionnaries
         """
         super().ReadBoundaryConditions()
-
+        self.boundary_values = self.config.GetDirichletValues()
+        if self.nDim==3:
+            assert len(self.boundary_values)==6, 'You need 6 Dirichlet conditions for a 3D problem'
+        else:
+            assert len(self.boundary_values)==4, 'You need 4 Dirichlet conditions for a 2D problem'
+        
 
     @override
     def InitializeSolution(self):
         """
         Initialize the advection initial condition. Sphere of phi=1 around the center of the domain, at a dist max given by radius
         """
-        delta_x = np.max(self.mesh.X) - np.min(self.mesh.X)
-        delta_y = np.max(self.mesh.Y) - np.min(self.mesh.Y)
-        delta_z = np.max(self.mesh.Z) - np.min(self.mesh.Z)
-
-        center = np.array([np.min(self.mesh.X)+delta_x/2,
-                           np.min(self.mesh.Y)+delta_y/4,
-                           np.min(self.mesh.Z)+delta_z/2])
-
-        radius = (delta_x+delta_y+delta_z)/3/5
-
-        for i in range(self.ni):
-            for j in range(self.nj):
-                for k in range(self.nk):
-                    distance = np.sqrt((self.mesh.X[i,j,k]-center[0])**2 + 
-                                       (self.mesh.Y[i,j,k]-center[1])**2 + 
-                                       (self.mesh.Z[i,j,k]-center[2])**2)
-                    
-                    if distance<radius:
-                        self.solution[i,j,k,0] = 1
-                    else:
-                        self.solution[i,j,k,0] = 0
+        avg = np.mean(self.boundary_values)
+        self.solution[:,:,:,0] = avg
 
 
     @override
@@ -97,21 +92,13 @@ class CAdvectionSolver(CSolver):
         nIter = self.config.GetNIterations()
         time_physical = 0
         start = time.time()
-        u_advection = self.config.GetAdvectionVelocity()
-        theta = np.linspace(0, 2*np.pi*2, nIter)
 
-        # fig, ax = plt.subplots()
-        # cbar = None  # Initialize colorbar reference
+        fig, ax = plt.subplots()
+        cbar = None  # Initialize colorbar reference
         for it in range(nIter):            
-            if self.config.GetAdvectionRotation():
-                u_adv = np.array([np.cos(theta[it])*u_advection[0],
-                                np.sin(theta[it])*u_advection[0],
-                                u_advection[2]])
-            else:
-                u_adv = u_advection
-                
             self.ComputeTimeStepArray()
             dt = np.min(self.time_step)
+            self.ComputeSolutionGradient()
             
             residuals = np.zeros_like(self.solution)  # defined as flux*surface going out of the cell (i,j,k)
             self.CheckConvergence(self.solution, it+1)
@@ -122,36 +109,26 @@ class CAdvectionSolver(CSolver):
                 for jFace in range(njF):
                     for kFace in range(nkF):
                         if iFace==0: 
-                            U_r = self.solution[iFace, jFace, kFace,:]
-                            if self.boundary_types['i']['begin']=='transparent':
-                                U_l = U_r.copy() 
-                            elif self.boundary_types['i']['begin']=='periodic':
-                                U_l = self.solution[-1, jFace, kFace,:]
-                            else:
-                                raise ValueError('Unknown boundary condition at ni=0')
+                            U_r = self.solution_gradient[iFace, jFace, kFace, 0, :]
+                            U_l = U_r.copy() 
                             S = self.mesh.Si[iFace, jFace, kFace, :]
-                            scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                            scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace, jFace, kFace, :] -= flux*area          
                         elif iFace==niF-1:
-                            U_l = self.solution[iFace-1, jFace, kFace, :]  
-                            if self.boundary_types['i']['end']=='transparent':
-                                U_r = U_r.copy()
-                            elif self.boundary_types['i']['end']=='periodic':
-                                U_r = self.solution[0, jFace, kFace, :]
-                            else:
-                                raise ValueError('Unknown boundary condition at ni=0')
-                            S = self.mesh.Si[iFace, jFace, kFace, :]                
-                            scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                            U_l = self.solution_gradient[iFace-1, jFace, kFace, 0, :]
+                            U_r = U_l.copy()
+                            S = self.mesh.Si[iFace, jFace, kFace, :]
+                            scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace-1, jFace, kFace, :] += flux*area        
                         else:
-                            U_l = self.solution[iFace-1, jFace, kFace,:]
-                            U_r = self.solution[iFace, jFace, kFace,:]  
+                            U_l = self.solution_gradient[iFace-1, jFace, kFace, 0, :]
+                            U_r = self.solution_gradient[iFace, jFace, kFace, 0, :]  
                             S = self.mesh.Si[iFace, jFace, kFace, :]
-                            scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                            scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace-1, jFace, kFace, :] += flux*area 
@@ -163,36 +140,26 @@ class CAdvectionSolver(CSolver):
                 for jFace in range(njF):
                     for kFace in range(nkF):
                         if jFace==0: 
-                            U_r = self.solution[iFace, jFace, kFace,:]
-                            if self.boundary_types['j']['begin']=='transparent':
-                                U_l = U_r.copy() 
-                            elif self.boundary_types['j']['begin']=='periodic':
-                                U_l = self.solution[iFace, -1, kFace,:]
-                            else:
-                                raise ValueError('Unknown boundary condition at nj=0')
+                            U_r = self.solution_gradient[iFace, jFace, kFace, 0, :]
+                            U_l = U_r.copy() 
                             S = self.mesh.Sj[iFace, jFace, kFace, :]
-                            scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                            scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace, jFace, kFace, :] -= flux*area          
                         elif jFace==njF-1:
-                            U_l = self.solution[iFace, jFace-1, kFace, :]      
-                            if self.boundary_types['j']['end']=='transparent':
-                                U_r = U_l.copy()
-                            elif self.boundary_types['j']['end']=='periodic':
-                                U_r = self.solution[iFace, 0, kFace,:]
-                            else:
-                                raise ValueError('Unknown boundary condition at j=nj')
-                            S = self.mesh.Sj[iFace, jFace, kFace, :]                
-                            scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                            U_l = self.solution_gradient[iFace, jFace-1, kFace, 0, :]
+                            U_r = U_l.copy()
+                            S = self.mesh.Sj[iFace, jFace, kFace, :]
+                            scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace, jFace-1, kFace, :] += flux*area        
                         else:
-                            U_l = self.solution[iFace, jFace-1, kFace,:]
-                            U_r = self.solution[iFace, jFace, kFace,:]  
+                            U_l = self.solution_gradient[iFace, jFace-1, kFace, 0,:]
+                            U_r = self.solution_gradient[iFace, jFace, kFace, 0,:]  
                             S = self.mesh.Sj[iFace, jFace, kFace, :]
-                            scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                            scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                             flux = scheme.ComputeFlux()
                             area = np.linalg.norm(S)
                             residuals[iFace, jFace-1, kFace, :] += flux*area 
@@ -246,15 +213,12 @@ class CAdvectionSolver(CSolver):
             for iEq in range(self.nEq):
                 self.solution[:,:,:,iEq] = self.solution[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
 
-            # contour = ax.contourf(self.mesh.X[:, :, 0], self.mesh.Y[:, :, 0], self.solution[:, :, 0, 0], cmap=styles.color_map, vmin=0, vmax=1)
-            # if cbar:
-            #     cbar.remove()
-            # cbar = fig.colorbar(contour, ax=ax)
-            # # u_quiver = u_adv[0]+np.zeros_like(self.mesh.X[:, :, 0])
-            # # v_quiver = u_adv[1]+np.zeros_like(self.mesh.X[:, :, 0])
-            # # ax.quiver(self.mesh.X[:, :, 0], self.mesh.Y[:, :, 0], u_quiver, v_quiver, color='red')
+            contour = ax.contourf(self.mesh.X[:, :, 0], self.mesh.Y[:, :, 0], self.solution[:, :, 0, 0], cmap=styles.color_map)
+            if cbar:
+                cbar.remove()
+            cbar = fig.colorbar(contour, ax=ax)
             # ax.set_aspect('equal')
-            # plt.pause(0.001)
+            plt.pause(0.001)
 
             self.SaveSolution(it, nIter)
             
@@ -287,7 +251,7 @@ class CAdvectionSolver(CSolver):
         if it==0:
         # Header
             print("|" + "-" * ((col_width)*7+6) + "|")
-            print(f"{'|'}{'Iteration':<{col_width}}{'|'}{'Time[s]':<{col_width}}{'|'}{'rms[Phi]':>{col_width}}{'|'}")
+            print(f"{'|'}{'Iteration':<{col_width}}{'|'}{'Time[s]':<{col_width}}{'|'}{'rms[T]':>{col_width}}{'|'}")
             print("|" + "-" * ((col_width)*7+6) + "|")
 
         # Data row
@@ -298,7 +262,7 @@ class CAdvectionSolver(CSolver):
         # bookkeep the residuals for final plot
         for iEq in range(self.nEq):
             self.residual_history[iEq].append(res[iEq])
-        
+    
     
     @override
     def ComputeTimeStepArray(self):
@@ -306,7 +270,8 @@ class CAdvectionSolver(CSolver):
         Compute the time step of the simulation for a certain CFL
         """
         CFL = self.config.GetCFL()
-        u = self.config.GetAdvectionVelocity()
+        alpha = self.config.GetLaplaceDiffusivity()
+        u = np.array([1, 1, 1])*alpha  # equivalent of diffusivity = 1 ?        
         
         for i in range(self.ni):
             for j in range(self.nj):
@@ -326,3 +291,70 @@ class CAdvectionSolver(CSolver):
                         self.time_step[i,j,k] = CFL*min(dt_i, dt_j)
 
 
+    @override
+    def CheckConvergence(self, array, nIter):
+        """
+        Check the array of solutions to stop the simulation in case something is wrong.
+
+        Parameters
+        ----------------------------
+
+        `array`: array to check for nan, usually conservative solutions
+
+        `nIter`: current iteration number
+        """
+        if np.isnan(array).any():
+            raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))
+    
+
+    @override
+    def InterpolateSolution(self, i, j, k, eq, dir):
+        """
+        Interpolate the solution between the nodes. At the borders, take the values from the dirichlet bcs.
+        """
+        if dir=='west':
+            if i==0:
+                u = self.boundary_values[0]
+            else:
+                u = (self.solution[i-1,j,k,eq] + self.solution[i,j,k,eq])/2.0
+
+        elif dir=='east':
+            if i==self.ni-1:
+                u = self.boundary_values[1]
+            else:
+                u = (self.solution[i+1,j,k,eq] + self.solution[i,j,k,eq])/2.0
+        
+        elif dir=='south':
+            if j==0:
+                u = self.boundary_values[2]
+            else:
+                u = (self.solution[i,j-1,k,eq] + self.solution[i,j,k,eq])/2.0
+
+        elif dir=='north':
+            if j==self.nj-1:
+                u = self.boundary_values[3]
+            else:
+                u = (self.solution[i,j+1,k,eq] + self.solution[i,j,k,eq])/2.0
+        
+        elif dir=='bottom':
+            if k==0:
+                if self.nDim==3:
+                    u = self.boundary_values[4]
+                else:
+                    u = self.solution[i,j,k,eq]
+            else:
+                u = (self.solution[i,j,k-1,eq] + self.solution[i,j,k,eq])/2.0
+
+        elif dir=='top':
+            if k==self.nk-1:
+                if self.nDim==3:
+                    u = self.boundary_values[5]
+                else:
+                    u = self.solution[i,j,k,eq]
+            else:
+                u = (self.solution[i,j,k+1,eq] + self.solution[i,j,k,eq])/2.0
+
+        else:
+            raise ValueError('Unknown direction')
+      
+        return u
