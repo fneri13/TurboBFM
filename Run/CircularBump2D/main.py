@@ -5,6 +5,7 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CEulerSolver import CEulerSolver
 from TurboBFM.Solver.CAdvectionSolver import CAdvectionSolver
+from TurboBFM.Solver.CLaplaceSolver import CLaplaceSolver
 
 print("\n" + "=" * 80)
 print(" " * 25 + "🚀  Welcome to TurboBFM 🚀")
@@ -21,6 +22,8 @@ if kind_solver=='Euler':
     solver = CEulerSolver(config, mesh)
 elif kind_solver=='Advection':
     solver = CAdvectionSolver(config, mesh)
+elif kind_solver=='Laplace':
+    solver = CLaplaceSolver(config, mesh)
 solver.InstantiateFields()
 solver.ReadBoundaryConditions()
 solver.InitializeSolution()
