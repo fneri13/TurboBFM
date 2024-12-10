@@ -140,3 +140,18 @@ class CConfig:
     def GetNIterations(self):
         return int(self.config_parser.get('CFD', 'N_ITERATIONS'))
     
+    def GetSaveUnsteady(self):
+        res = str(self.config_parser.get('CFD', 'SAVE_UNSTEADY'))
+        if res.lower()=='yes':
+            return True
+        else:
+            return False
+    
+    def GetSaveUnsteadyInterval(self):
+        return int(self.config_parser.get('CFD', 'SAVE_UNSTEADY_INTERVAL'))
+    
+
+    def GetSolutionName(self):
+        return str(self.config_parser.get('CFD', 'SOLUTION_NAME'))
+        
+    

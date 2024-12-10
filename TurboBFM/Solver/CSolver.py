@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import time
+import pickle
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
@@ -92,44 +93,6 @@ class CSolver(ABC):
 
 
     @abstractmethod
-    def ContoursCheck(self, group: str, perp_direction: str = 'i'):
-        """
-        Plot the contour of the required group of variables perpendicular to the direction index `perp_direction`, at mid length (for the moment).
-
-        Parameters:
-        ------------------------
-
-        `group`: select between primitives or conservatives
-        `perp_direction`: select between i,j,k to choose the on which doing the contour
-        """
-        
-
-    @abstractmethod
-    def ContoursCheckMeridional(self, group: str):
-        """
-        Plot the contour of the required group of variables perpendicular to the direction index `perp_direction`, at mid length (for the moment).
-
-        Parameters:
-        ------------------------
-
-        `group`: select between primitives or conservatives
-        `perp_direction`: select between i,j,k to choose the on which doing the contour
-        """
-    
-
-    @abstractmethod
-    def ContoursCheckResiduals(self, array: np.ndarray):
-        """
-        Plot the contour of the residuals.
-
-        Parameters:
-        ------------------------
-
-        `array`: array storing the residual values
-        """
-
-
-    @abstractmethod
     def Solve(self) -> None:
         """
         Solve the system explicitly in time.
@@ -190,3 +153,33 @@ class CSolver(ABC):
         """
         Abstract method
         """
+    
+
+    def SaveSolution(self, it, nIter):
+        """
+        Check if a solution must be saved, and in case do it.
+
+        Parameters
+        --------------------------------
+
+        `it`: current time step 
+
+        `nIter`: number of time steps
+        """
+        save = self.config.GetSaveUnsteady()
+        interval = self.config.GetSaveUnsteadyInterval()
+        if (save and it%interval==0) or (save and it==nIter-1) or (save and it==0):
+            file_name = self.config.GetSolutionName()
+            file_name += '_%03i.pik' %(it)
+
+            if self.nDim==3:
+                results = {'X': self.mesh.X,
+                           'Y': self.mesh.Y,
+                           'Z': self.mesh.Z,
+                           'U': self.solution}
+            elif self.nDim==2:
+                results = {'X': self.mesh.X,
+                           'Y': self.mesh.Y,
+                           'U': self.solution}
+            with open('Results/%s' %file_name, 'wb') as file:
+                pickle.dump(results, file)

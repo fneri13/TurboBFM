@@ -14,8 +14,8 @@ The Fundamentals of Computational Fluid Dynamics (Second Edition) by Charles Hir
 
 OUTPUT_FOLDER = 'Grid'
 L = 1
-NX = 64
-NY = 64
+NX = 128
+NY = 128
 
 x = np.linspace(0, L, NX)
 y = np.linspace(0, L, NY)

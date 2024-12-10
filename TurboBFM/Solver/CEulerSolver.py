@@ -485,7 +485,7 @@ class CEulerSolver(CSolver):
                 plt.show()
 
             for iEq in range(5):
-                self.solution[:,:,:,iEq] = self.solution[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
+                self.solution[:,:,:,iEq] -= residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
 
         self.ContoursCheckMeridional('conservatives')
         end = time.time()
