@@ -174,6 +174,7 @@ class CSolver(ABC):
         end = time.time()
 
         if kind_solver=='Euler':
+            self.ContoursCheckMeridional('primitives')
             self.PrintMassFlowPlot()
             self.PlotResidualsHistory()
 
@@ -252,22 +253,23 @@ class CSolver(ABC):
         `nIter`: number of time steps
         """
         save = self.config.GetSaveUnsteady()
-        interval = self.config.GetSaveUnsteadyInterval()
-        if (save and it%interval==0) or (save and it==nIter-1) or (save and it==0):
-            file_name = self.config.GetSolutionName()
-            file_name += '_%03i.pik' %(it)
+        if save:
+            interval = self.config.GetSaveUnsteadyInterval()
+            if (save and it%interval==0) or (save and it==nIter-1) or (save and it==0):
+                file_name = self.config.GetSolutionName()
+                file_name += '_%03i.pik' %(it)
 
-            if self.nDim==3:
-                results = {'X': self.mesh.X,
-                           'Y': self.mesh.Y,
-                           'Z': self.mesh.Z,
-                           'U': self.solution}
-            elif self.nDim==2:
-                results = {'X': self.mesh.X,
-                           'Y': self.mesh.Y,
-                           'U': self.solution}
-            with open('Results/%s' %file_name, 'wb') as file:
-                pickle.dump(results, file)
+                if self.nDim==3:
+                    results = {'X': self.mesh.X,
+                            'Y': self.mesh.Y,
+                            'Z': self.mesh.Z,
+                            'U': self.solution}
+                elif self.nDim==2:
+                    results = {'X': self.mesh.X,
+                            'Y': self.mesh.Y,
+                            'U': self.solution}
+                with open('Results/%s' %file_name, 'wb') as file:
+                    pickle.dump(results, file)
     
 
     def ComputeSolutionGradient(self):
