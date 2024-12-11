@@ -38,6 +38,16 @@ class CSolver(ABC):
         else:
             raise ValueError('Unknown kind of solver. Specify <Euler>, <Advection> or <Laplace>')
         
+        # Compute the total areas of the boundaries for later use
+        self.total_areas = {'i': {},
+                            'j': {},
+                            'k': {}}
+        dirs = ['i', 'j', 'k']
+        locs = ['begin', 'end']
+        for loc in locs:
+            for dir in dirs:
+                self.total_areas[dir][loc] = self.ComputeTotalArea(dir, loc)
+        
         
     @abstractmethod
     def PrintInfoSolver(self):
@@ -319,5 +329,36 @@ class CSolver(ABC):
             u = self.solution[i,j,k,eq]
         
         return u
+    
+    def ComputeTotalArea(self, dir, loc):
+        """
+        Compute the total surface of a boundary, defined by direction `dir` and location `loc`
+        """
+
+        if dir=='i' and loc=='begin':
+            S = self.mesh.Si[0,:,:,:,]
+        elif dir=='i' and loc=='end':
+            S = self.mesh.Si[-1,:,:,:,]
+        elif dir=='j' and loc=='begin':
+            S = self.mesh.Sj[:,0,:,:,]
+        elif dir=='j' and loc=='end':
+            S = self.mesh.Sj[:,-1,:,:,]
+        elif dir=='k' and loc=='begin':
+            S = self.mesh.Sk[:,:,0,:,]
+        elif dir=='k' and loc=='end':
+            S = self.mesh.Sk[:,:,-1,:,]
+        else:
+            raise ValueError('Unknown direction and/or location')
+        
+        sum = 0
+        nl, nk = S[:,:,0].shape
+        for l in range(nl):
+            for k in range(nk):
+                sum += np.linalg.norm(S[l,k,:])
+        
+        return sum
+
+
+
 
         

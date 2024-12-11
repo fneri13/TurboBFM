@@ -28,8 +28,8 @@ class CSchemeJST():
         `S`: surface vector between the left and right point
         """
         # coefficients for the scheme
-        self.kappa2 = 1
-        self.kappa4 = 1/32
+        self.kappa2 = 1/4
+        self.kappa4 = 1/256
         self.c4 = 2
 
         self.fluid = fluid

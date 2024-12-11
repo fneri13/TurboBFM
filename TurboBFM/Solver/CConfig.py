@@ -183,6 +183,9 @@ class CConfig:
             return False
         else:
             True
+    
+    def GetInletBCType(self):
+        return str(self.config_parser.get('CFD', 'INLET_BC_TYPE'))
 
     
         

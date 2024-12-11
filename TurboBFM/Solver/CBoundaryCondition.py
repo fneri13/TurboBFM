@@ -8,7 +8,7 @@ class CBoundaryCondition():
     """
     Class for the evaluation of fluxes due to boundary conditions (Weak form implementation).
     """
-    def __init__(self, bc_type: str, bc_value: any, Ub: np.ndarray, Uint: np.ndarray, S: np.ndarray, fluid: FluidIdeal):
+    def __init__(self, bc_type: str, bc_value: any, Ub: np.ndarray, Uint: np.ndarray, S: np.ndarray, fluid: FluidIdeal, tot_area: float, inlet_bc_type: str = None):
         """
         The left to right orientation follows the orientation of the normal
 
@@ -28,6 +28,8 @@ class CBoundaryCondition():
         `fluid`: fluid object
         """
         self.bc_type = bc_type
+        if bc_type == 'inlet':
+            self.inlet_bc_type = inlet_bc_type
         self.bc_value = bc_value
         self.Ub = Ub                
         self.Uint = Uint            
@@ -36,6 +38,7 @@ class CBoundaryCondition():
         self.S_dir = self.S/np.linalg.norm(S)
         self.Wb = GetPrimitivesFromConservatives(self.Ub)
         self.Wint = GetPrimitivesFromConservatives(self.Uint)
+        self.tot_area = tot_area
     
 
     def ComputeFlux(self):
@@ -44,8 +47,14 @@ class CBoundaryCondition():
         """
         if self.bc_type=='wall':
             flux = self.ComputeBCFlux_Wall()
+
         elif self.bc_type=='inlet':
-            flux = self.ComputeBCFlux_Inlet()
+            if self.inlet_bc_type=='PT':
+                flux = self.ComputeBCFlux_Inlet_PT() # total pressure and temperature
+            elif self.inlet_bc_type=='MT':
+                flux = self.ComputeBCFlux_Inlet_MT() # mass flow rate and total temperature
+            else:
+                raise ValueError('Unknown inlet bc type')
             
             # check if the two versions give the same results
             # flux2 = self.ComputeBCFlux_Inlet2()
@@ -56,6 +65,7 @@ class CBoundaryCondition():
             #     raise ValueError('The two inlet vesions differ')
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet()
+
         else:
             raise ValueError('Boundary condition <%s> not recognized or not available' %(self.bc_type))
         return flux
@@ -71,7 +81,7 @@ class CBoundaryCondition():
         return flux
 
 
-    def ComputeBCFlux_Inlet(self):
+    def ComputeBCFlux_Inlet_PT(self):
         """
         Assumption of normal inflow for the moment. Formulation taken from 'Formulation and Implementation 
         of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
@@ -103,6 +113,34 @@ class CBoundaryCondition():
         U_b = GetConservativesFromPrimitives(W_b)
         flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
         return flux
+    
+
+    def ComputeBCFlux_Inlet_MT(self):
+        """
+        Assumption of normal inflow for the moment. Formulation taken from 'Formulation and Implementation 
+        of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al. Inlet mass flow rate and total temperature specified.
+        Note: _b and _int refer to boundary and internal points.
+        """
+        mdot = self.bc_value[0]
+        Tt = self.bc_value[1]
+        gmma = self.fluid.gmma
+
+        rho_b = self.Wint[0]
+        un_b = mdot/self.tot_area/rho_b
+        T_b = Tt - (gmma-1)/gmma/self.fluid.R*un_b**2
+
+        S_dir_int = -self.S_dir
+        u_b = un_b*S_dir_int
+        p_b = rho_b*self.fluid.R*T_b
+        e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
+        et_b = e_b+0.5*un_b**2
+        W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
+        U_b = GetConservativesFromPrimitives(W_b)
+        flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)
+
+        return flux
+    
+
     
     def ComputeBCFlux_Inlet2(self):
         """
