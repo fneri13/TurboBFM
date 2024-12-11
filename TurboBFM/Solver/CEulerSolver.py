@@ -475,7 +475,7 @@ class CEulerSolver(CSolver):
 
             rk_coeff = self.config.GetRungeKuttaCoeffs()
             sol_old = self.solution.copy()
-            for iKutta in range(4):       
+            for iKutta in range(len(rk_coeff)):       
                 residuals = np.zeros_like(self.solution)     
                 sol_new = np.zeros_like(self.solution)
                 self.SpatialIntegration('i', sol_old, residuals)
@@ -528,6 +528,7 @@ class CEulerSolver(CSolver):
             vel_new = vel-np.dot(vel,S_dir)*S_dir
             prim_new = prim.copy()
             prim_new[1:-1] = vel_new
+            prim_new[-1] = prim[-1] - 0.5*np.linalg.norm(vel)**2 + 0.5*np.linalg.norm(vel_new)**2
             cons_new = GetConservativesFromPrimitives(prim_new)
             return cons_new
         
