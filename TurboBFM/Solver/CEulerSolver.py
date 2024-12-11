@@ -373,7 +373,7 @@ class CEulerSolver(CSolver):
         et = (P / (gmma - 1) / rho) + 0.5*u_mag**2
         return rho, u, et
            
-
+    @override
     def SpatialIntegration(self, dir, Sol, Res):
         """
         Perform spatial integration loop in a certain direction. 
@@ -383,7 +383,7 @@ class CEulerSolver(CSolver):
 
         `dir`: i,j or k
 
-        `Sol`: array of the solution
+        `Sol`: array of the solution to use
 
         `Res`: residual arrays of the current time-step that will be updated
         """

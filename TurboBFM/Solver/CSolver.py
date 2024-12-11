@@ -127,6 +127,9 @@ class CSolver(ABC):
                 self.mk_in.append(self.ComputeMassFlow('k', 'start'))
                 self.mk_out.append(self.ComputeMassFlow('k', 'end'))
             
+            if kind_solver=='Advection':
+                self.u_advection = self.config.GetAdvectionVelocity()
+            
             # get the runge kutta coeffs
             rk_coeff = self.config.GetRungeKuttaCoeffs()
             
@@ -164,13 +167,15 @@ class CSolver(ABC):
                 self.ContoursCheckMeridional('primitives')
                 # self.ContoursCheckResiduals(residuals)
                 plt.show()
+            
+            self.SaveSolution(it, nIter)
 
         end = time.time()
 
         if kind_solver=='Euler':
             self.PrintMassFlowPlot()
             self.PlotResidualsHistory()
-            
+
     
     @abstractmethod
     def SpatialIntegration(self, sol, res):
