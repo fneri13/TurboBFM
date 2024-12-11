@@ -207,7 +207,7 @@ class CLaplaceSolver(CSolver):
             if cbar:
                 cbar.remove()
             cbar = fig.colorbar(contour, ax=ax)
-            # ax.set_aspect('equal')
+            ax.set_aspect('equal')
             plt.pause(0.001)
 
             self.SaveSolution(it, nIter)
