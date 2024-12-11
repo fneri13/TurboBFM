@@ -449,58 +449,6 @@ class CEulerSolver(CSolver):
                         flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area 
                         Res[iFace, jFace, kFace, :] -= flux*area
-
-
-    @override
-    def Solve(self) -> None:
-        """
-        Solve the system explicitly in time.
-        """
-        nIter = self.config.GetNIterations()
-        time_physical = 0
-        start = time.time()
-
-        for it in range(nIter):            
-            self.ComputeTimeStepArray()
-            dt = np.min(self.time_step)
-            
-            self.mi_in.append(self.ComputeMassFlow('i', 'start'))
-            self.mi_out.append(self.ComputeMassFlow('i', 'end'))
-            self.mj_in.append(self.ComputeMassFlow('j', 'start'))
-            self.mj_out.append(self.ComputeMassFlow('j', 'end'))
-            self.mk_in.append(self.ComputeMassFlow('k', 'start'))
-            self.mk_out.append(self.ComputeMassFlow('k', 'end'))
-            
-            self.CheckConvergence(self.solution, it+1)
-
-            rk_coeff = self.config.GetRungeKuttaCoeffs()
-            sol_old = self.solution.copy()
-            for iKutta in range(len(rk_coeff)):       
-                residuals = np.zeros_like(self.solution)     
-                sol_new = np.zeros_like(self.solution)
-                self.SpatialIntegration('i', sol_old, residuals)
-                self.SpatialIntegration('j', sol_old, residuals)
-                if self.nDim==3:
-                    self.SpatialIntegration('k', sol_old, residuals)
-                
-                for iEq in range(5):
-                    sol_new[:,:,:,iEq] = self.solution[:,:,:,iEq] - rk_coeff[iKutta]*residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
-                sol_new = self.CorrectBoundaryVelocities(sol_new)
-                sol_old = sol_new.copy()
-
-            self.solution = sol_old.copy()
-            self.PrintInfoResiduals(residuals, it, time_physical)
-            time_physical += dt
-
-            if self.verbosity==3 and it%50==0:
-                self.ContoursCheckMeridional('primitives')
-                # self.ContoursCheckResiduals(residuals)
-                plt.show()
-
-        self.ContoursCheckMeridional('conservatives')
-        end = time.time()
-        self.PrintMassFlowPlot()
-        self.PlotResidualsHistory()
     
 
     def CorrectBoundaryVelocities(self, sol):

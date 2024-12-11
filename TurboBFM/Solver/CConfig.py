@@ -168,5 +168,22 @@ class CConfig:
         rk = [float(x.strip()) for x in rk.split(',')]
         return np.array(rk)
     
+    def GetTimeStepGlobal(self):
+        method = self.config_parser.get('CFD', 'TIME_STEP_METHOD')
+        if method.lower()=='global':
+            return True
+        elif method.lower()=='local':
+            return False
+        else:
+            raise ValueError('Unknown time step method')
+    
+    def GetTimeStepLocal(self):
+        glob = self.GetTimeStepGlobal()
+        if glob:
+            return False
+        else:
+            True
+
+    
         
     

@@ -95,12 +95,88 @@ class CSolver(ABC):
         """
 
 
-    @abstractmethod
     def Solve(self) -> None:
         """
         Solve the system explicitly in time.
         """
-        
+        nIter = self.config.GetNIterations()
+        time_physical = 0
+        start = time.time()
+        kind_solver = self.config.GetKindSolver()
+
+        for it in range(nIter): 
+            
+            sol_old = self.solution.copy() # copy of the current solution
+
+            self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
+
+            self.ComputeTimeStepArray() # compute the time-step for current iteration
+
+            # choose if local or global time-stepping
+            if self.config.GetTimeStepGlobal():
+                dt = np.min(self.time_step)
+            else:
+                dt = self.time_step
+            
+            # compute mass flows for euler solver
+            if kind_solver=='Euler':
+                self.mi_in.append(self.ComputeMassFlow('i', 'start'))
+                self.mi_out.append(self.ComputeMassFlow('i', 'end'))
+                self.mj_in.append(self.ComputeMassFlow('j', 'start'))
+                self.mj_out.append(self.ComputeMassFlow('j', 'end'))
+                self.mk_in.append(self.ComputeMassFlow('k', 'start'))
+                self.mk_out.append(self.ComputeMassFlow('k', 'end'))
+            
+            # get the runge kutta coeffs
+            rk_coeff = self.config.GetRungeKuttaCoeffs()
+            
+            # runge kutta steps
+            for iKutta in range(len(rk_coeff)):       
+                
+                residuals = np.zeros_like(self.solution) # prepare an array to store the residuals
+                
+                # calculation of fluxes
+                self.SpatialIntegration('i', sol_old, residuals)
+                self.SpatialIntegration('j', sol_old, residuals)
+                if self.nDim==3:
+                    self.SpatialIntegration('k', sol_old, residuals)
+                
+                sol_new = np.zeros_like(sol_old) # prepare an array to store the updated solution
+
+                for iEq in range(self.nEq):
+                    sol_new[:,:,:,iEq] = self.solution[:,:,:,iEq] - rk_coeff[iKutta]*residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
+                
+                if kind_solver=='Euler':
+                    sol_new = self.CorrectBoundaryVelocities(sol_new)
+                
+                sol_old = sol_new.copy() # update the sol_old for the next rk step
+
+            self.solution = sol_new.copy()
+
+            self.PrintInfoResiduals(residuals, it, time_physical)
+            
+            if self.config.GetTimeStepGlobal():
+                time_physical += dt
+            else:
+                time_physical += np.min(dt)
+
+            if self.verbosity==3 and it%50==0 and kind_solver=='Euler':
+                self.ContoursCheckMeridional('primitives')
+                # self.ContoursCheckResiduals(residuals)
+                plt.show()
+
+        end = time.time()
+
+        if kind_solver=='Euler':
+            self.PrintMassFlowPlot()
+            self.PlotResidualsHistory()
+            
+    
+    @abstractmethod
+    def SpatialIntegration(self, sol, res):
+        """
+        Every solver will specify the fluxes evaluation based on `sol` array, and store the results in the `res` array
+        """
         
     @abstractmethod
     def ComputeTimeStepArray(self):
