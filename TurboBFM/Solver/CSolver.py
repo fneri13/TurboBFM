@@ -106,7 +106,8 @@ class CSolver(ABC):
 
         for it in range(nIter): 
             
-            sol_old = self.solution.copy() # copy of the current solution
+            if kind_solver=='Euler' or kind_solver=='Advection':
+                sol_old = self.solution.copy() # copy of the current solution
 
             self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
 

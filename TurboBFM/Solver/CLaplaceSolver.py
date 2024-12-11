@@ -172,36 +172,26 @@ class CLaplaceSolver(CSolver):
                     for jFace in range(njF):
                         for kFace in range(nkF):
                             if kFace==0: 
-                                U_r = self.solution[iFace, jFace, kFace,:]
-                                if self.boundary_types['k']['begin']=='transparent':
-                                    U_l = U_r.copy() 
-                                elif self.boundary_types['k']['begin']=='periodic':
-                                    U_l = self.solution[iFace, jFace, -1,:]
-                                else:
-                                    raise ValueError('Unknown boundary condition at nk=0')
+                                U_r = self.solution_gradient[iFace, jFace, kFace, 0, :]
+                                U_l = U_r.copy() 
                                 S = self.mesh.Sk[iFace, jFace, kFace, :]
-                                scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                                scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                                 flux = scheme.ComputeFlux()
                                 area = np.linalg.norm(S)
                                 residuals[iFace, jFace, kFace, :] -= flux*area          
                             elif kFace==nkF-1:
-                                U_l = self.solution[iFace, jFace, kFace-1, :]       
-                                if self.boundary_types['k']['end']=='transparent':
-                                    U_r = U_l.copy()
-                                elif self.boundary_types['k']['end']=='periodic':
-                                    U_r = self.solution[iFace, jFace, 0,:]
-                                else:
-                                    raise ValueError('Unknown boundary condition at k=nk')
-                                S = self.mesh.Sk[iFace, jFace, kFace, :]                
-                                scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                                U_l = self.solution_gradient[iFace, jFace, kFace-1, 0, :]
+                                U_r = U_l.copy()
+                                S = self.mesh.Sk[iFace, jFace, kFace, :]
+                                scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                                 flux = scheme.ComputeFlux()
                                 area = np.linalg.norm(S)
                                 residuals[iFace, jFace, kFace-1, :] += flux*area        
                             else:
-                                U_l = self.solution[iFace, jFace, kFace-1,:]
-                                U_r = self.solution[iFace, jFace, kFace,:]  
+                                U_l = self.solution_gradient[iFace, jFace, kFace-1, 0,:]
+                                U_r = self.solution_gradient[iFace, jFace, kFace, 0,:]  
                                 S = self.mesh.Sk[iFace, jFace, kFace, :]
-                                scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
+                                scheme = CScheme_Central(U_l, U_r, S, -self.config.GetLaplaceDiffusivity())
                                 flux = scheme.ComputeFlux()
                                 area = np.linalg.norm(S)
                                 residuals[iFace, jFace, kFace-1, :] += flux*area 
@@ -225,6 +215,10 @@ class CLaplaceSolver(CSolver):
 
         end = time.time()
         self.PlotResidualsHistory()
+    
+    @override
+    def SpatialIntegration(self, sol, res):
+        return super().SpatialIntegration(sol, res)
 
 
     @override
