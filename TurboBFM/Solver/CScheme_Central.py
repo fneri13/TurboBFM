@@ -2,7 +2,7 @@ import numpy as np
 
 class CScheme_Central():
     """
-    Class for the evaluation of central flux, defined for scalar laplace equation.
+    Class for the evaluation of central flux, defined for scalar Laplace equation.
     """
     def __init__(self, ul: np.ndarray, ur: np.ndarray, S: np.ndarray, diffusivity: float = 1.0) -> None:
         """

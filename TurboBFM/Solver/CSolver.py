@@ -13,6 +13,9 @@ from abc import ABC, abstractmethod
 
 # Abstract class. Abstract methods need to be overridden in the child classes
 class CSolver(ABC):
+    """
+    Virtual class used as a base for other solvers.
+    """
     
     def __init__(self, config: CConfig, mesh: CMesh):
         """
@@ -137,6 +140,7 @@ class CSolver(ABC):
             for i in range(len(rk_coeff)):
                 residual_list.append(np.zeros_like(sol_old))
 
+            # RK steps
             for iStep in range(len(rk_coeff)):      
                 residual_list[iStep] = self.ComputeResidual(sol_old)
 
@@ -145,11 +149,10 @@ class CSolver(ABC):
                     for iEq in range(self.nEq):
                         sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
                 
-                if kind_solver=='Euler':
-                    sol_new = self.CorrectBoundaryVelocities(sol_new)
-                
                 sol_old = sol_new # update the current solution
-                
+            
+            if kind_solver=='Euler':
+                    sol_new = self.CorrectBoundaryVelocities(sol_new)
             self.solution = sol_new.copy()
             self.PrintInfoResiduals(residual_list[-1], it, time_physical)
             if self.config.GetTimeStepGlobal():

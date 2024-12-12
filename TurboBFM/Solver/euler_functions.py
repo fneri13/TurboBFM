@@ -68,13 +68,13 @@ def EulerFluxFromConservatives(cons: np.ndarray, surf: np.ndarray, fluid: FluidI
         `flux`: flux vector
         """
         prim = GetPrimitivesFromConservatives(cons)
-        area = np.linalg.norm(surf)
-        normal = surf/area
+        normal = surf/np.linalg.norm(surf)
         vel = prim[1:-1]
         vel_n = np.dot(vel, normal)
+        p = fluid.ComputePressure_rho_u_et(prim[0], prim[1:-1], prim[-1])
         rho = prim[0]
-        et = prim[4]
-        p = fluid.ComputePressure_rho_u_et(rho, vel, et)
+        vel = prim[1:-1]
+        et = prim[-1]
         ht = et+p/rho
         
         flux = np.zeros(5, dtype=float)
