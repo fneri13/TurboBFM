@@ -116,11 +116,6 @@ def eriksson_stretching_function_initial(x: np.ndarray, alpha: float) -> np.ndar
     `alpha`: stretching intensity parameter (1=no stretching)
     """
     f = (np.exp(alpha * x) - 1) / (np.exp(alpha) - 1)
-    # plt.figure()
-    # plt.plot(x, f, '-o', label=r'$f/f_{max}$')
-    # plt.xlabel(r'$x$')
-    # plt.xlabel(r'$f$')
-    # plt.grid(alpha=grid_opacity)
     return f
 
 
@@ -137,11 +132,6 @@ def eriksson_stretching_function_final(x, alpha):
     `alpha`: stretching intensity parameter (1=no stretching)
     """
     f = (np.exp(alpha) - np.exp(alpha * (1 - x))) / (np.exp(alpha) - 1)
-    # plt.figure()
-    # plt.plot(x, f, '-o', label=r'$f/f_{max}$')
-    # plt.xlabel(r'$x$')
-    # plt.xlabel(r'$f$')
-    # plt.grid(alpha=grid_opacity)
     return f
 
 
@@ -165,12 +155,6 @@ def eriksson_stretching_function_both(x, alpha):
             f[i] = x_midpoint * (np.exp(alpha * x[i] / x_midpoint) - 1) / (np.exp(alpha) - 1)
         else:
             f[i] = 1 - (1 - x_midpoint) * (np.exp(alpha * (1 - x[i]) / (1 - x_midpoint)) - 1) / (np.exp(alpha) - 1)
-
-    # plt.figure()
-    # plt.plot(x, f, '-o', label=r'$f/f_{max}$')
-    # plt.xlabel(r'$x$')
-    # plt.xlabel(r'$f$')
-    # plt.grid(alpha=grid_opacity)
     return f
 
 
