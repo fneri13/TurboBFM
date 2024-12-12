@@ -53,7 +53,23 @@ class CMesh():
         self.ComputeInterfaces()
         self.ComputeVolumes()
         self.ComputeMeshQuality()
+        self.ComputeBoundaryAreas()
         self.PrintMeshInfo()
+
+    
+    def ComputeBoundaryAreas(self):
+        """
+        Compute the areas of the boundaries
+        """
+        self.boundary_areas = {'i': {},
+                            'j': {},
+                            'k': {}}
+        
+        dirs = ['i', 'j', 'k']
+        locs = ['begin', 'end']
+        for loc in locs:
+            for dir in dirs:
+                self.boundary_areas[dir][loc] = self.ComputeTotalArea(dir, loc)
 
 
     def ComputeInterfaces(self):
@@ -643,6 +659,35 @@ class CMesh():
         ax.set_title('Element (%i, %i, %i)' %(i,j,k))
         ax.set_aspect('equal')
         ax.legend()
+    
+
+    def ComputeTotalArea(self, dir, loc):
+        """
+        Compute the total surface of a boundary, defined by direction `dir` and location `loc`
+        """
+
+        if dir=='i' and loc=='begin':
+            S = self.Si[0,:,:,:,]
+        elif dir=='i' and loc=='end':
+            S = self.Si[-1,:,:,:,]
+        elif dir=='j' and loc=='begin':
+            S = self.Sj[:,0,:,:,]
+        elif dir=='j' and loc=='end':
+            S = self.Sj[:,-1,:,:,]
+        elif dir=='k' and loc=='begin':
+            S = self.Sk[:,:,0,:,]
+        elif dir=='k' and loc=='end':
+            S = self.Sk[:,:,-1,:,]
+        else:
+            raise ValueError('Unknown direction and/or location')
+        
+        sum = 0
+        nl, nk = S[:,:,0].shape
+        for l in range(nl):
+            for k in range(nk):
+                sum += np.linalg.norm(S[l,k,:])
+        
+        return sum
                     
 
 
