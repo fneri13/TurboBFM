@@ -416,18 +416,16 @@ class CEulerSolver(CSolver):
                     if dir_face==0: 
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
                         Ub = Sol[iFace, jFace, kFace, :]   
-                        Uint = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2], :]     
                         S = -Surf[iFace, jFace, kFace, :]               
-                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
                         Ub = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
-                        Uint = Sol[iFace-2*step_mask[0], jFace-2*step_mask[1], kFace-2*step_mask[2], :]     
                         S = Surf[iFace, jFace, kFace, :]                
-                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
@@ -613,11 +611,17 @@ class CEulerSolver(CSolver):
         
     
     @override
-    def ComputeTimeStepArray(self):
+    def ComputeTimeStepArray(self, sol):
         """
-        Compute the time step of the simulation for a certain CFL
+        Compute the time step of the simulation for a certain CFL and conservative solution
+
+        Parameters
+        -------------------------------
+
+        `sol`: conservative solution array
         """
         CFL = self.config.GetCFL()
+        timestep = np.zeros((self.ni, self.nj, self.nk))
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
@@ -636,9 +640,14 @@ class CEulerSolver(CSolver):
                     dt_k = np.linalg.norm(k_edge) / (np.abs(np.dot(vel, k_dir))+a)
 
                     if self.nDim==3:
-                        self.time_step[i,j,k] = CFL*min(dt_i, dt_j, dt_k)
+                        timestep[i,j,k] = CFL*min(dt_i, dt_j, dt_k)
                     else:
-                        self.time_step[i,j,k] = CFL*min(dt_i, dt_j)
+                        timestep[i,j,k] = CFL*min(dt_i, dt_j)
+        if self.config.GetTimeStepGlobal():
+            return np.min(timestep) # the minimum of all
+        else:
+            return timestep  # local per elelement, lose of time coherency
+
 
 
     @override

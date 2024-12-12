@@ -104,18 +104,11 @@ class CSolver(ABC):
         """
         nIter = self.config.GetNIterations()
         time_physical = 0
-        start = time.time()
         kind_solver = self.config.GetKindSolver()
 
         for it in range(nIter): 
-            self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
-            self.ComputeTimeStepArray() # compute the time-step for current iteration
-
-            # choose if local or global time-stepping
-            if self.config.GetTimeStepGlobal():
-                dt = np.min(self.time_step)
-            else:
-                dt = self.time_step
+            sol_old = self.solution.copy()
+            dt = self.ComputeTimeStepArray(sol_old) 
             
             # compute mass flows for euler solver
             if kind_solver=='Euler':
@@ -129,13 +122,8 @@ class CSolver(ABC):
             if kind_solver=='Advection':
                 self.u_advection = self.config.GetAdvectionVelocity()
             
-            # get the runge kutta coeffs
+            # Time-integration coefficient list
             rk_coeff = self.config.GetRungeKuttaCoeffs()
-
-            if kind_solver=='Euler' or kind_solver=='Advection':
-                sol_old = self.solution.copy() # copy of the current solution
-
-            # container for residuals of the runge-kutta steps
             residual_list = []
             for i in range(len(rk_coeff)):
                 residual_list.append(np.zeros_like(sol_old))
@@ -143,31 +131,29 @@ class CSolver(ABC):
             # RK steps
             for iStep in range(len(rk_coeff)):      
                 residual_list[iStep] = self.ComputeResidual(sol_old)
-
-                sol_new = self.solution.copy() # solution at step 0
+                sol_new = self.solution.copy() 
                 for coeff in rk_coeff[iStep]:
                     for iEq in range(self.nEq):
                         sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
-                
-                sol_old = sol_new # update the current solution
+                sol_old = sol_new 
             
             if kind_solver=='Euler':
                     sol_new = self.CorrectBoundaryVelocities(sol_new)
+            
             self.solution = sol_new.copy()
             self.PrintInfoResiduals(residual_list[-1], it, time_physical)
+            
             if self.config.GetTimeStepGlobal():
                 time_physical += dt
             else:
                 time_physical += np.min(dt)
 
-            if self.verbosity==3 and it%50==0 and kind_solver=='Euler':
+            if self.verbosity==3 and it%100==0 and kind_solver=='Euler':
                 self.ContoursCheckMeridional('primitives')
-                # self.ContoursCheckResiduals(residuals)
                 plt.show()
             
+            self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
             self.SaveSolution(it, nIter)
-
-        end = time.time()
 
         if kind_solver=='Euler':
             self.ContoursCheckMeridional('primitives')
@@ -228,7 +214,7 @@ class CSolver(ABC):
         for iEq in range(self.nEq):
             residual = np.array(self.residual_history[iEq])
             name = self.solution_names[iEq]
-            plt.plot(shift_to_zero(residual), label=name)
+            plt.plot((residual), label=name)
 
         plt.xlabel('iteration [-]')
         plt.ylabel('residuals drop [-]')
