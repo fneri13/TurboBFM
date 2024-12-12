@@ -15,6 +15,7 @@ from typing import override
 
 class CAdvectionSolver(CSolver):
     
+
     def __init__(self, config: CConfig, mesh: CMesh):
         """
         Instantiate the Euler Solver, by using the information contained in the mesh object (Points, Volumes, and Surfaces)
@@ -40,6 +41,7 @@ class CAdvectionSolver(CSolver):
             if self.nDim==3:
                 print('Boundary type at k=0:                    %s' %(self.boundary_types['k']['begin']))
                 print('Boundary type at k=nk:                   %s' %(self.boundary_types['k']['end']))
+            print('Time Integration method:                 %s' %(self.config.GetTimeIntegrationType()))
             print('='*25 + ' END SOLVER INFORMATION ' + '='*25)
             print()
 
@@ -87,180 +89,6 @@ class CAdvectionSolver(CSolver):
                         self.solution[i,j,k,0] = 1
                     else:
                         self.solution[i,j,k,0] = 0
-
-
-    # @override
-    # def Solve(self) -> None:
-    #     """
-    #     Solve the system explicitly in time.
-    #     """
-    #     nIter = self.config.GetNIterations()
-    #     time_physical = 0
-    #     start = time.time()
-    #     u_advection = self.config.GetAdvectionVelocity()
-    #     theta = np.linspace(0, 2*np.pi*2, nIter)
-
-    #     # fig, ax = plt.subplots()
-    #     # cbar = None  # Initialize colorbar reference
-    #     for it in range(nIter):            
-    #         if self.config.GetAdvectionRotation():
-    #             u_adv = np.array([np.cos(theta[it])*u_advection[0],
-    #                             np.sin(theta[it])*u_advection[0],
-    #                             u_advection[2]])
-    #         else:
-    #             u_adv = u_advection
-                
-    #         self.ComputeTimeStepArray()
-    #         dt = np.min(self.time_step)
-            
-    #         residuals = np.zeros_like(self.solution)  # defined as flux*surface going out of the cell (i,j,k)
-    #         self.CheckConvergence(self.solution, it+1)
-            
-    #         # i-fluxes
-    #         niF, njF, nkF = self.mesh.Si[:, :, :, 0].shape
-    #         for iFace in range(niF):
-    #             for jFace in range(njF):
-    #                 for kFace in range(nkF):
-    #                     if iFace==0: 
-    #                         U_r = self.solution[iFace, jFace, kFace,:]
-    #                         if self.boundary_types['i']['begin']=='transparent':
-    #                             U_l = U_r.copy() 
-    #                         elif self.boundary_types['i']['begin']=='periodic':
-    #                             U_l = self.solution[-1, jFace, kFace,:]
-    #                         else:
-    #                             raise ValueError('Unknown boundary condition at ni=0')
-    #                         S = self.mesh.Si[iFace, jFace, kFace, :]
-    #                         scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                         flux = scheme.ComputeFlux()
-    #                         area = np.linalg.norm(S)
-    #                         residuals[iFace, jFace, kFace, :] -= flux*area          
-    #                     elif iFace==niF-1:
-    #                         U_l = self.solution[iFace-1, jFace, kFace, :]  
-    #                         if self.boundary_types['i']['end']=='transparent':
-    #                             U_r = U_r.copy()
-    #                         elif self.boundary_types['i']['end']=='periodic':
-    #                             U_r = self.solution[0, jFace, kFace, :]
-    #                         else:
-    #                             raise ValueError('Unknown boundary condition at ni=0')
-    #                         S = self.mesh.Si[iFace, jFace, kFace, :]                
-    #                         scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                         flux = scheme.ComputeFlux()
-    #                         area = np.linalg.norm(S)
-    #                         residuals[iFace-1, jFace, kFace, :] += flux*area        
-    #                     else:
-    #                         U_l = self.solution[iFace-1, jFace, kFace,:]
-    #                         U_r = self.solution[iFace, jFace, kFace,:]  
-    #                         S = self.mesh.Si[iFace, jFace, kFace, :]
-    #                         scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                         flux = scheme.ComputeFlux()
-    #                         area = np.linalg.norm(S)
-    #                         residuals[iFace-1, jFace, kFace, :] += flux*area 
-    #                         residuals[iFace, jFace, kFace, :] -= flux*area
-            
-    #         # j-fluxes
-    #         niF, njF, nkF = self.mesh.Sj[:, :, :, 0].shape
-    #         for iFace in range(niF):
-    #             for jFace in range(njF):
-    #                 for kFace in range(nkF):
-    #                     if jFace==0: 
-    #                         U_r = self.solution[iFace, jFace, kFace,:]
-    #                         if self.boundary_types['j']['begin']=='transparent':
-    #                             U_l = U_r.copy() 
-    #                         elif self.boundary_types['j']['begin']=='periodic':
-    #                             U_l = self.solution[iFace, -1, kFace,:]
-    #                         else:
-    #                             raise ValueError('Unknown boundary condition at nj=0')
-    #                         S = self.mesh.Sj[iFace, jFace, kFace, :]
-    #                         scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                         flux = scheme.ComputeFlux()
-    #                         area = np.linalg.norm(S)
-    #                         residuals[iFace, jFace, kFace, :] -= flux*area          
-    #                     elif jFace==njF-1:
-    #                         U_l = self.solution[iFace, jFace-1, kFace, :]      
-    #                         if self.boundary_types['j']['end']=='transparent':
-    #                             U_r = U_l.copy()
-    #                         elif self.boundary_types['j']['end']=='periodic':
-    #                             U_r = self.solution[iFace, 0, kFace,:]
-    #                         else:
-    #                             raise ValueError('Unknown boundary condition at j=nj')
-    #                         S = self.mesh.Sj[iFace, jFace, kFace, :]                
-    #                         scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                         flux = scheme.ComputeFlux()
-    #                         area = np.linalg.norm(S)
-    #                         residuals[iFace, jFace-1, kFace, :] += flux*area        
-    #                     else:
-    #                         U_l = self.solution[iFace, jFace-1, kFace,:]
-    #                         U_r = self.solution[iFace, jFace, kFace,:]  
-    #                         S = self.mesh.Sj[iFace, jFace, kFace, :]
-    #                         scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                         flux = scheme.ComputeFlux()
-    #                         area = np.linalg.norm(S)
-    #                         residuals[iFace, jFace-1, kFace, :] += flux*area 
-    #                         residuals[iFace, jFace, kFace, :] -= flux*area
-            
-    #         # k-fluxes
-    #         if self.nDim==3:
-    #             niF, njF, nkF = self.mesh.Sk[:, :, :, 0].shape
-    #             for iFace in range(niF):
-    #                 for jFace in range(njF):
-    #                     for kFace in range(nkF):
-    #                         if kFace==0: 
-    #                             U_r = self.solution[iFace, jFace, kFace,:]
-    #                             if self.boundary_types['k']['begin']=='transparent':
-    #                                 U_l = U_r.copy() 
-    #                             elif self.boundary_types['k']['begin']=='periodic':
-    #                                 U_l = self.solution[iFace, jFace, -1,:]
-    #                             else:
-    #                                 raise ValueError('Unknown boundary condition at nk=0')
-    #                             S = self.mesh.Sk[iFace, jFace, kFace, :]
-    #                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                             flux = scheme.ComputeFlux()
-    #                             area = np.linalg.norm(S)
-    #                             residuals[iFace, jFace, kFace, :] -= flux*area          
-    #                         elif kFace==nkF-1:
-    #                             U_l = self.solution[iFace, jFace, kFace-1, :]       
-    #                             if self.boundary_types['k']['end']=='transparent':
-    #                                 U_r = U_l.copy()
-    #                             elif self.boundary_types['k']['end']=='periodic':
-    #                                 U_r = self.solution[iFace, jFace, 0,:]
-    #                             else:
-    #                                 raise ValueError('Unknown boundary condition at k=nk')
-    #                             S = self.mesh.Sk[iFace, jFace, kFace, :]                
-    #                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                             flux = scheme.ComputeFlux()
-    #                             area = np.linalg.norm(S)
-    #                             residuals[iFace, jFace, kFace-1, :] += flux*area        
-    #                         else:
-    #                             U_l = self.solution[iFace, jFace, kFace-1,:]
-    #                             U_r = self.solution[iFace, jFace, kFace,:]  
-    #                             S = self.mesh.Sk[iFace, jFace, kFace, :]
-    #                             scheme = CScheme_Upwind(U_l, U_r, S, u_adv)
-    #                             flux = scheme.ComputeFlux()
-    #                             area = np.linalg.norm(S)
-    #                             residuals[iFace, jFace, kFace-1, :] += flux*area 
-    #                             residuals[iFace, jFace, kFace, :] -= flux*area
-            
-    #         self.PrintInfoResiduals(residuals, it, time_physical)
-    #         time_physical += dt
-
-    #         for iEq in range(self.nEq):
-    #             self.solution[:,:,:,iEq] = self.solution[:,:,:,iEq] - residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  # update the conservative solution
-
-    #         # contour = ax.contourf(self.mesh.X[:, :, 0], self.mesh.Y[:, :, 0], self.solution[:, :, 0, 0], cmap=styles.color_map, vmin=0, vmax=1)
-    #         # if cbar:
-    #         #     cbar.remove()
-    #         # cbar = fig.colorbar(contour, ax=ax)
-    #         # # u_quiver = u_adv[0]+np.zeros_like(self.mesh.X[:, :, 0])
-    #         # # v_quiver = u_adv[1]+np.zeros_like(self.mesh.X[:, :, 0])
-    #         # # ax.quiver(self.mesh.X[:, :, 0], self.mesh.Y[:, :, 0], u_quiver, v_quiver, color='red')
-    #         # ax.set_aspect('equal')
-    #         # plt.pause(0.001)
-
-    #         self.SaveSolution(it, nIter)
-            
-
-    #     end = time.time()
-    #     self.PlotResidualsHistory()
 
 
     @override

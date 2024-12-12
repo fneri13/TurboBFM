@@ -163,10 +163,53 @@ class CConfig:
         dir = [float(x.strip()) for x in dir.split(',')]
         return np.array(dir)
     
+
+    def GetTimeIntegrationType(self):
+        """
+        Return the time integration integration type. Following Anderson advices:
+        `rk`=0 -> forward euler
+        `rk`=1 -> rk4 time accurate
+        `rk`=2 -> low memory consumption, to use only for steady problems
+        """
+        a = int(self.config_parser.get('CFD', 'TIME_INTEGRATION_TYPE'))
+        if a==0:
+            return 'FORWARD_EULER'
+        elif a==1:
+            return 'RK4_TIME_ACCURATE'
+        elif a==2:
+            return 'RK4_LOW_MEMORY'
+        else:
+            raise ValueError('Time integration type in input file can be 0 or 1 or 2')
+    
+
     def GetRungeKuttaCoeffs(self):
-        rk = self.config_parser.get('CFD', 'RUNGE_KUTTA_COEFFS')
-        rk = [float(x.strip()) for x in rk.split(',')]
-        return np.array(rk)
+        """
+        Return the coefficients in a list of list. Every element specifies the coefficients for each step
+        Example:
+
+        w1 = w0 - coeffs[0][0]*dt*R0
+        
+        w2 = w0 - coeffs[1][0]*dt*R0 - coeffs[1][1]*dt*R1
+        
+        w3 = w0 - coeffs[2][0]*dt*R0 - coeffs[2][1]*dt*R1 - coeffs[2][2]*dt*R2
+        
+        w4 = w0 - coeffs[3][0]*dt*R0 - coeffs[3][1]*dt*R1 - coeffs[3][2]*dt*R2 - - coeffs[3][3]*dt*R3
+        """
+        rk = self.GetTimeIntegrationType()
+        if rk=='RK4_TIME_ACCURATE':
+            coeffs = [[0.5], 
+                      [0, 0.5],  
+                      [0, 0, 1], 
+                      [1/6, 2/6, 2/6, 1/6]]
+        elif rk=='RK4_LOW_MEMORY':
+            coeffs = [[0.25], 
+                      [0, 1/3],  
+                      [0, 0, 1/2], 
+                      [0, 0, 0, 1]]
+        elif rk=='FORWARD_EULER':
+            coeffs = [[1]]
+        return coeffs
+    
     
     def GetTimeStepGlobal(self):
         method = self.config_parser.get('CFD', 'TIME_STEP_METHOD')

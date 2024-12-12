@@ -27,6 +27,8 @@ for pik in pik_files:
     ax.set_xlabel(r'$x$')
     ax.set_ylabel(r'$y$')
     plt.pause(0.05)
+
+plt.show()
     
 
 

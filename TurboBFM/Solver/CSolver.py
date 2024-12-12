@@ -115,12 +115,7 @@ class CSolver(ABC):
         kind_solver = self.config.GetKindSolver()
 
         for it in range(nIter): 
-            
-            if kind_solver=='Euler' or kind_solver=='Advection':
-                sol_old = self.solution.copy() # copy of the current solution
-
             self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
-
             self.ComputeTimeStepArray() # compute the time-step for current iteration
 
             # choose if local or global time-stepping
@@ -143,32 +138,30 @@ class CSolver(ABC):
             
             # get the runge kutta coeffs
             rk_coeff = self.config.GetRungeKuttaCoeffs()
-            
-            # runge kutta steps
-            for iKutta in range(len(rk_coeff)):       
-                
-                residuals = np.zeros_like(self.solution) # prepare an array to store the residuals
-                
-                # calculation of fluxes
-                self.SpatialIntegration('i', sol_old, residuals)
-                self.SpatialIntegration('j', sol_old, residuals)
-                if self.nDim==3:
-                    self.SpatialIntegration('k', sol_old, residuals)
-                
-                sol_new = np.zeros_like(sol_old) # prepare an array to store the updated solution
 
-                for iEq in range(self.nEq):
-                    sol_new[:,:,:,iEq] = self.solution[:,:,:,iEq] - rk_coeff[iKutta]*residuals[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
+            if kind_solver=='Euler' or kind_solver=='Advection':
+                sol_old = self.solution.copy() # copy of the current solution
+
+            # container for residuals of the runge-kutta steps
+            residual_list = []
+            for i in range(len(rk_coeff)):
+                residual_list.append(np.zeros_like(sol_old))
+
+            for iStep in range(len(rk_coeff)):      
+                residual_list[iStep] = self.ComputeResidual(sol_old)
+
+                sol_new = self.solution.copy() # solution at step 0
+                for coeff in rk_coeff[iStep]:
+                    for iEq in range(self.nEq):
+                        sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
                 
                 if kind_solver=='Euler':
                     sol_new = self.CorrectBoundaryVelocities(sol_new)
                 
-                sol_old = sol_new.copy() # update the sol_old for the next rk step
-
+                sol_old = sol_new # update the current solution
+                
             self.solution = sol_new.copy()
-
-            self.PrintInfoResiduals(residuals, it, time_physical)
-            
+            self.PrintInfoResiduals(residual_list[-1], it, time_physical)
             if self.config.GetTimeStepGlobal():
                 time_physical += dt
             else:
@@ -187,6 +180,20 @@ class CSolver(ABC):
             self.ContoursCheckMeridional('primitives')
             self.PrintMassFlowPlot()
             self.PlotResidualsHistory()
+
+
+    def ComputeResidual(self, sol):
+        """
+        For a given flow solution, compute the residual
+        """
+        residual = np.zeros_like(sol)
+        self.SpatialIntegration('i', sol, residual)
+        self.SpatialIntegration('j', sol, residual)
+        if self.nDim==3:
+            self.SpatialIntegration('k', sol, residual)
+
+        return residual
+
 
     
     @abstractmethod
