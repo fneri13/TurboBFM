@@ -9,6 +9,7 @@ from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Postprocess import styles
 from TurboBFM.Solver.math import GreenGaussGradient
 from abc import ABC, abstractmethod
+import os
 
 
 # Abstract class. Abstract methods need to be overridden in the child classes
@@ -253,7 +254,7 @@ class CSolver(ABC):
             interval = self.config.GetSaveUnsteadyInterval()
             if (save and it%interval==0) or (save and it==nIter-1) or (save and it==0):
                 file_name = self.config.GetSolutionName()
-                file_name += '_%03i.pik' %(it)
+                file_name += '_%06i.pik' %(it)
 
                 if self.nDim==3:
                     results = {'X': self.mesh.X,
@@ -264,6 +265,8 @@ class CSolver(ABC):
                     results = {'X': self.mesh.X,
                             'Y': self.mesh.Y,
                             'U': self.solution}
+                
+                os.makedirs('Results', exist_ok=True)
                 with open('Results/%s' %file_name, 'wb') as file:
                     pickle.dump(results, file)
     

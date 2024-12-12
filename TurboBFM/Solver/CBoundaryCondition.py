@@ -60,7 +60,7 @@ class CBoundaryCondition():
                 raise ValueError('Unknown inlet bc type')
             
         elif self.bc_type=='outlet':
-            flux = self.ComputeBCFlux_Outlet()
+            flux = self.ComputeBCFlux_Outlet2()
 
         else:
             raise ValueError('Boundary condition <%s> not recognized or not available' %(self.bc_type))
@@ -192,6 +192,26 @@ class CBoundaryCondition():
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
         flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)  # positive flux is directed outwards
+        return flux
+    
+
+    def ComputeBCFlux_Outlet2(self):
+        """
+        
+        """
+        rho_int = self.Wint[0]
+        u_int = self.Wint[1:-1]
+        et_int = self.Wint[-1]
+        p_int = self.fluid.ComputePressure_rho_u_et(rho_int, u_int, et_int)
+
+        p_b = self.bc_value
+        rho_b = p_b*rho_int/p_int
+        u_b = u_int
+        e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
+        et_b = e_b + 0.5*np.linalg.norm(u_b)**2
+        Wb = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
+        Ub = GetConservativesFromPrimitives(Wb)
+        flux = EulerFluxFromConservatives(Ub, self.S, self.fluid)  # positive flux is directed outwards
         return flux
 
 
