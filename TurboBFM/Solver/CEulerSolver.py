@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import time
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.CConfig import CConfig
@@ -9,7 +8,7 @@ from TurboBFM.Solver.euler_functions import GetConservativesFromPrimitives, GetP
 from TurboBFM.Solver.CScheme_JST import CSchemeJST
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
-# from TurboBFM.Postprocess import styles
+from TurboBFM.Postprocess import styles
 from typing import override 
 
 
@@ -63,6 +62,7 @@ class CEulerSolver(CSolver):
             print('Inlet Total Temperature [K]:             %.2f' %(self.config.GetInletValue()[1]))
             print('Inlet flow direction [-]:                (%.2f, %.2f, %.2f)' %(self.config.GetInletValue()[2], self.config.GetInletValue()[3], self.config.GetInletValue()[4]))
             print('Outlet static pressure [kPa]:            %.2f' %(self.config.GetOutletValue()/1e3))
+            print('Time Integration method:                 %s' %(self.config.GetTimeIntegrationType()))
             print('='*25 + ' END SOLVER INFORMATION ' + '='*25)
             print()
 
@@ -302,8 +302,6 @@ class CEulerSolver(CSolver):
 
         `array`: array storing the residual values
         """
-        N_levels = 20
-        color_map = 'jet'
         names = [r'$R(\rho)$', r'$R(\rho u_x)$', r'$R(\rho u_y)$', r'$R(\rho u_z)$', r'$R(\rho e_t)$']
         
         # function to make contours on different directions
@@ -316,7 +314,7 @@ class CEulerSolver(CSolver):
                 Y = self.mesh.Y[:,:,idx_cut]
                 iplot = iField//3
                 jplot = iField-3*iplot
-                cnt = ax[iplot][jplot].contourf(X, Y, fields[:,:,idx_cut,iField], cmap=color_map, levels=N_levels)
+                cnt = ax[iplot][jplot].contourf(X, Y, fields[:,:,idx_cut,iField], cmap=styles.color_map, levels=styles.N_levels)
                 plt.colorbar(cnt, ax=ax[iplot][jplot])
                 ax[iplot][jplot].set_title(names[iField])
                 if jplot==0:
@@ -469,6 +467,18 @@ class CEulerSolver(CSolver):
     
 
     def CorrectWallVelocities(self, dir, loc, sol):
+        """
+        Correct the velocities on a boundary to be tangential. 
+
+        Parameters
+        -------------------------
+
+        `dir`: i,j,k
+
+        `loc`: begin or end
+
+        `sol`: solution array to correct
+        """
         
         def project_vel(cons, S):
             prim = GetPrimitivesFromConservatives(cons)
@@ -488,7 +498,6 @@ class CEulerSolver(CSolver):
             for j in range(nj):
                 for k in range(nk):
                     sol[0,j,k,:] = project_vel(U[j,k,:], S[j,k,:])
-
         elif dir=='i' and loc=='end':
             U = sol[-1,:,:,:]
             S = self.mesh.Si[-1,:,:,:]
@@ -496,7 +505,6 @@ class CEulerSolver(CSolver):
             for j in range(nj):
                 for k in range(nk):
                     sol[-1,j,k,:] = project_vel(U[j,k,:], S[j,k,:])
-
         elif dir=='j' and loc=='begin':
             U = sol[:,0,:,:]
             S = -self.mesh.Sj[:,0,:,:]
@@ -504,7 +512,6 @@ class CEulerSolver(CSolver):
             for i in range(ni):
                 for k in range(nk):
                     sol[i,0,k,:] = project_vel(U[i,k,:], S[i,k,:])
-
         elif dir=='j' and loc=='end':
             U = sol[:,-1,:,:]
             S = self.mesh.Sj[:,-1,:,:]
@@ -512,7 +519,6 @@ class CEulerSolver(CSolver):
             for i in range(ni):
                 for k in range(nk):
                     sol[i,-1,k,:] = project_vel(U[i,k,:], S[i,k,:])
-
         elif dir=='k' and loc=='begin':
             U = sol[:,:,0,:]
             S = -self.mesh.Sj[:,:,0,:]
@@ -520,7 +526,6 @@ class CEulerSolver(CSolver):
             for i in range(ni):
                 for j in range(nj):
                     sol[i,j,0,:] = project_vel(U[i,j,:], S[i,j,:])
-
         elif dir=='k' and loc=='end':
             U = sol[:,:,-1,:]
             S = self.mesh.Sj[:,:,-1,:]
@@ -528,21 +533,12 @@ class CEulerSolver(CSolver):
             for i in range(ni):
                 for j in range(nj):
                     sol[i,j,-1,:] = project_vel(U[i,j,:], S[i,j,:])
-
         else:
             raise ValueError("Unknow combination of location and direction")
         
         return sol
         
         
-
-        
-        
-        
-
-                
-
-
     @override
     def PrintInfoResiduals(self, residuals: np.ndarray, it: int, time: float, col_width: int = 14):
         """
@@ -565,7 +561,7 @@ class CEulerSolver(CSolver):
             if res[i]!=0:
                 res[i] = np.log10(res[i])
         if it==0:
-        # Header
+            # Header
             print("|" + "-" * ((col_width)*7+6) + "|")
             print(f"{'|'}{'Iteration':<{col_width}}{'|'}{'Time[s]':<{col_width}}{'|'}{'rms[Rho]':>{col_width}}{'|'}{'rms[RhoU]':>{col_width}}{'|'}{'rms[RhoV]':>{col_width}}{'|'}{'rms[RhoW]':>{col_width}}{'|'}{'rms[RhoE]':>{col_width}}{'|'}")
             print("|" + "-" * ((col_width)*7+6) + "|")
@@ -719,16 +715,16 @@ class CEulerSolver(CSolver):
         Print the plot of the mass passing through boundaries
         """
         plt.figure()
-        plt.plot(self.mi_in, label=r'$\dot{m}_{i,in}$')
-        plt.plot(self.mi_out, label=r'$\dot{m}_{i,out}$')
-        plt.plot(self.mj_in, label=r'$\dot{m}_{j,in}$')
-        plt.plot(self.mj_out, label=r'$\dot{m}_{j,out}$')
-        plt.plot(self.mk_in, label=r'$\dot{m}_{k,in}$')
-        plt.plot(self.mk_out, label=r'$\dot{m}_{k,out}$')
+        plt.plot(self.mi_in, label=r'$\dot{m}_{i,IN}$')
+        plt.plot(self.mi_out, label=r'$\dot{m}_{i,OUT}$')
+        plt.plot(self.mj_in, label=r'$\dot{m}_{j,IN}$')
+        plt.plot(self.mj_out, label=r'$\dot{m}_{j,OUT}$')
+        plt.plot(self.mk_in, label=r'$\dot{m}_{k,IN}$')
+        plt.plot(self.mk_out, label=r'$\dot{m}_{k,OUT}$')
         plt.xlabel('iteration [-]')
         plt.ylabel('mass flow [kg/s]')
         plt.legend()
-        plt.grid(alpha=0.3)
+        plt.grid(alpha=styles.grid_opacity)
     
 
     def ConvertSolutionToPrimitives(self, conservatives) -> np.ndarray:

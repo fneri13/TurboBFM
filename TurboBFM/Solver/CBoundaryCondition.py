@@ -50,19 +50,12 @@ class CBoundaryCondition():
 
         elif self.bc_type=='inlet':
             if self.inlet_bc_type=='PT':
-                flux = self.ComputeBCFlux_Inlet_PT() # total pressure and temperature
+                flux = self.ComputeBCFlux_Inlet_PT() # total pressure and total temperature
             elif self.inlet_bc_type=='MT':
                 flux = self.ComputeBCFlux_Inlet_MT() # mass flow rate and total temperature
             else:
                 raise ValueError('Unknown inlet bc type')
             
-            # check if the two versions give the same results
-            # flux2 = self.ComputeBCFlux_Inlet2()
-            # if np.linalg.norm(flux2-flux)/np.linalg.norm(flux)>1e-1:
-            #     print("Version 1: ", flux)
-            #     print("Version 2: ", flux2)
-            #     print("norm difference: ", np.linalg.norm(flux2-flux)/np.linalg.norm(flux))
-            #     raise ValueError('The two inlet vesions differ')
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet()
 
@@ -137,11 +130,9 @@ class CBoundaryCondition():
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
         flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)
-
         return flux
     
 
-    
     def ComputeBCFlux_Inlet2(self):
         """
         Assumption of normal inflow for the moment. Formulation taken from NASA report.
