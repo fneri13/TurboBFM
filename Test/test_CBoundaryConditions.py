@@ -173,7 +173,6 @@ class TestBoundaryConditions(unittest.TestCase):
         Wb = GetPrimitivesFromConservatives(Ub)
         Wint = GetPrimitivesFromConservatives(Uint)
 
-
         S = np.array([-0.5, 0, 0])
         bc = CBoundaryCondition(bc_type, bc_value, Ub, Uint, S, fluid)
         flux = bc.ComputeFlux()

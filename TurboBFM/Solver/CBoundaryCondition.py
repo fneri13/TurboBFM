@@ -8,7 +8,7 @@ class CBoundaryCondition():
     """
     Class for the evaluation of fluxes due to boundary conditions (Weak form implementation).
     """
-    def __init__(self, bc_type: str, bc_value: any, Ub: np.ndarray, Uint: np.ndarray, S: np.ndarray, fluid: FluidIdeal, tot_area: float, inlet_bc_type: str = None):
+    def __init__(self, bc_type: str, bc_value: any, Ub: np.ndarray, Uint: np.ndarray, S: np.ndarray, fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
         """
         The left to right orientation follows the orientation of the normal
 
@@ -30,6 +30,8 @@ class CBoundaryCondition():
         self.bc_type = bc_type
         if bc_type == 'inlet':
             self.inlet_bc_type = inlet_bc_type
+        else:
+            self.inlet_bc_type = None
         self.bc_value = bc_value
         self.Ub = Ub                
         self.Uint = Uint            
@@ -38,6 +40,8 @@ class CBoundaryCondition():
         self.S_dir = self.S/np.linalg.norm(S)
         self.Wb = GetPrimitivesFromConservatives(self.Ub)
         self.Wint = GetPrimitivesFromConservatives(self.Uint)
+        if self.inlet_bc_type=='MT':
+            assert self.tot_area!=None, 'For Mass-Total temperature inlet BC you need to specify the total area of the boundary'
         self.tot_area = tot_area
     
 
