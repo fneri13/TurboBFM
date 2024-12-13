@@ -258,13 +258,15 @@ class CSolver(ABC):
 
                 if self.nDim==3:
                     results = {'X': self.mesh.X,
-                            'Y': self.mesh.Y,
-                            'Z': self.mesh.Z,
-                            'U': self.solution}
+                               'Y': self.mesh.Y,
+                               'Z': self.mesh.Z,
+                               'U': self.solution,
+                               'Res': self.residual_history}
                 elif self.nDim==2:
                     results = {'X': self.mesh.X,
-                            'Y': self.mesh.Y,
-                            'U': self.solution}
+                               'Y': self.mesh.Y,
+                               'U': self.solution,
+                               'Res': self.residual_history}
                 
                 os.makedirs('Results', exist_ok=True)
                 with open('Results/%s' %file_name, 'wb') as file:

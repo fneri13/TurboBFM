@@ -24,7 +24,7 @@ for pik in pik_files:
     uy = sol['U'][:,:,0,2]/rho
     u = np.sqrt(ux**2+uy**2)
     
-    contour = ax.contourf(sol['X'][:, :, 0], sol['Y'][:, :, 0], rho, cmap='coolwarm', levels=20)
+    contour = ax.contourf(sol['X'][:, :, 0], sol['Y'][:, :, 0], ux, cmap='coolwarm', levels=20)
     if cbar:
         cbar.remove()
     cbar = fig.colorbar(contour, ax=ax)
@@ -33,7 +33,7 @@ for pik in pik_files:
     ax.set_aspect('equal')
     ax.set_xlabel(r'$x$')
     ax.set_ylabel(r'$y$')
-    plt.pause(0.05)
+    plt.pause(0.25)
     
 plt.show()
 
