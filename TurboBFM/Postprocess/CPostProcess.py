@@ -161,8 +161,9 @@ class CPostProcess():
             field2D /= 1e3
         elif field_name.lower()=='cp':
             name = 'Cp1D'
-            label = r'$C_p \ \rm{[-]}$'
+            label = r'$\bar{C}_p \ \rm{[-]}$'
             field2D = self.ComputePressureCoefficient(self.data['U'][:,:,idx_k,:])
+            field2D = (field2D-field2D.min())/(field2D.max()-field2D.min())
             
         elif field_name.lower()=='mach':
             name = 'Mach1D'
