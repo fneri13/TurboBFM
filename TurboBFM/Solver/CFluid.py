@@ -38,7 +38,10 @@ class FluidIdeal():
 
     def ComputeStaticEnergy_u_et(self, vel, et):
         if isinstance(vel, np.ndarray):
-            vel = np.linalg.norm(vel)
+            if len(vel.shape)==1: # it is a velocity array for one point
+                vel = np.linalg.norm(vel)
+            elif len(vel.shape)==2: # it is an array of velocity magnitudes already:
+                pass
         else:
             pass
         e = et - 0.5*vel**2
@@ -90,5 +93,11 @@ class FluidIdeal():
     def ComputeDensity_p_T(self, p, T):
         rho = p/(self.R*T)
         return rho
+    
+
+    def ComputeMachNumber_rho_umag_et(self, rho, umag, et):
+        a = self.ComputeSoundSpeed_rho_u_et(rho, umag, et)
+        M = umag/a
+        return M
 
 

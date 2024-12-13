@@ -1,8 +1,10 @@
 import pickle
 import os
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from TurboBFM.Postprocess import styles
+from TurboBFM.Solver.CFluid import FluidIdeal
 
 class CPostProcess():
     
@@ -15,6 +17,8 @@ class CPostProcess():
         
         self.pictures_folder = 'Pictures'
         os.makedirs(self.pictures_folder, exist_ok=True)
+
+        self.fluid = FluidIdeal(1.4, 287.14) # ideal gas functions
     
 
     def PlotResiduals(self, drop=True, save_filename=None):
@@ -64,6 +68,20 @@ class CPostProcess():
             name = 'VelocityY'
             label = r'$u_y \ \rm{[m/s]}$'
             field = self.data['U'][:,:,idx_k,2]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='mach':
+            name = 'Mach'
+            label = r'$M \ \rm{[-]}$'
+            field = self.ComputeMachNumber(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='p':
+            name = 'Pressure'
+            label = r'$p \ \rm{[kPa]}$'
+            field = self.ComputePressure(self.data['U'][:,:,idx_k,:])/1e3
+        elif field_name.lower()=='s':
+            name = 'Entropy'
+            label = r'$s \ \rm{[kJ/kgK]}$'
+            field = self.ComputeEntropy(self.data['U'][:,:,idx_k,:])/1e3
+        else:
+            raise ValueError('Unknown field to plot')
         
         X = self.data['X'][:,:,idx_k]
         Y = self.data['Y'][:,:,idx_k]
@@ -91,5 +109,83 @@ class CPostProcess():
         if save_filename is not None:
             plt.savefig(self.pictures_folder + '/' + save_filename + '_' + name + '.pdf', bbox_inches='tight')
 
+    
+    def ComputeMachNumber(self, data):
+        rho = data[:,:,0]
+        ux = data[:,:,1]/data[:,:,0]
+        uy = data[:,:,2]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2)
+        et = data[:,:,-1]
+        M = self.fluid.ComputeMachNumber_rho_umag_et(rho, umag, et)
+        return M
+    
+    def ComputePressure(self, data):
+        rho = data[:,:,0]
+        ux = data[:,:,1]/data[:,:,0]
+        uy = data[:,:,2]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2)
+        et = data[:,:,-1]
+        p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
+        return p
+    
+    def ComputePressureCoefficient(self, data):
+        rho = data[:,:,0]
+        ux = data[:,:,1]/data[:,:,0]
+        uy = data[:,:,2]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2)
+        et = data[:,:,-1]
+        p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
         
+        p_ref = p[0,0]
+        rho_ref = rho[0,0]
+        u_ref = umag[0,0]
+
+        cp = (p-p_ref)/(rho_ref*u_ref**2)
+        return cp
+    
+    def ComputeEntropy(self, data):
+        rho = data[:,:,0]
+        ux = data[:,:,1]/data[:,:,0]
+        uy = data[:,:,2]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2)
+        et = data[:,:,-1]
+        M = self.fluid.ComputeEntropy_rho_u_et(rho, umag, et)
+        return M
+    
+
+    def Plot1D(self, field_name, bound_dir, bound_loc, idx_k=0, save_filename=None):
+        if field_name.lower()=='p':
+            name = 'Pressure1D'
+            label = r'$p \ \rm{[kPa]}$'
+            field2D = self.ComputePressure(self.data['U'][:,:,idx_k,:])
+            field2D /= 1e3
+        elif field_name.lower()=='cp':
+            name = 'Cp1D'
+            label = r'$C_p \ \rm{[-]}$'
+            field2D = self.ComputePressureCoefficient(self.data['U'][:,:,idx_k,:])
+            
+        elif field_name.lower()=='mach':
+            name = 'Mach1D'
+            label = r'$M \ \rm{[-]}$'
+            field2D = self.ComputeMachNumber(self.data['U'][:,:,idx_k,:])
+        else:
+            raise ValueError('Unknown field to plot')
         
+        if bound_dir=='i':
+            field = field2D[bound_loc, :]
+            x = self.data['Y'][bound_loc, :]
+            xlabel = (r'$y \ \rm{[m]}$')
+        elif bound_dir=='j':
+            field = field2D[:, bound_loc]
+            x = self.data['X'][:, bound_loc]
+            xlabel = (r'$x \ \rm{[m]}$')
+        
+        plt.figure()
+        plt.plot(x, field)
+        plt.grid(alpha=styles.grid_opacity)
+        plt.xlabel(xlabel)
+        plt.ylabel(label)
+
+        if save_filename is not None:
+            plt.savefig(self.pictures_folder + '/' + save_filename + '_' + name + '.pdf', bbox_inches='tight')
+
