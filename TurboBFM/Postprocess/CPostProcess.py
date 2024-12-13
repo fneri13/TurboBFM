@@ -153,7 +153,7 @@ class CPostProcess():
         return M
     
 
-    def Plot1D(self, field_name, bound_dir, bound_loc, idx_k=0, save_filename=None):
+    def Plot1D(self, field_name, bound_dir, bound_loc, idx_k=0, save_filename=None, ref_points=None):
         if field_name.lower()=='p':
             name = 'Pressure1D'
             label = r'$p \ \rm{[kPa]}$'
@@ -185,6 +185,10 @@ class CPostProcess():
         plt.grid(alpha=styles.grid_opacity)
         plt.xlabel(xlabel)
         plt.ylabel(label)
+
+        if ref_points is not None:
+            plt.plot(ref_points[0], ref_points[1], 'o', mfc='none', label=ref_points[2])
+            plt.legend()
 
         if save_filename is not None:
             plt.savefig(self.pictures_folder + '/' + save_filename + '_' + name + '.pdf', bbox_inches='tight')
