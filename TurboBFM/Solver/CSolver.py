@@ -136,10 +136,12 @@ class CSolver(ABC):
                 for coeff in rk_coeff[iStep]:
                     for iEq in range(self.nEq):
                         sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
+                    if kind_solver=='Euler':
+                        sol_new = self.CorrectBoundaryVelocities(sol_new)
                 sol_old = sol_new 
             
-            if kind_solver=='Euler':
-                    sol_new = self.CorrectBoundaryVelocities(sol_new)
+            # if kind_solver=='Euler':
+            #         sol_new = self.CorrectBoundaryVelocities(sol_new)
             
             self.solution = sol_new.copy()
             self.PrintInfoResiduals(residual_list[-1], it, time_physical)

@@ -1,0 +1,1 @@
+Test case copied from the SU2 repository https://su2code.github.io/tutorials/Inviscid_Wedge/
