@@ -8,7 +8,7 @@ class CBoundaryCondition():
     """
     Class for the evaluation of fluxes due to boundary conditions (Weak form implementation).
     """
-    def __init__(self, bc_type: str, bc_value: any, Ub: np.ndarray, S: np.ndarray, fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
+    def __init__(self, bc_type: str, bc_value: any, Uint: np.ndarray, S: np.ndarray, fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
         """
         The left to right orientation follows the orientation of the normal
 
@@ -18,8 +18,6 @@ class CBoundaryCondition():
         `bc_type`: string stating the type of bc (inlet, outlet, wall, etc..)
 
         `bc_value`: values related to the particular bc_type
-
-        `Ub`: conservative vector at the boundary
 
         `Uint`: conservative vector on the first internal point
 
@@ -33,12 +31,11 @@ class CBoundaryCondition():
         else:
             self.inlet_bc_type = None
         self.bc_value = bc_value
-        self.Ub = Ub                
+        self.Uint = Uint               
         self.S = S                  
         self.fluid = fluid
         self.S_dir = self.S/np.linalg.norm(S)
-        self.Wb = GetPrimitivesFromConservatives(self.Ub)
-        self.Wint = self.Wb.copy()
+        self.Wint = GetPrimitivesFromConservatives(self.Uint)
         if self.inlet_bc_type=='MT':
             assert self.tot_area!=None, 'For Mass-Total temperature inlet BC you need to specify the total area of the boundary'
         self.tot_area = tot_area
@@ -48,9 +45,10 @@ class CBoundaryCondition():
         """
         Choose among the specific boundary condition type and calculate the associated flux
         """
+        state = self.GetFluidState(self.Wint)
+
         if self.bc_type=='wall':
             flux = self.ComputeBCFlux_Wall()
-
         elif self.bc_type=='inlet':
             if self.inlet_bc_type=='PT':
                 flux = self.ComputeBCFlux_Inlet_PT() # total pressure and total temperature
@@ -58,20 +56,35 @@ class CBoundaryCondition():
                 flux = self.ComputeBCFlux_Inlet_MT() # mass flow rate and total temperature
             else:
                 raise ValueError('Unknown inlet bc type')
-            
+        elif self.bc_type=='inlet_ss':
+            flux = self.ComputeBCFlux_Inlet_Supersonic()
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet2()
-
+        elif self.bc_type=='outlet_ss':
+            flux = self.ComputeBCFlux_Outlet_Supersonic()
         else:
             raise ValueError('Boundary condition <%s> not recognized or not available' %(self.bc_type))
         return flux
+
+
+    def GetFluidState(self, W):
+        """
+        Return the state of the fluid: subsonic or supersonic
+        """
+        a = self.fluid.ComputeSoundSpeed_rho_u_et(W[0], W[1:-1], W[-1])
+        umag = np.linalg.norm(W[1:-1])
+        if umag>=a:
+            return 'supersonic'
+        else:
+            return 'subsonic'
+
 
 
     def ComputeBCFlux_Wall(self):
         """
         Compute the flux coming from a wall due to tangential velocity condition
         """
-        p = self.fluid.ComputePressure_rho_u_et(self.Wb[0], self.Wb[1:-1], self.Wb[-1])
+        p = self.fluid.ComputePressure_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         flux = np.array([0, p*self.S_dir[0], p*self.S_dir[1], p*self.S_dir[2], 0])
 
         return flux
@@ -197,7 +210,7 @@ class CBoundaryCondition():
 
     def ComputeBCFlux_Outlet2(self):
         """
-        
+        Formulation taken from 'Inflow/Outflow Boundary Conditions with Application to FUN3D' by Carlson.
         """
         rho_int = self.Wint[0]
         u_int = self.Wint[1:-1]
@@ -213,6 +226,34 @@ class CBoundaryCondition():
         Ub = GetConservativesFromPrimitives(Wb)
         flux = EulerFluxFromConservatives(Ub, self.S, self.fluid)  # positive flux is directed outwards
         return flux
+    
+    
+    def ComputeBCFlux_Inlet_Supersonic(self):
+        """
+        Supersonic inlet flux. The state is taken from the specified BCs
+        """
+        p = self.bc_value[0]
+        T = self.bc_value[1]
+        vel = self.bc_value[2:]
+
+        rho = self.fluid.ComputeDensity_p_T(p, T)
+        et = self.fluid.ComputeStaticEnergy_p_rho(p, rho) + 0.5*np.linalg.norm(vel)**2
+
+        W = np.array([rho, vel[0], vel[1], vel[2], et])
+        U = GetConservativesFromPrimitives(W)
+
+        flux = EulerFluxFromConservatives(U, self.S_dir, self.fluid)
+        return flux
+
+
+    def ComputeBCFlux_Outlet_Supersonic(self):
+        """
+        Flux compute directly with internal flow values
+        """
+        flux = EulerFluxFromConservatives(self.Uint, self.S, self.fluid)
+        return flux
+
+
 
 
 

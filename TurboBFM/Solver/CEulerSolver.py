@@ -99,10 +99,10 @@ class CEulerSolver(CSolver):
         
         for direction, station in self.boundary_types.items():
             for location, type in station.items():
-                if type=='inlet':
+                if type=='inlet' or type=='inlet_ss':
                     self.boundary_values[direction][location] = self.config.GetInletValue()
                     self.inlet_bc_type = self.config.GetInletBCType()
-                elif type=='outlet':
+                elif type=='outlet' or type=='outlet_ss':
                     self.boundary_values[direction][location] = self.config.GetOutletValue()
                 elif type=='wall' or type=='empty':
                     self.boundary_values[direction][location] = None
