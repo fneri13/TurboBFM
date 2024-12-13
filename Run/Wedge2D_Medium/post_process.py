@@ -12,6 +12,7 @@ proc = CPostProcess(pik_files[-1])
 proc.PlotResiduals(drop=False, save_filename='Residuals')
 proc.Contour2D('Mach', save_filename='Contour')
 proc.Contour2D('p', save_filename='Contour')
+proc.Contour2D('s', save_filename='Contour')
     
     
 plt.show()
