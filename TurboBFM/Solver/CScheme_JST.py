@@ -3,7 +3,7 @@ from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.euler_functions import GetPrimitivesFromConservatives, EulerFluxFromConservatives
 
 
-class CSchemeJST():
+class CScheme_JST():
     """
     Class for the evaluation of JST 3d euler flux, Formulation taken from 
     `The Origins and Further Development of the Jameson-Schmidt-Turkel (JST) Scheme`, by Jameson.

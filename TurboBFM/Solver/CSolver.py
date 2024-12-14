@@ -35,6 +35,7 @@ class CSolver(ABC):
         self.kindSolver = self.config.GetKindSolver()
         if self.kindSolver=='Euler':
             self.nEq = 5
+            self.conv_scheme = self.config.GetConvectionScheme()
         elif self.kindSolver=='Advection':
             self.nEq = 1
         elif self.kindSolver=='Laplace':
@@ -92,6 +93,7 @@ class CSolver(ABC):
         bc_value = self.boundary_values[direction][location]
         return bc_type, bc_value
             
+
     @abstractmethod
     def InitializeSolution(self):
         """
@@ -184,6 +186,7 @@ class CSolver(ABC):
         Every solver will specify the fluxes evaluation based on `sol` array, and store the results in the `res` array
         """
         
+
     @abstractmethod
     def ComputeTimeStepArray(self):
         """

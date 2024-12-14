@@ -5,7 +5,8 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.euler_functions import GetConservativesFromPrimitives, GetPrimitivesFromConservatives
-from TurboBFM.Solver.CScheme_JST import CSchemeJST
+from TurboBFM.Solver.CScheme_JST import CScheme_JST
+from TurboBFM.Solver.CScheme_Roe import CScheme_Roe
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Postprocess import styles
@@ -443,7 +444,7 @@ class CEulerSolver(CSolver):
                             U_rr = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
                         S = Surf[iFace, jFace, kFace, :]
                         area = np.linalg.norm(S)
-                        flux = self.ComputeJSTFlux(U_ll, U_l, U_r, U_rr, S)
+                        flux = self.ComputeFlux(U_ll, U_l, U_r, U_rr, S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area 
                         Res[iFace, jFace, kFace, :] -= flux*area
     
@@ -572,14 +573,12 @@ class CEulerSolver(CSolver):
         # bookkeep the residuals for final plot
         for iEq in range(self.nEq):
             self.residual_history[iEq].append(res[iEq])
+    
 
-        
-
-    def ComputeJSTFlux(self, Ull: np.ndarray, Ul: np.ndarray, Ur: np.ndarray, Urr: np.ndarray, S: np.ndarray) -> np.ndarray :
+    def ComputeFlux(self, Ull: np.ndarray, Ul: np.ndarray, Ur: np.ndarray, Urr: np.ndarray, S: np.ndarray) -> np.ndarray :
         """
         Compute the vector flux between the left and right points defined by their conservative vectors. 
         The surface vector oriented from left to right.
-        Formulation taken from `The Origins and Further Development of the Jameson-Schmidt-Turkel (JST) Scheme`, by Jameson.
         
         Parameters
         ---------------------
@@ -594,18 +593,12 @@ class CEulerSolver(CSolver):
 
         `S`: surface vector going from left to right point
         """
-        jst = CSchemeJST(self.fluid, Ull, Ul, Ur, Urr, S)
-        flux = jst.ComputeFluxJameson()
-        # flux = jst.ComputeFluxBlazek()
-        # flux = jst.ComputeFluxHirsch()
-        
-        # check if the two versions give the same results
-        # flux2 = jst.ComputeFluxJameson()
-        # if np.linalg.norm(flux2-flux)/np.linalg.norm(flux)>1e-1:
-        #     print("Blazek: ", flux)
-        #     print("Jameson: ", flux2)
-        #     print("norm difference: ", np.linalg.norm(flux2-flux)/np.linalg.norm(flux))
-        #     raise ValueError('The JST fluxes differ')
+        if self.conv_scheme.lower()=='jst':
+            jst = CScheme_JST(self.fluid, Ull, Ul, Ur, Urr, S)
+            flux = jst.ComputeFluxJameson()
+        elif self.conv_scheme.lower()=='roe':
+            roe = CScheme_Roe(Ul, Ur, S, self.fluid)
+            flux = roe.ComputeFlux()
         
         return flux
         

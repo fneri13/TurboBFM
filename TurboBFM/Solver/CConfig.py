@@ -254,6 +254,10 @@ class CConfig:
     
     def GetInletBCType(self):
         return str(self.config_parser.get('CFD', 'INLET_BC_TYPE'))
+    
+
+    def GetConvectionScheme(self):
+        return str(self.config_parser.get('CFD', 'CONVECTION_SCHEME'))
 
     
         
