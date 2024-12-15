@@ -430,6 +430,8 @@ class CEulerSolver(CSolver):
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
+                        if self.config.IsBFM():
+                            area *= self.mesh.blockage_V[iFace,jFace,kFace]
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
@@ -438,6 +440,8 @@ class CEulerSolver(CSolver):
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
+                        if self.config.IsBFM():
+                            area *= self.mesh.blockage_V[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2]]
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
                     else:
                         U_l = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2],:]
@@ -453,6 +457,8 @@ class CEulerSolver(CSolver):
                             U_rr = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
                         S = Surf[iFace, jFace, kFace, :]
                         area = np.linalg.norm(S)
+                        if self.config.IsBFM():
+                            area *= self.mesh.blockage_V[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2]]
                         flux = self.ComputeFlux(U_ll, U_l, U_r, U_rr, S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area 
                         Res[iFace, jFace, kFace, :] -= flux*area

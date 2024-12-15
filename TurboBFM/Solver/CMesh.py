@@ -4,6 +4,7 @@ import pyvista as pv
 from mpl_toolkits.mplot3d import Axes3D 
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Postprocess import styles
+import pickle
 
 class CMesh():
     
@@ -688,6 +689,21 @@ class CMesh():
                 sum += np.linalg.norm(S[l,k,:])
         
         return sum
+    
+    def AddBlockageGrid(self, filepath):
+        """
+        Add the blockage grid associated with every cell element
+        """
+        with open(filepath, 'rb') as file:
+            blockage = pickle.load(file)
+            blockage = blockage['Blockage']
+        
+        self.blockage_V = np.zeros_like(self.V)
+        for k in range(self.V.shape[2]):
+            self.blockage_V[:,:,k] = blockage
+        
+        assert self.blockage_V.shape == self.V.shape, "The blockage grid and the elements grid must have the same shape"
+
                     
 
 

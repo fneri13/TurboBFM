@@ -258,6 +258,18 @@ class CConfig:
 
     def GetConvectionScheme(self):
         return str(self.config_parser.get('CFD', 'CONVECTION_SCHEME'))
+    
+
+    def IsBFM(self):
+        try:
+            bfm = str(self.config_parser.get('CFD', 'BFM_ACTIVE'))
+            if bfm.lower()=='yes':
+                return True
+        except:
+            return False
+    
+    def GetBlockageFilePath(self):
+        return str(self.config_parser.get('CFD', 'BLOCKAGE_FILE_PATH'))
 
     
         
