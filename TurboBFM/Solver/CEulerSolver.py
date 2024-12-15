@@ -45,7 +45,7 @@ class CEulerSolver(CSolver):
             print('='*25 + ' SOLVER INFORMATION ' + '='*25)
             print('Number of dimensions:                    %i' %(self.nDim))
             print('Fluid name:                              %s' %(self.fluidName))
-            print('Fluid cp/cv ratio [-]:                   %.2f' %(self.fluidGamma))
+            print('Fluid Gamma [-]:                         %.2f' %(self.fluidGamma))
             print('Fluid model:                             %s' %(self.fluidModel))
             print('Fluid R constant [J/kgK]:                %s' %(self.fluidR))
             print('Initial Mach [-]:                        %.2f' %(self.config.GetInitMach()))
@@ -64,6 +64,15 @@ class CEulerSolver(CSolver):
             print('Inlet flow direction [-]:                (%.2f, %.2f, %.2f)' %(self.config.GetInletValue()[2], self.config.GetInletValue()[3], self.config.GetInletValue()[4]))
             print('Outlet static pressure [kPa]:            %.2f' %(self.config.GetOutletValue()/1e3))
             print('Time Integration method:                 %s' %(self.config.GetTimeIntegrationType()))
+            print('CFL used:                                %.2f' %(self.config.GetCFL()))
+            if self.config.GetTimeStepGlobal():
+                print('Delta time method:                       global')
+            else:
+                print('Delta time method:                       local')
+            print('Convection scheme:                       %s' %(self.config.GetConvectionScheme()))
+            print('Total number of iterations:              %s' %(self.config.GetNIterations()))
+            if self.config.GetSaveUnsteady():
+                print('Solution saved every:                    %i intervals' %(self.config.GetSaveUnsteadyInterval()))
             print('='*25 + ' END SOLVER INFORMATION ' + '='*25)
             print()
 

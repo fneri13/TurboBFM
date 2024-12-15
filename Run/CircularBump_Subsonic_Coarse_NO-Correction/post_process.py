@@ -10,6 +10,7 @@ pik_files = sorted(pik_files)
 
 proc = CPostProcess(pik_files[-1])
 proc.PlotResiduals(save_filename='Residuals')
+proc.PlotMassFlow(save_filename='MassFlow')
 proc.Contour2D('rho', save_filename='Contour')
 proc.Contour2D('ux', save_filename='Contour')
 proc.Contour2D('uy', save_filename='Contour')
