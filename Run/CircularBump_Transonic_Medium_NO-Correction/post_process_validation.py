@@ -33,7 +33,7 @@ def read_csv_to_dict(filename):
     
     return data_dict
 
-filename = 'transonic_su2.csv'  # Replace with your CSV file path
+filename = 'su2_samemesh.csv'  # Replace with your CSV file path
 data = read_csv_to_dict(filename)
 
 x = data['Points_0']

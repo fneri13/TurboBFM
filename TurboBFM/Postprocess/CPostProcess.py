@@ -256,7 +256,7 @@ class CPostProcess():
         plt.ylabel(label)
 
         if ref_points is not None:
-            plt.plot(ref_points[0], ref_points[1], '-s', ms=5, mfc='none', label=ref_points[2])
+            plt.plot(ref_points[0], ref_points[1], 's', ms=5, mfc='none', label=ref_points[2])
             plt.legend()
 
         if save_filename is not None:
