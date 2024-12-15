@@ -15,7 +15,7 @@ proc.Contour2D('ux', save_filename='Contour')
 proc.Contour2D('uy', save_filename='Contour')
 proc.Contour2D('p', save_filename='Contour', quiver_plot=True)
 
-proc.Plot1D('p', 'i', -1, 0)
+proc.Plot1D('p', 'j', 0, 0)
     
     
 plt.show()

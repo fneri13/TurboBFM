@@ -18,7 +18,6 @@ proc.Contour2D('p', save_filename='Contour')
 proc.Contour2D('s', save_filename='Contour')
 proc.Plot1D('p', 'j', 0, save_filename='Plot')
 proc.Plot1D('Mach', 'j', 0, save_filename='Plot')
-proc.Plot1D('cp', 'j', 0, save_filename='Plot')
 
 plt.show()
 
