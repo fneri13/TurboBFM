@@ -138,8 +138,8 @@ class CSolver(ABC):
                 for coeff in rk_coeff[iStep]:
                     for iEq in range(self.nEq):
                         sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
-                    if kind_solver=='Euler':
-                        sol_new = self.CorrectBoundaryVelocities(sol_new)
+                    # if kind_solver=='Euler':
+                    #     sol_new = self.CorrectBoundaryVelocities(sol_new)
                 sol_old = sol_new 
             
             # if kind_solver=='Euler':
@@ -272,6 +272,9 @@ class CSolver(ABC):
                                'Y': self.mesh.Y,
                                'U': self.solution,
                                'Res': self.residual_history}
+                
+                if self.kindSolver.lower()=='euler':
+                    results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
                 
                 os.makedirs('Results', exist_ok=True)
                 with open('Results/%s' %file_name, 'wb') as file:

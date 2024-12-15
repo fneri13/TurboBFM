@@ -18,12 +18,12 @@ class CPostProcess():
         self.pictures_folder = 'Pictures'
         os.makedirs(self.pictures_folder, exist_ok=True)
 
-        self.fluid = FluidIdeal(1.4, 287.14) # ideal gas functions
+        self.fluid = FluidIdeal(1.4, 287.052874) # ideal gas functions
     
 
-    def PlotResiduals(self, drop=True, save_filename=None):
+    def PlotResiduals(self, drop=True, save_filename=None, dim=2):
         """
-        Plot the residuals. If drop=True shift to zero value at first iteration
+        Plot the residuals. If drop=True shift to zero value at first iteration. If dim=2 it doesn't plot the residual for the z-momentum
         """
 
         def shift(y):
@@ -37,22 +37,51 @@ class CPostProcess():
         plt.figure()
 
         for i in range(len(self.data['Res'])):
-            if drop:
-                plt.plot(shift(self.data['Res'][i]), label=names[i])
+            if i==3 and dim==2:
+                pass
             else:
-                plt.plot(self.data['Res'][i], label=names[i])
+                if drop:
+                    plt.plot(shift(self.data['Res'][i]), label=names[i])
+                else:
+                    plt.plot(self.data['Res'][i], label=names[i])
         plt.grid(alpha = styles.grid_opacity)
-        plt.xlabel('Iterations')
+        plt.xlabel('Iterations [-]')
         if drop:
-            plt.ylabel('Residuals Drop')
+            plt.ylabel('Residuals Drop [-]')
         else:
-            plt.ylabel('Residuals')
+            plt.ylabel('Residuals [-]')
         plt.legend()
         if save_filename is not None:
             plt.savefig(self.pictures_folder + '/' + save_filename + '.pdf', bbox_inches='tight')
+
+
+    def PlotMassFlow(self, save_filename=None, dim=2):
+        """
+        Plot the residuals. If drop=True shift to zero value at first iteration. If dim=2 it doesn't plot the residual for the z-momentum
+        """
+
+        names = [r'$\dot{m}_{I,IN}$',
+                 r'$\dot{m}_{I,OUT}$',
+                 r'$\dot{m}_{J,IN}$',
+                 r'$\dot{m}_{J,OUT}$',
+                 r'$\dot{m}_{K,IN}$',
+                 r'$\dot{m}_{K,OUT}$']
+        
+        plt.figure()
+
+        for i in range(len(self.data['MassFlow'])):
+            if dim==2 and i<4:
+                plt.plot(self.data['MassFlow'][i], label=names[i])
+        plt.grid(alpha = styles.grid_opacity)
+        plt.xlabel('Iterations [-]')
+        plt.ylabel(r'Mass Flow $[kg/s]$')
+        plt.legend()
+        if save_filename is not None:
+            plt.savefig(self.pictures_folder + '/' + save_filename + '.pdf', bbox_inches='tight')
+
     
 
-    def Contour2D(self, field_name, idx_k=0, cbar = 'h', save_filename=None):
+    def Contour2D(self, field_name, idx_k=0, cbar = 'h', save_filename=None, quiver_plot=False):
         """
         Plot the residuals. Specify the field name you want to draw the contour
         """
@@ -99,6 +128,12 @@ class CPostProcess():
         
         ax = plt.gca()  # Get the current axes
         ax.set_aspect('equal')  # Set the aspect ratio to equal
+
+        if quiver_plot:
+            ux = self.data['U'][:,:,idx_k,1]/self.data['U'][:,:,idx_k,0]
+            uy = self.data['U'][:,:,idx_k,2]/self.data['U'][:,:,idx_k,0]
+            ax.quiver(X, Y, ux, uy)
+
     
         cbar.set_ticks([field.min(), (field.min()+field.max())/2, field.max()])
         cbar.ax.set_xticklabels([f"{field.min():.3f}", f"{(field.min()+field.max())/2:.3f}", f"{field.max():.3f}"])  # Format as needed
@@ -115,7 +150,7 @@ class CPostProcess():
         ux = data[:,:,1]/data[:,:,0]
         uy = data[:,:,2]/data[:,:,0]
         umag = np.sqrt(ux**2+uy**2)
-        et = data[:,:,-1]
+        et = data[:,:,-1]/data[:,:,0]
         M = self.fluid.ComputeMachNumber_rho_umag_et(rho, umag, et)
         return M
     
@@ -123,17 +158,30 @@ class CPostProcess():
         rho = data[:,:,0]
         ux = data[:,:,1]/data[:,:,0]
         uy = data[:,:,2]/data[:,:,0]
-        umag = np.sqrt(ux**2+uy**2)
-        et = data[:,:,-1]
+        uz = data[:,:,3]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2+uz**2)
+        et = data[:,:,-1]/data[:,:,0]
         p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
         return p
+
+    def ComputeTemperature(self, data):
+        rho = data[:,:,0]
+        ux = data[:,:,1]/data[:,:,0]
+        uy = data[:,:,2]/data[:,:,0]
+        uz = data[:,:,3]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2+uz**2)
+        et = data[:,:,-1]/data[:,:,0]
+        p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
+        T = p/rho/self.fluid.R
+        return T
     
     def ComputePressureCoefficient(self, data):
         rho = data[:,:,0]
         ux = data[:,:,1]/data[:,:,0]
         uy = data[:,:,2]/data[:,:,0]
-        umag = np.sqrt(ux**2+uy**2)
-        et = data[:,:,-1]
+        uz = data[:,:,3]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2+uz**2)
+        et = data[:,:,-1]/data[:,:,0]
         p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
         
         p_ref = p[0,0]
@@ -147,7 +195,8 @@ class CPostProcess():
         rho = data[:,:,0]
         ux = data[:,:,1]/data[:,:,0]
         uy = data[:,:,2]/data[:,:,0]
-        umag = np.sqrt(ux**2+uy**2)
+        uz = data[:,:,3]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2+uz**2)
         et = data[:,:,-1]
         M = self.fluid.ComputeEntropy_rho_u_et(rho, umag, et)
         return M
@@ -163,12 +212,31 @@ class CPostProcess():
             name = 'Cp1D'
             label = r'$\bar{C}_p \ \rm{[-]}$'
             field2D = self.ComputePressureCoefficient(self.data['U'][:,:,idx_k,:])
-            field2D = (field2D-field2D.min())/(field2D.max()-field2D.min())
             
         elif field_name.lower()=='mach':
             name = 'Mach1D'
             label = r'$M \ \rm{[-]}$'
             field2D = self.ComputeMachNumber(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='rho':
+            name = 'Density'
+            label = r'$\rho \ \rm{[kg/m^3]}$'
+            field2D = self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='ux':
+            name = 'VelocityX'
+            label = r'$u_x \ \rm{[m/s]}$'
+            field2D = self.data['U'][:,:,idx_k,1]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='uy':
+            name = 'VelocityY'
+            label = r'$u_y \ \rm{[m/s]}$'
+            field2D = self.data['U'][:,:,idx_k,2]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='et':
+            name = 'TotalEnergy'
+            label = r'$e_t \ \rm{[J/kg]}$'
+            field2D = self.data['U'][:,:,idx_k,4]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='t':
+            name = 'Temperature'
+            label = r'$T \ \rm{[K]}$'
+            field2D  =self.ComputeTemperature(self.data['U'][:,:,idx_k,:])
         else:
             raise ValueError('Unknown field to plot')
         
@@ -182,13 +250,13 @@ class CPostProcess():
             xlabel = (r'$x \ \rm{[m]}$')
         
         plt.figure()
-        plt.plot(x, field)
+        plt.plot(x, field, '-o', ms=5, mfc='none')
         plt.grid(alpha=styles.grid_opacity)
         plt.xlabel(xlabel)
         plt.ylabel(label)
 
         if ref_points is not None:
-            plt.plot(ref_points[0], ref_points[1], 'o', mfc='none', label=ref_points[2])
+            plt.plot(ref_points[0], ref_points[1], '-s', ms=5, mfc='none', label=ref_points[2])
             plt.legend()
 
         if save_filename is not None:

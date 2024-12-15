@@ -9,7 +9,9 @@ pik_files = [sol_dir + '/' + file for file in os.listdir(sol_dir) if file.endswi
 pik_files = sorted(pik_files)
  
 proc = CPostProcess(pik_files[-1])
-proc.PlotResiduals(drop=False, save_filename='Residuals')
+proc.PlotResiduals(save_filename='Residuals')
+proc.PlotMassFlow(save_filename='MassFlow')
+
 proc.Contour2D('rho', save_filename='Contour')
 proc.Contour2D('ux', save_filename='Contour')
 proc.Contour2D('uy', save_filename='Contour')
