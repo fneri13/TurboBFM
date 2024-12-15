@@ -51,7 +51,7 @@ mach = data['Mach']
 # PLOT VALIDATION
 proc.Plot1D('p', 'j', 0, save_filename='Plot', ref_points=(x, pressure, 'SU2'))
 proc.Plot1D('Mach', 'j', 0, save_filename='Plot', ref_points=(x, mach, 'SU2'))
-proc.Plot1D('cp', 'j', 0, save_filename='Plot', ref_points=(x, cp, 'SU2'))
+# proc.Plot1D('cp', 'j', 0, save_filename='Plot', ref_points=(x, cp, 'SU2'))
 proc.Plot1D('rho', 'j', 0, save_filename='Plot', ref_points=(x, rho, 'SU2'))
 proc.Plot1D('ux', 'j', 0, save_filename='Plot', ref_points=(x, ux, 'SU2'))
 proc.Plot1D('uy', 'j', 0, save_filename='Plot', ref_points=(x, uy, 'SU2'))

@@ -37,13 +37,25 @@ filename = 'Subsonic_SU2_samemesh.csv'  # Replace with your CSV file path
 data = read_csv_to_dict(filename)
 
 x = data['Points_0']
+pressure = data['Pressure']/1e3
+rho = data['Density']
+ux = data['Velocity_0']
+uy = data['Velocity_1']
 cp = data['Pressure_Coefficient']
+e = data['Energy']
+et = e+0.5*(ux**2+uy**2)
+# cp = (cp - cp.min())/ (cp.max() - cp.min())
+T = data['Temperature']
 mach = data['Mach']
 
 # PLOT VALIDATION
-proc.Plot1D('p', 'j', 0, save_filename='Plot')
+proc.Plot1D('p', 'j', 0, save_filename='Plot', ref_points=(x, pressure, 'SU2'))
 proc.Plot1D('Mach', 'j', 0, save_filename='Plot', ref_points=(x, mach, 'SU2'))
-proc.Plot1D('cp', 'j', 0, save_filename='Plot', ref_points=(x, cp, 'SU2'))
+# proc.Plot1D('cp', 'j', 0, save_filename='Plot', ref_points=(x, cp, 'SU2'))
+proc.Plot1D('rho', 'j', 0, save_filename='Plot', ref_points=(x, rho, 'SU2'))
+proc.Plot1D('ux', 'j', 0, save_filename='Plot', ref_points=(x, ux, 'SU2'))
+proc.Plot1D('uy', 'j', 0, save_filename='Plot', ref_points=(x, uy, 'SU2'))
+proc.Plot1D('T', 'j', 0, save_filename='Plot', ref_points=(x, T, 'SU2'))
     
 plt.show()
 
