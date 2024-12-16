@@ -270,6 +270,31 @@ class CConfig:
     
     def GetBlockageFilePath(self):
         return str(self.config_parser.get('CFD', 'BLOCKAGE_FILE_PATH'))
+    
+
+    def GetRotationAxis(self):
+        vec = self.config_parser.get('CFD', 'ROTATION_AXIS')
+        vec = [float(x.strip()) for x in vec.split(',')]
+        vec = np.array(vec)
+        vec /= np.linalg.norm(vec)
+        
+        # check that the components are 0 or 1, not skewed axis for the moment
+        if vec[0]==1:
+            axis = 'x'
+        elif vec[0]==-1:
+            axis = '-x'
+        elif vec[1]==1:
+            axis = 'y'
+        elif vec[1]==-1:
+            axis = '-y'
+        elif vec[2]==1:
+            axis = 'z'
+        elif vec[2]==-1:
+            axis = '-z'
+        else:
+            raise ValueError('The rotation axis cannot be skewed')
+        
+        return axis
 
     
         

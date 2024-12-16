@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Postprocess import styles
 import pickle
+from scipy.interpolate import griddata
 
 class CMesh():
     
@@ -55,6 +56,10 @@ class CMesh():
         self.ComputeVolumes()
         self.ComputeMeshQuality()
         self.ComputeBoundaryAreas()
+
+        if config.IsBFM():
+            self.AddBlockageGrid(config.GetBlockageFilePath())
+
         self.PrintMeshInfo()
 
     
@@ -242,6 +247,8 @@ class CMesh():
             print('                                     max: %.12f' %(np.max(self.orthogonality)*180/np.pi))
             print('                                     average: %.12f' %(np.mean(self.orthogonality)*180/np.pi))
             print('                                     std: %.12f' %(np.std(self.orthogonality)*180/np.pi))
+            if self.config.IsBFM():
+                print('Mesh file contains blockage grid:    %s' %(self.config.GetBlockageFilePath()))
             print('='*25 + ' END MESH INFORMATION ' + '='*25)
             print()
 
@@ -698,11 +705,35 @@ class CMesh():
             blockage = pickle.load(file)
             blockage = blockage['Blockage']
         
-        self.blockage_V = np.zeros_like(self.V)
+        self.blockage_V = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
         for k in range(self.V.shape[2]):
             self.blockage_V[:,:,k] = blockage
         
         assert self.blockage_V.shape == self.V.shape, "The blockage grid and the elements grid must have the same shape"
+        
+        self.rotation_axis = self.config.GetRotationAxis()
+
+        # interpolate the blockage values to the surface centers, for later use in the flux evaluations.
+        def interpolate_b_on_cg(cg):
+            if self.rotation_axis=='x' or self.rotation_axis=='-x':
+                ax_data = self.X
+                rad_data = self.Y
+
+                ax_eval = cg[:,:,:,0]
+                rad_eval = cg[:,:,:,1]
+            else:
+                raise ValueError('For the moment the rotation axis MUST be the x-axis')
+
+            f_intp = griddata((ax_data.flatten(), rad_data.flatten()), self.blockage_V.flatten(), (ax_eval, rad_eval))
+            return f_intp
+        
+        self.blockage_CGi = interpolate_b_on_cg(self.CGi)
+        self.blockage_CGj = interpolate_b_on_cg(self.CGj)
+        self.blockage_CGk = interpolate_b_on_cg(self.CGk)
+
+        print()
+        
+
 
                     
 
