@@ -57,8 +57,8 @@ class CMesh():
         self.ComputeMeshQuality()
         self.ComputeBoundaryAreas()
 
-        if config.IsBFM():
-            self.AddBlockageGrid(config.GetBlockageFilePath())
+        # if config.IsBFM():
+        #     self.AddBlockageGrid(config.GetBlockageFilePath())
 
         self.PrintMeshInfo()
 

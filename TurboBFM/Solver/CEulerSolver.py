@@ -396,8 +396,6 @@ class CEulerSolver(CSolver):
 
         `Res`: residual arrays of the current time-step that will be updated
         """
-        bfm = self.config.IsBFM()
-
         if dir=='i':
             step_mask = np.array([1, 0, 0])
             Surf = self.mesh.Si
