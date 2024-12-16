@@ -109,6 +109,9 @@ class CSolver(ABC):
         time_physical = 0
         kind_solver = self.config.GetKindSolver()
 
+        if self.config.IsBFM():
+            self.mesh.V *= self.mesh.blockage_V
+
         for it in range(nIter): 
             sol_old = self.solution.copy()
             dt = self.ComputeTimeStepArray(sol_old) 

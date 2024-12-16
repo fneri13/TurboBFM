@@ -396,15 +396,22 @@ class CEulerSolver(CSolver):
 
         `Res`: residual arrays of the current time-step that will be updated
         """
+        bfm = self.config.IsBFM()
+
         if dir=='i':
             step_mask = np.array([1, 0, 0])
             Surf = self.mesh.Si
+            if bfm: block = self.mesh.blockage_CGi
         elif dir=='j':
             step_mask = np.array([0, 1, 0])
             Surf = self.mesh.Sj
+            if bfm: block = self.mesh.blockage_CGj
         else:
             step_mask = np.array([0, 0, 1])
             Surf = self.mesh.Sk
+            if bfm: block = self.mesh.blockage_CGk
+
+
         
         niF, njF, nkF = Surf[:,:,:,0].shape
         
@@ -430,6 +437,8 @@ class CEulerSolver(CSolver):
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
+                        if self.config.IsBFM():
+                            area *= block[iFace, jFace, kFace]
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
@@ -438,6 +447,8 @@ class CEulerSolver(CSolver):
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
+                        if self.config.IsBFM():
+                            area *= block[iFace, jFace, kFace]
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
                     else:
                         U_l = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2],:]
@@ -453,6 +464,8 @@ class CEulerSolver(CSolver):
                             U_rr = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
                         S = Surf[iFace, jFace, kFace, :]
                         area = np.linalg.norm(S)
+                        if self.config.IsBFM():
+                            area *= block[iFace, jFace, kFace]
                         flux = self.ComputeFlux(U_ll, U_l, U_r, U_rr, S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area 
                         Res[iFace, jFace, kFace, :] -= flux*area
