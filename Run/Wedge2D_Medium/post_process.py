@@ -13,7 +13,7 @@ proc.PlotResiduals(drop=True, save_filename='Residuals', dim=2)
 proc.Contour2D('Mach', save_filename='Contour')
 proc.Contour2D('ux', save_filename='Contour')
 proc.Contour2D('uy', save_filename='Contour')
-proc.Contour2D('p', save_filename='Contour', quiver_plot=True)
+proc.Contour2D('p', save_filename='Contour')
 
 proc.Plot1D('p', 'j', 0, 0)
     

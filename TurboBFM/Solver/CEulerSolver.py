@@ -401,20 +401,14 @@ class CEulerSolver(CSolver):
         if dir=='i':
             step_mask = np.array([1, 0, 0])
             Surf = self.mesh.Si
-            if bfm: block = self.mesh.blockage_CGi
         elif dir=='j':
             step_mask = np.array([0, 1, 0])
             Surf = self.mesh.Sj
-            if bfm: block = self.mesh.blockage_CGj
         else:
             step_mask = np.array([0, 0, 1])
             Surf = self.mesh.Sk
-            if bfm: block = self.mesh.blockage_CGk
-
-
         
         niF, njF, nkF = Surf[:,:,:,0].shape
-        
         for iFace in range(niF):
             for jFace in range(njF):
                 for kFace in range(nkF):
@@ -437,8 +431,6 @@ class CEulerSolver(CSolver):
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
-                        if self.config.IsBFM():
-                            area *= block[iFace, jFace, kFace]
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
@@ -447,8 +439,6 @@ class CEulerSolver(CSolver):
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
-                        if self.config.IsBFM():
-                            area *= block[iFace, jFace, kFace]
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
                     else:
                         U_l = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2],:]
@@ -464,8 +454,6 @@ class CEulerSolver(CSolver):
                             U_rr = Sol[iFace+1*step_mask[0], jFace+1*step_mask[1], kFace+1*step_mask[2],:]
                         S = Surf[iFace, jFace, kFace, :]
                         area = np.linalg.norm(S)
-                        if self.config.IsBFM():
-                            area *= block[iFace, jFace, kFace]
                         flux = self.ComputeFlux(U_ll, U_l, U_r, U_rr, S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area 
                         Res[iFace, jFace, kFace, :] -= flux*area
@@ -762,6 +750,46 @@ class CEulerSolver(CSolver):
                 for k in range(nk):
                     primitives[i,j,k,:] = GetPrimitivesFromConservatives(conservatives[i,j,k,:])
         return primitives
+    
+    @override
+    def ComputeSourceTerm(self, sol):
+        """
+        Compute the source term for a certain solution
+        """
+        if self.config.IsBFM():
+            source = self.ComputeBlockageSource(sol)
+        else:
+            source = np.zeros_like(sol)
+        return source
+    
+    def ComputeBlockageSource(self, sol):
+        """
+        Compute the blockage source terms for every cell element, depending on the actual solution `sol`
+        """
+        source = np.zeros_like(sol)
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    b = self.mesh.blockage_V[i,j,k]
+                    W = GetPrimitivesFromConservatives(sol[i,j,k,:])
+                    rho = W[0]
+                    u = W[1:-1]
+                    et = W[-1]
+                    ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
+                    bgrad = self.mesh.blockage_V_grad[i,j,k,:]
+                    common_term = -1/b*(rho*np.dot(u,bgrad))
+
+                    source[i,j,k,0] = common_term
+                    source[i,j,k,1] = common_term*u[0]
+                    source[i,j,k,2] = common_term*u[1]
+                    source[i,j,k,3] = common_term*u[2]
+                    source[i,j,k,4] = common_term*ht
+                    source[i,j,k,:] *= self.mesh.V[i,j,k]
+        return source
+
+
+
+
     
     
 
