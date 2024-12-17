@@ -113,6 +113,9 @@ class CSolver(ABC):
         #     self.mesh.V *= self.mesh.blockage_V
 
         for it in range(nIter): 
+
+            if self.config.GetRestartSolution(): # if the solution was restarted update the it number
+                it += (self.restart_iterations+1)
             sol_old = self.solution.copy()
             dt = self.ComputeTimeStepArray(sol_old) 
             

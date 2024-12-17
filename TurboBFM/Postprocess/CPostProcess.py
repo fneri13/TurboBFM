@@ -72,6 +72,8 @@ class CPostProcess():
         for i in range(len(self.data['MassFlow'])):
             if dim==2 and i<4:
                 plt.plot(self.data['MassFlow'][i], label=names[i])
+            else:
+                plt.plot(self.data['MassFlow'][i], label=names[i])
         plt.grid(alpha = styles.grid_opacity)
         plt.xlabel('Iterations [-]')
         plt.ylabel(r'Mass Flow $[kg/s]$')

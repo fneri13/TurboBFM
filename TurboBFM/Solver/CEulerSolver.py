@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
 from mpl_toolkits.mplot3d import Axes3D
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
@@ -73,6 +74,9 @@ class CEulerSolver(CSolver):
             print('Total number of iterations:              %s' %(self.config.GetNIterations()))
             if self.config.GetSaveUnsteady():
                 print('Solution saved every:                    %i intervals' %(self.config.GetSaveUnsteadyInterval()))
+            if self.config.GetRestartSolution():
+                print('Solution restarted from file:            %s' %(self.config.GetRestartSolutionFilepath()))
+                print('Solution restarted from iteration:       %i' %(self.restart_iterations))
             print('='*25 + ' END SOLVER INFORMATION ' + '='*25)
             print()
 
@@ -127,22 +131,36 @@ class CEulerSolver(CSolver):
         """
         Given the boundary conditions, initialize the solution as to be associated with them
         """
-        M = self.config.GetInitMach()
-        T = self.config.GetInitTemperature()
-        P = self.config.GetInitPressure()
-        dir = self.config.GetInitDirection()
-        rho, u , et = self.ComputeInitFields(M, T, P, dir)
-        primitives = np.zeros((self.ni, self.nj, self.nk, 5))
-        primitives[:,:,:,0] = rho
-        primitives[:,:,:,1] = u[0]
-        primitives[:,:,:,2] = u[1]
-        primitives[:,:,:,3] = u[2]
-        primitives[:,:,:,4] = et
+        if self.config.GetRestartSolution()==False:
+            M = self.config.GetInitMach()
+            T = self.config.GetInitTemperature()
+            P = self.config.GetInitPressure()
+            dir = self.config.GetInitDirection()
+            rho, u , et = self.ComputeInitFields(M, T, P, dir)
+            primitives = np.zeros((self.ni, self.nj, self.nk, 5))
+            primitives[:,:,:,0] = rho
+            primitives[:,:,:,1] = u[0]
+            primitives[:,:,:,2] = u[1]
+            primitives[:,:,:,3] = u[2]
+            primitives[:,:,:,4] = et
 
-        for i in range(self.ni):
-            for j in range(self.nj):
-                for k in range(self.nk):
-                    self.solution[i,j,k,:] = GetConservativesFromPrimitives(primitives[i,j,k,:])
+            for i in range(self.ni):
+                for j in range(self.nj):
+                    for k in range(self.nk):
+                        self.solution[i,j,k,:] = GetConservativesFromPrimitives(primitives[i,j,k,:])
+        
+        elif self.config.GetRestartSolution()==True:
+            filepath = self.config.GetRestartSolutionFilepath()
+            with open(filepath, 'rb') as file:
+                data = pickle.load(file)
+            
+            self.solution = data['U']
+            its = filepath.split('.pik')
+            self.restart_iterations = int(its[0][-6:])
+
+        else:
+            raise ValueError('Check the restart files')
+
 
 
     @override

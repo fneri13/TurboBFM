@@ -251,6 +251,18 @@ class CConfig:
         else:
             True
     
+
+    def GetRestartSolution(self):
+        try:
+            res = str(self.config_parser.get('CFD', 'RESTART_SOLUTION'))
+            if res.lower()=='yes':
+                return True
+        except:
+            return False
+    
+    def GetRestartSolutionFilepath(self):
+        return str(self.config_parser.get('CFD', 'RESTART_SOLUTION_FILEPATH'))
+    
     
     def GetInletBCType(self):
         return str(self.config_parser.get('CFD', 'INLET_BC_TYPE'))
