@@ -285,8 +285,8 @@ class CPostProcess():
         """
         This is needed for 3D simulations. For 2D axisymmetric, check that ur is equivalent to uy
         """
-        uy = data[:,:,2]
-        uz = data[:,:,3]
+        uy = data[:,:,2]/data[:,:,0]
+        uz = data[:,:,3]/data[:,:,0]
         theta = np.arctan2(z, y)
         ur = uy*np.cos(theta)-uz*np.sin(theta)
         return ur
@@ -295,8 +295,8 @@ class CPostProcess():
         """
         This is needed for 3D simulations. For 2D axisymmetric, check that ur is equivalent to uy
         """
-        uy = data[:,:,2]
-        uz = data[:,:,3]
+        uy = data[:,:,2]/data[:,:,0]
+        uz = data[:,:,3]/data[:,:,0]
         theta = np.arctan2(z, y)
         ut = uy*np.sin(theta)+uz*np.cos(theta)
         return ut

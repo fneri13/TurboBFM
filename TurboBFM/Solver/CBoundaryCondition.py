@@ -115,12 +115,20 @@ class CBoundaryCondition():
                                (-beta-np.sqrt(beta**2-4*alpha*zeta))/2/alpha)
 
         un_b = 2*a_b/(gmma-1)-Jm
-        M_b = un_b/a_b
+
+        un_b_vec = un_b*S_dir_int
+
+        dir = np.array([self.bc_value[2], self.bc_value[3], self.bc_value[4]])
+        dir /= np.linalg.norm(dir)
+        umag_b = un_b/(np.dot(dir, S_dir_int))
+        u_b_vec = umag_b*dir
+
+        M_b = umag_b/a_b
         p_b = self.fluid.ComputeStaticPressure_pt_M(self.bc_value[0], M_b)
         T_b = self.fluid.ComputeStaticTemperature_Tt_M(self.bc_value[1], M_b)
         rho_b = self.fluid.ComputeDensity_p_T(p_b, T_b)
         e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
-        u_b = np.array([un_b*S_dir_int[0], un_b*S_dir_int[1], un_b*S_dir_int[2]])
+        u_b = umag_b*dir
         et_b = e_b+0.5*np.linalg.norm(u_b)**2
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
