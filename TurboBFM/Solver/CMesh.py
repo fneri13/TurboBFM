@@ -48,14 +48,14 @@ class CMesh():
         
         if self.verbosity>2: print('Computing Grid..')
         if self.nDim==2:
-            self.ComputeDualGrid2D()
+            self.ComputeDualGrid2D(self.config.GetTopology())
         else:
             self.ComputeDualGrid3D()
 
         self.ComputeInterfaces()
         self.ComputeVolumes()
         self.ComputeMeshQuality()
-        self.ComputeBoundaryAreas()
+        self.ComputeBoudaryAreas()
 
         # if config.IsBFM():
         #     self.AddBlockageGrid(config.GetBlockageFilePath())
@@ -253,10 +253,12 @@ class CMesh():
             print()
 
 
-    def ComputeDualGrid2D(self):
+    def ComputeDualGrid2D(self, topology: str):
         """
-        Compute the dual grid points. The openfoam modeling is applied, where the thickness is equivalent to 1 for every cell. Therefore
-        the k=0 plane is located at z=0, and the k=1 plane is located at z=1.
+        Compute the dual grid points. The `topology` string defines if the grid will be cartesian (unitary thickness in the third direction), or
+        axisymmetric (a wedge of 1 degree thickness).
+        The k=0 plane is located at z=0. For the axisymmetric simulations the y replace the radius, while the z is the in the other direction. 
+        z = r*sin(theta) and y = r*cos(theta), where theta of the dual grid is plus and minus 0.5deg to have a wedge of 1 degree
         """
         # Compute the vertices of the dual grid
         # (the dual grid nodes are equal to the primary grid nodes + 1 in every direction)
@@ -302,14 +304,29 @@ class CMesh():
         xv[:,:,0] = fix_edges(xv[:,:,0], self.X[:,:,0])
         yv[:,:,0] = fix_edges(yv[:,:,0], self.Y[:,:,0])
 
-        # fix also the second plane in k-direction
-        xv[:,:,1] = xv[:,:,0]       # same x-coordinates
-        yv[:,:,1] = yv[:,:,0]       # same y-coordinates
-        zv[:,:,0] = zv[:,:,0]-0.5   # so the nodes stay in the plane z=0
-        zv[:,:,1] = zv[:,:,0]+1     # thickness value of 1 everywhere 
+        if topology=='cartesian':
 
-        # mantain a copy of the vertices, to compute also the quality
-        self.xv, self.yv, self.zv = xv, yv, zv
+            # fix also the second plane in k-direction
+            xv[:,:,1] = xv[:,:,0]       # same x-coordinates
+            yv[:,:,1] = yv[:,:,0]       # same y-coordinates
+            zv[:,:,0] = zv[:,:,0]-0.5   # so the nodes stay in the plane z=0
+            zv[:,:,1] = zv[:,:,0]+1     # thickness value of 1 everywhere 
+
+            # mantain a copy of the vertices, to compute also the quality
+            self.xv, self.yv, self.zv = xv, yv, zv
+        
+        elif topology=='axisymmetric':
+            self.wedge_angle = 1*np.pi/180 # mantain a copy of the wedge angle. 
+            self.xv, self.yv, self.zv = np.zeros_like(xv), np.zeros_like(yv), np.zeros_like(zv)
+
+            self.xv[:,:,0] = xv[:,:,0]
+            self.xv[:,:,1] = xv[:,:,0]
+
+            self.yv[:,:,0] = yv[:,:,0]*np.cos(-self.wedge_angle/2)
+            self.yv[:,:,1] = yv[:,:,0]*np.cos(+self.wedge_angle/2)
+
+            self.zv[:,:,0] = yv[:,:,0]*np.sin(-self.wedge_angle/2)
+            self.zv[:,:,1] = yv[:,:,0]*np.sin(+self.wedge_angle/2)
 
 
     def ComputeDualGrid3D(self):

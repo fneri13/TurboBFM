@@ -260,6 +260,14 @@ class CConfig:
         except:
             return False
     
+    def GetTopology(self):
+        try:
+            res = str(self.config_parser.get('CFD', 'TOPOLOGY'))
+            if res.lower()=='axisymmetric':
+                return 'axisymmetric'
+        except:
+            return 'cartesian'
+    
     def GetRestartSolutionFilepath(self):
         return str(self.config_parser.get('CFD', 'RESTART_SOLUTION_FILEPATH'))
     
