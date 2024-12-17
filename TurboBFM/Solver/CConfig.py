@@ -257,15 +257,16 @@ class CConfig:
             res = str(self.config_parser.get('CFD', 'RESTART_SOLUTION'))
             if res.lower()=='yes':
                 return True
+            else:
+                return False
         except:
             return False
     
     def GetTopology(self):
-        try:
-            res = str(self.config_parser.get('CFD', 'TOPOLOGY'))
-            if res.lower()=='axisymmetric':
-                return 'axisymmetric'
-        except:
+        res = str(self.config_parser.get('CFD', 'TOPOLOGY'))
+        if res.lower()=='axisymmetric':
+            return 'axisymmetric'
+        else:
             return 'cartesian'
     
     def GetRestartSolutionFilepath(self):
@@ -285,6 +286,8 @@ class CConfig:
             bfm = str(self.config_parser.get('CFD', 'BFM_ACTIVE'))
             if bfm.lower()=='yes':
                 return True
+            else:
+                return False
         except:
             return False
     
