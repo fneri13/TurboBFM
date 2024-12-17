@@ -184,7 +184,7 @@ class CSolver(ABC):
         residual = np.zeros_like(sol)
         self.SpatialIntegration('i', sol, residual)
         self.SpatialIntegration('j', sol, residual)
-        if self.nDim==3:
+        if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
             self.SpatialIntegration('k', sol, residual)
 
         return residual
@@ -272,7 +272,7 @@ class CSolver(ABC):
                 file_name = self.config.GetSolutionName()
                 file_name += '_%06i.pik' %(it)
 
-                if self.nDim==3:
+                if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
                     results = {'X': self.mesh.X,
                                'Y': self.mesh.Y,
                                'Z': self.mesh.Z,

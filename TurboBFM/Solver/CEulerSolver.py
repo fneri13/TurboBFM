@@ -45,6 +45,7 @@ class CEulerSolver(CSolver):
         if self.verbosity>0:
             print('='*25 + ' SOLVER INFORMATION ' + '='*25)
             print('Number of dimensions:                    %i' %(self.nDim))
+            print('Mesh topology:                           %s' %(self.config.GetTopology()))
             print('Fluid name:                              %s' %(self.fluidName))
             print('Fluid Gamma [-]:                         %.2f' %(self.fluidGamma))
             print('Fluid model:                             %s' %(self.fluidModel))
@@ -57,7 +58,7 @@ class CEulerSolver(CSolver):
             print('Boundary type at i=ni:                   %s' %(self.GetBoundaryCondition('i', 'end')[0]))
             print('Boundary type at j=0:                    %s' %(self.GetBoundaryCondition('j', 'begin')[0]))
             print('Boundary type at j=nj:                   %s' %(self.GetBoundaryCondition('j', 'end')[0]))
-            if self.nDim==3:
+            if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
                 print('Boundary type at k=0:                    %s' %(self.GetBoundaryCondition('k', 'begin')[0]))
                 print('Boundary type at k=nk:                   %s' %(self.GetBoundaryCondition('k', 'end')[0]))
             print('Inlet Total Pressure [kPa]:              %.2f' %(self.config.GetInletValue()[0]/1e3))
@@ -118,7 +119,7 @@ class CEulerSolver(CSolver):
                     self.inlet_bc_type = self.config.GetInletBCType()
                 elif type=='outlet' or type=='outlet_ss':
                     self.boundary_values[direction][location] = self.config.GetOutletValue()
-                elif type=='wall' or type=='empty':
+                elif type=='wall' or type=='empty' or type=='wedge':
                     self.boundary_values[direction][location] = None
                 elif type=='periodic':
                     self.boundary_values[direction][location] = self.config.GetPeriodicValue()
@@ -417,12 +418,15 @@ class CEulerSolver(CSolver):
         if dir=='i':
             step_mask = np.array([1, 0, 0])
             Surf = self.mesh.Si
+            midpS = self.mesh.CGi
         elif dir=='j':
             step_mask = np.array([0, 1, 0])
             Surf = self.mesh.Sj
+            midpS = self.mesh.CGj
         else:
             step_mask = np.array([0, 0, 1])
             Surf = self.mesh.Sk
+            midpS = self.mesh.CGk
         
         niF, njF, nkF = Surf[:,:,:,0].shape
         for iFace in range(niF):
@@ -443,16 +447,18 @@ class CEulerSolver(CSolver):
                     if dir_face==0: 
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
                         Ub = Sol[iFace, jFace, kFace, :]   
-                        S = -Surf[iFace, jFace, kFace, :]               
-                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
+                        S = -Surf[iFace, jFace, kFace, :]  
+                        CG = midpS[iFace, jFace, kFace, :]       
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
                         Ub = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
-                        S = Surf[iFace, jFace, kFace, :]                
-                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
+                        S = Surf[iFace, jFace, kFace, :]  
+                        CG = midpS[iFace, jFace, kFace, :]                   
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       

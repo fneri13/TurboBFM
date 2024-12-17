@@ -1,6 +1,7 @@
 import numpy as np
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.euler_functions import GetPrimitivesFromConservatives, EulerFluxFromConservatives, GetConservativesFromPrimitives
+from TurboBFM.Solver.math import rotate_xyz_vector_along_x
 from scipy.optimize import fsolve
 
 
@@ -8,7 +9,7 @@ class CBoundaryCondition():
     """
     Class for the evaluation of fluxes due to boundary conditions (Weak form implementation).
     """
-    def __init__(self, bc_type: str, bc_value: any, Uint: np.ndarray, S: np.ndarray, fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
+    def __init__(self, bc_type: str, bc_value: any, Uint: np.ndarray, S: np.ndarray, CG: np.ndarray, fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
         """
         The left to right orientation follows the orientation of the normal
 
@@ -32,7 +33,8 @@ class CBoundaryCondition():
             self.inlet_bc_type = None
         self.bc_value = bc_value
         self.Uint = Uint               
-        self.S = S                  
+        self.S = S          
+        self.CG = CG        
         self.fluid = fluid
         self.S_dir = self.S/np.linalg.norm(S)
         self.Wint = GetPrimitivesFromConservatives(self.Uint)
@@ -62,6 +64,8 @@ class CBoundaryCondition():
             flux = self.ComputeBCFlux_Outlet2()
         elif self.bc_type=='outlet_ss':
             flux = self.ComputeBCFlux_Outlet_Supersonic()
+        elif self.bc_type=='wedge':
+            flux = self.ComputeBCFlux_Wedge()
         else:
             raise ValueError('Boundary condition <%s> not recognized or not available' %(self.bc_type))
         return flux
@@ -252,6 +256,35 @@ class CBoundaryCondition():
         """
         flux = EulerFluxFromConservatives(self.Uint, self.S, self.fluid)
         return flux
+
+
+    def ComputeBCFlux_Wedge(self):
+        """
+        Compute the boundary flux for axisymmetric simulations at wedge boundaries.
+        Be careful, that is assumed that element where Ub is stored is at theta=0.
+        """
+
+        ys = self.CG[1]
+        zs = self.CG[2]
+
+        rs = np.sqrt(ys**2+zs**2)
+        thetas = np.arctan2(zs, ys)
+
+        u_int = self.Wint[1:-1]
+        u_s = rotate_xyz_vector_along_x(u_int, thetas)
+
+        Ws = self.Wint.copy()
+        Ws[1:-1]  = u_s
+        Us = GetConservativesFromPrimitives(Ws)
+        flux = EulerFluxFromConservatives(Us, self.S_dir, self.fluid)
+        return flux
+            
+        
+
+
+
+
+        
 
 
 

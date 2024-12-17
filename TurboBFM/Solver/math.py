@@ -40,3 +40,14 @@ def GetTangentialVector(u, n):
         un = GetProjectedVector(u, n)
         ut = u-un
         return ut
+
+
+def rotate_xyz_vector_along_x(v, theta):
+        """
+        Rotate a vector in cartesian components x,y,z around the first axis by an angle theta [rad]
+        """
+        vnew = np.zeros_like(v)
+        vnew[0] = v[0]
+        vnew[1] = np.cos(theta)*v[1]-np.sin(theta)*v[2]
+        vnew[2] = np.sin(theta)*v[1]+np.cos(theta)*v[2]
+        return vnew

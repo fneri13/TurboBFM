@@ -95,10 +95,26 @@ class CPostProcess():
             name = 'VelocityX'
             label = r'$u_x \ \rm{[m/s]}$'
             field = self.data['U'][:,:,idx_k,1]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='ur':
+            name = 'VelocityRadial'
+            label = r'$u_r \ \rm{[m/s]}$'
+            field = self.ComputeRadialVelocity(self.data['U'][:,:,idx_k,:], self.data['Y'][:,:,idx_k], self.data['Z'][:,:,idx_k])
+        elif field_name.lower()=='ut':
+            name = 'VelocityTangential'
+            label = r'$u_{\theta} \ \rm{[m/s]}$'
+            field = self.ComputeTangentialVelocity(self.data['U'][:,:,idx_k,:], self.data['Y'][:,:,idx_k], self.data['Z'][:,:,idx_k])
+        elif field_name.lower()=='ua':
+            name = 'VelocityAxial'
+            label = r'$u_{ax} \ \rm{[m/s]}$'
+            field = self.data['U'][:,:,idx_k,1]/self.data['U'][:,:,idx_k,0]
         elif field_name.lower()=='uy':
             name = 'VelocityY'
             label = r'$u_y \ \rm{[m/s]}$'
             field = self.data['U'][:,:,idx_k,2]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='uz':
+            name = 'VelocityZ'
+            label = r'$u_z \ \rm{[m/s]}$'
+            field = self.data['U'][:,:,idx_k,3]/self.data['U'][:,:,idx_k,0]
         elif field_name.lower()=='mach':
             name = 'Mach'
             label = r'$M \ \rm{[-]}$'
@@ -263,4 +279,25 @@ class CPostProcess():
 
         if save_filename is not None:
             plt.savefig(self.pictures_folder + '/' + save_filename + '_' + name + '.pdf', bbox_inches='tight')
+
+
+    def ComputeRadialVelocity(self, data, y, z):
+        """
+        This is needed for 3D simulations. For 2D axisymmetric, check that ur is equivalent to uy
+        """
+        uy = data[:,:,2]
+        uz = data[:,:,3]
+        theta = np.arctan2(z, y)
+        ur = uy*np.cos(theta)-uz*np.sin(theta)
+        return ur
+    
+    def ComputeTangentialVelocity(self, data, y, z):
+        """
+        This is needed for 3D simulations. For 2D axisymmetric, check that ur is equivalent to uy
+        """
+        uy = data[:,:,2]
+        uz = data[:,:,3]
+        theta = np.arctan2(z, y)
+        ut = uy*np.sin(theta)+uz*np.cos(theta)
+        return ut
 
