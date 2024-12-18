@@ -61,7 +61,7 @@ class CBoundaryCondition():
         elif self.bc_type=='inlet_ss':
             flux = self.ComputeBCFlux_Inlet_Supersonic()
         elif self.bc_type=='outlet':
-            flux = self.ComputeBCFlux_Outlet2()
+            flux = self.ComputeBCFlux_Outlet()
         elif self.bc_type=='outlet_ss':
             flux = self.ComputeBCFlux_Outlet_Supersonic()
         elif self.bc_type=='wedge':
@@ -118,7 +118,8 @@ class CBoundaryCondition():
 
         dir = np.array([self.bc_value[2], self.bc_value[3], self.bc_value[4]])
         dir /= np.linalg.norm(dir)
-        umag_b = un_b/(np.dot(dir, S_dir_int))
+        # umag_b = un_b/(np.dot(dir, S_dir_int))
+        umag_b = un_b
         u_b_vec = umag_b*dir
 
         M_b = umag_b/a_b
@@ -168,6 +169,9 @@ class CBoundaryCondition():
         a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
         Rplus = -np.linalg.norm(self.Wint[1:-1])-2*a_int/(self.fluid.gmma-1)
 
+        dir = np.array([self.bc_value[2], self.bc_value[3], self.bc_value[4]])
+        dir /= np.linalg.norm(dir)
+
         #quadratic solution
         a = 1+2/(gmma-1)
         b = 2*Rplus
@@ -184,43 +188,46 @@ class CBoundaryCondition():
         rho_b = p_b/self.fluid.R/T_b
         e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
         et_b = e_b+0.5*umag_b**2
-        W_b = np.array([p_b/self.fluid.R/T_b, -umag_b*self.S_dir[0], -umag_b*self.S_dir[1], -umag_b*self.S_dir[2], et_b])
+        # W_b = np.array([p_b/self.fluid.R/T_b, -umag_b*self.S_dir[0], -umag_b*self.S_dir[1], -umag_b*self.S_dir[2], et_b])
+        W_b = np.array([p_b/self.fluid.R/T_b, -umag_b*dir[0], -umag_b*dir[1], -umag_b*dir[2], et_b])
+
+        
         U_b = GetConservativesFromPrimitives(W_b)
-        flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
+        flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)
         return flux
 
 
-    def ComputeBCFlux_Outlet(self) -> np.ndarray:
-        """
-        Assumption of normal outflow for the moment. Formulation taken from 'Formulation and Implementation 
-        of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
-        Note: _b and _int refer to boundary and internal points.
+    # def ComputeBCFlux_Outlet(self) -> np.ndarray:
+    #     """
+    #     Assumption of normal outflow for the moment. Formulation taken from 'Formulation and Implementation 
+    #     of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
+    #     Note: _b and _int refer to boundary and internal points.
 
-        WARNING: this outlet BC seems like not working. Probably there are errors in the source article
-        """
-        S_dir_out = +self.S_dir     # unit normal directed outwards of the domain
-        rho_int = self.Wint[0]
-        s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
-        u_int = self.Wint[1:-1]
-        un_int = np.dot(u_int, S_dir_out)
-        a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
-        Jm = -un_int + 2*a_int/(self.fluid.gmma-1)  # Riemann invariant directed outwards
-        p_b = self.bc_value
-        a_b = np.sqrt(self.fluid.gmma*p_b**((self.fluid.gmma-1)/self.fluid.gmma)*s_b**(1/self.fluid.gmma))
-        Jp = Jm-4*a_b/(self.fluid.gmma-1)  # Riemann invariant directed inwards
-        rho_b = (a_b**2/self.fluid.gmma/s_b)**(1/(self.fluid.gmma-1))
-        un_b = -0.5*(Jm+Jp)
+    #     WARNING: this outlet BC seems like not working. Probably there are errors in the source article
+    #     """
+    #     S_dir_out = +self.S_dir     # unit normal directed outwards of the domain
+    #     rho_int = self.Wint[0]
+    #     s_b = self.fluid.ComputeEntropy_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
+    #     u_int = self.Wint[1:-1]
+    #     un_int = np.dot(u_int, S_dir_out)
+    #     a_int = self.fluid.ComputeSoundSpeed_rho_u_et(self.Wint[0], self.Wint[1:-1], self.Wint[-1])
+    #     Jm = -un_int + 2*a_int/(self.fluid.gmma-1)  # Riemann invariant directed outwards
+    #     p_b = self.bc_value
+    #     a_b = np.sqrt(self.fluid.gmma*p_b**((self.fluid.gmma-1)/self.fluid.gmma)*s_b**(1/self.fluid.gmma))
+    #     Jp = Jm-4*a_b/(self.fluid.gmma-1)  # Riemann invariant directed inwards
+    #     rho_b = (a_b**2/self.fluid.gmma/s_b)**(1/(self.fluid.gmma-1))
+    #     un_b = -0.5*(Jm+Jp)
 
-        utan_int = u_int-un_int*S_dir_out
-        u_b = un_b*S_dir_out + utan_int
-        et_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b) + 0.5*np.linalg.norm(u_b)**2
-        W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
-        U_b = GetConservativesFromPrimitives(W_b)
-        flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)  # positive flux is directed outwards
-        return flux
+    #     utan_int = u_int-un_int*S_dir_out
+    #     u_b = un_b*S_dir_out + utan_int
+    #     et_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b) + 0.5*np.linalg.norm(u_b)**2
+    #     W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
+    #     U_b = GetConservativesFromPrimitives(W_b)
+    #     flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)  # positive flux is directed outwards
+    #     return flux
     
 
-    def ComputeBCFlux_Outlet2(self) -> np.ndarray:
+    def ComputeBCFlux_Outlet(self) -> np.ndarray:
         """
         Formulation taken from 'Inflow/Outflow Boundary Conditions with Application to FUN3D' by Carlson.
         """
@@ -228,15 +235,21 @@ class CBoundaryCondition():
         u_int = self.Wint[1:-1]
         et_int = self.Wint[-1]
         p_int = self.fluid.ComputePressure_rho_u_et(rho_int, u_int, et_int)
+        a_int = self.fluid.ComputeSoundSpeed_p_rho(p_int, rho_int)
 
-        p_b = self.bc_value
-        rho_b = p_b*rho_int/p_int
-        u_b = u_int
-        e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
-        et_b = e_b + 0.5*np.linalg.norm(u_b)**2
-        Wb = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
-        Ub = GetConservativesFromPrimitives(Wb)
-        flux = EulerFluxFromConservatives(Ub, self.S_dir, self.fluid)  # positive flux is directed outwards
+        if np.linalg.norm(u_int)>=a_int:
+            # the outlet is supersonic
+            flux = self.ComputeBCFlux_Outlet_Supersonic()
+        else:
+            #the outlet is subsonic
+            p_b = self.bc_value
+            rho_b = p_b*rho_int/p_int
+            u_b = u_int
+            e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
+            et_b = e_b + 0.5*np.linalg.norm(u_b)**2
+            Wb = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
+            Ub = GetConservativesFromPrimitives(Wb)
+            flux = EulerFluxFromConservatives(Ub, self.S_dir, self.fluid)  # positive flux is directed outwards
         return flux
     
     

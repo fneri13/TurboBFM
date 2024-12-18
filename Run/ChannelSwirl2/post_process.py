@@ -18,8 +18,9 @@ proc.Contour2D('p', save_filename='Contour')
 proc.Contour2D('ur', save_filename='Contour')
 proc.Contour2D('ut', save_filename='Contour')
 proc.Contour2D('ua', save_filename='Contour')
-proc.Plot1D('p', 'j', 0, save_filename='Plot')
-proc.Plot1D('Mach', 'j', 0, save_filename='Plot')
+proc.Plot1D('p', 'j', 0, save_filename='Plot_wall')
+proc.Plot1D('Mach', 'j', 0, save_filename='Plot_wall')
+proc.Plot1D('p', 'i', -1, save_filename='Plot_end')
 
 plt.show()
 

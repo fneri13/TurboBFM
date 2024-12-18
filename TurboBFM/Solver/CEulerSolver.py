@@ -688,15 +688,9 @@ class CEulerSolver(CSolver):
         `nIter`: current iteration number
         """
         if np.isnan(array).any():
-            self.PrintMassFlowPlot()
-            self.PrintResidualsPlot()
-            plt.show()
             raise ValueError("The simulation diverged. Nan found at iteration %i" %(nIter))
         
         if array[:,:,:,0].any()<=0:
-            self.PrintMassFlowPlot()
-            self.PrintResidualsPlot()
-            plt.show()
             raise ValueError("The simulation diverged. Negative density at iteration %i" %(nIter))
 
 
