@@ -11,6 +11,8 @@ from TurboBFM.Solver.CScheme_Roe import CScheme_Roe
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Postprocess import styles
+from scipy.integrate import odeint
+from scipy.interpolate import interp1d
 from typing import override 
 
 
@@ -117,7 +119,7 @@ class CEulerSolver(CSolver):
                 if type=='inlet' or type=='inlet_ss':
                     self.boundary_values[direction][location] = self.config.GetInletValue()
                     self.inlet_bc_type = self.config.GetInletBCType()
-                elif type=='outlet' or type=='outlet_ss':
+                elif type=='outlet' or type=='outlet_ss' or type=='outlet_re':
                     self.boundary_values[direction][location] = self.config.GetOutletValue()
                 elif type=='wall' or type=='empty' or type=='wedge':
                     self.boundary_values[direction][location] = None
@@ -447,9 +449,13 @@ class CEulerSolver(CSolver):
                     if dir_face==0: 
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
                         Ub = Sol[iFace, jFace, kFace, :]   
-                        S = -Surf[iFace, jFace, kFace, :]  
+                        S = -Surf[iFace, jFace, kFace, :]
+                        CG_minusR = midpS[iFace, jFace-1, kFace, :] # point at lower radius
+                        U_minusR = Sol[iFace, jFace-1, kFace, :] # point at lower radius
                         CG = midpS[iFace, jFace, kFace, :]       
-                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, 
+                                                      self.radial_pressure_profile, jFace,
+                                                      self.fluid, self.mesh.boundary_areas[dir]['begin'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace, jFace, kFace, :] += flux*area          
@@ -457,8 +463,12 @@ class CEulerSolver(CSolver):
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
                         Ub = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
                         S = Surf[iFace, jFace, kFace, :]  
+                        CG_minusR = midpS[iFace-1*step_mask[0], jFace-1*step_mask[1]-1, kFace-1*step_mask[2], :] # point at lower radius
+                        U_minusR = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1]-1, kFace-1*step_mask[2], :] # point at lower radius
                         CG = midpS[iFace, jFace, kFace, :]                   
-                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
+                        boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, 
+                                                      self.radial_pressure_profile, jFace-1*step_mask[1],
+                                                      self.fluid, self.mesh.boundary_areas[dir]['end'], self.inlet_bc_type)
                         flux = boundary.ComputeFlux()
                         area = np.linalg.norm(S)
                         Res[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :] += flux*area       
@@ -802,6 +812,84 @@ class CEulerSolver(CSolver):
                     source[i,j,k,4] = common_term*ht
                     source[i,j,k,:] *= self.mesh.V[i,j,k]
         return source
+    
+
+    def ComputeRadialEquilibriumPressureProfile(self, sol, dir, loc, p0):
+        """
+        For a given solution, compute the static pressure profile along the radius that corresponds to it.
+        The integrated function is: dp/dr = rho*utheta**2/r, valid for simple flows under inviscid and zero radial 
+        velocity assumptions.
+
+        Parameters
+        --------------------------------
+
+        `sol`: conservative vector array storing the solution
+
+        `dir`: direction of the boundary where the profile will be computed (i,j,k)
+
+        `loc`: location along the direction (begin or end)
+
+        `p0`: specified static pressure at hub (at minimum radius)
+        """
+        if dir=='i' and loc=='begin':
+            U = np.sum(sol[0,:,:,:], axis=1)/sol[0,:,:,:].shape[1] # circum average of the cons vector
+            y = self.Y[0,:,0]
+            z = self.Z[0,:,0]
+        elif dir=='i' and loc=='end':
+            U = np.sum(sol[-1,:,:,:], axis=1)/sol[-1,:,:,:].shape[1] # circum average of the cons vector
+            Y = self.mesh.Y[-1,:,0]
+            Z = self.mesh.Z[-1,:,0]
+        else:
+            raise ValueError('The radial quilibrium outlet is supported only if the outlet boundary is along the i-axis')
+        
+        nspan, nEq = U.shape
+        rho = np.zeros(nspan)
+        utheta = np.zeros(nspan)
+        r = np.zeros(nspan)
+
+        for ispan in range(nspan):
+            W = GetPrimitivesFromConservatives(U[ispan,:])
+            rho[ispan] = W[0]
+            ux = W[1]
+            uy = W[2]
+            uz = W[3]
+            et = W[4]
+            y = Y[ispan]
+            z = Z[ispan]
+            r[ispan] = np.sqrt(y**2 + z**2)
+            theta = np.arctan2(z, y)
+            utheta[ispan] = -uy*np.sin(theta)+uz*np.cos(theta)
+        
+        # Interpolate rho and utheta
+        rho_interp = interp1d(r, rho, kind='linear', fill_value="extrapolate")
+        utheta_interp = interp1d(r, utheta, kind='linear', fill_value="extrapolate")
+
+        # Define the radial equilibrium function
+        def radial_equilibrium(p, radius, rho_interp, utheta_interp):
+            density = rho_interp(radius)
+            vel_theta = utheta_interp(radius)
+            dpdr = density * vel_theta**2 / radius
+            return dpdr
+
+        # Call odeint and pass the interpolated functions as args
+        pressure_profile = odeint(radial_equilibrium, p0, r, args=(rho_interp, utheta_interp))
+
+        # Flatten the solution (odeint output is 2D)
+        pressure_profile = pressure_profile.flatten()
+
+        # Plot the results
+        # plt.plot(r, pressure_profile, label="Pressure Profile")
+        # plt.xlabel("Radius")
+        # plt.ylabel("Pressure")
+        # plt.legend()
+        # plt.show()
+
+        return pressure_profile
+
+
+
+
+
 
 
 

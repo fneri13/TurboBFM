@@ -9,7 +9,9 @@ class CBoundaryCondition():
     """
     Class for the evaluation of fluxes due to boundary conditions (Weak form implementation).
     """
-    def __init__(self, bc_type: str, bc_value: any, Uint: np.ndarray, S: np.ndarray, CG: np.ndarray, fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
+    def __init__(self, bc_type: str, bc_value: any, Uint: np.ndarray, S: np.ndarray, CG: np.ndarray, 
+                 pressure_profile: np.ndarray, idxR: np.ndarray,
+                 fluid: FluidIdeal, tot_area: float = None, inlet_bc_type: str = 'PT'):
         """
         The left to right orientation follows the orientation of the normal
 
@@ -24,6 +26,14 @@ class CBoundaryCondition():
 
         `S`: surface vector (from internal cell towards boundary)
 
+        `CG`: surface midpoint
+
+        `U_minusR`: conservative vector at inner radial position
+
+        `CG_minusR`: surface midpoint at inner radial position
+
+        `idxR`: index in the radial direction (=y direction)
+
         `fluid`: fluid object
         """
         self.bc_type = bc_type
@@ -35,6 +45,11 @@ class CBoundaryCondition():
         self.Uint = Uint               
         self.S = S          
         self.CG = CG        
+        # self.U_minusR = U_minusR
+        # self.W_minusR = GetPrimitivesFromConservatives(U_minusR)
+        # self.CG_minusR = CG_minusR
+        self.pressure_profile = pressure_profile
+        self.idxR = idxR
         self.fluid = fluid
         self.S_dir = self.S/np.linalg.norm(S)
         self.Wint = GetPrimitivesFromConservatives(self.Uint)
@@ -62,6 +77,8 @@ class CBoundaryCondition():
             flux = self.ComputeBCFlux_Inlet_Supersonic()
         elif self.bc_type=='outlet':
             flux = self.ComputeBCFlux_Outlet()
+        elif self.bc_type=='outlet_re':
+            flux = self.ComputeBCFlux_Outlet_RadialEquilibrium()
         elif self.bc_type=='outlet_ss':
             flux = self.ComputeBCFlux_Outlet_Supersonic()
         elif self.bc_type=='wedge':
@@ -243,6 +260,51 @@ class CBoundaryCondition():
         else:
             #the outlet is subsonic
             p_b = self.bc_value
+            rho_b = p_b*rho_int/p_int
+            u_b = u_int
+            e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)
+            et_b = e_b + 0.5*np.linalg.norm(u_b)**2
+            Wb = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
+            Ub = GetConservativesFromPrimitives(Wb)
+            flux = EulerFluxFromConservatives(Ub, self.S_dir, self.fluid)  # positive flux is directed outwards
+        return flux
+    
+
+    def ComputeBCFlux_Outlet_RadialEquilibrium(self) -> np.ndarray:
+        """
+        Formulation taken from 'Inflow/Outflow Boundary Conditions with Application to FUN3D' by Carlson.
+        """
+        rho_int = self.Wint[0]
+        u_int = self.Wint[1:-1]
+        et_int = self.Wint[-1]
+        p_int = self.fluid.ComputePressure_rho_u_et(rho_int, u_int, et_int)
+        a_int = self.fluid.ComputeSoundSpeed_p_rho(p_int, rho_int)
+
+        if np.linalg.norm(u_int)>=a_int:
+            # the outlet is supersonic
+            flux = self.ComputeBCFlux_Outlet_Supersonic()
+        else:
+            if self.idxR==0: # at the hub, the specified pressure is applied
+                p_b = self.bc_value
+            else: # otherwise integrate radial equilibrium from the point at lower radial position
+                # p_minusR = self.fluid.ComputePressure_rho_u_et(self.W_minusR[0], self.W_minusR[1:-1], self.W_minusR[-1])
+                # u_minusR = self.W_minusR[1:-1]
+                # rho_minusR = self.W_minusR[0]
+                # y_minusR = self.CG_minusR[1]
+                # z_minusR = self.CG_minusR[2]
+                # r_minusR = np.sqrt(y_minusR**2 + z_minusR**2)
+                # theta_minusR = np.arctan2(z_minusR, y_minusR)
+                # uy_minusR = u_minusR[1]
+                # uz_minusR = u_minusR[2]
+                # ur_minusR = uy_minusR*np.cos(theta_minusR)+uz_minusR*np.sin(theta_minusR)
+                # utheta_minusR = -uy_minusR*np.sin(theta_minusR)+uz_minusR*np.cos(theta_minusR)
+
+                # y_b = self.CG[1]
+                # z_b = self.CG[2]
+                # r_b = np.sqrt(y_b**2 + z_b**2)
+                # deltaR = r_b-r_minusR
+                # p_b = p_minusR + 0.5*(deltaR*rho_minusR*utheta_minusR**2/r_minusR)  # solution of the pressure ODE forward euler
+                p_b = self.pressure_profile[self.idxR]
             rho_b = p_b*rho_int/p_int
             u_b = u_int
             e_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b)

@@ -181,6 +181,16 @@ class CSolver(ABC):
         """
         For a given flow solution, compute the residual
         """
+        # before computing the residuals, perform some preprocessing on the boundary conditions
+        dirs = ['i', 'j', 'k']
+        locs = ['begin', 'end']
+
+        for dir in dirs:
+            for loc in locs:
+                bc_type, bc_values = self.GetBoundaryCondition(dir, loc)
+                if bc_type=='outlet_re':
+                    self.radial_pressure_profile = self.ComputeRadialEquilibriumPressureProfile(sol, dir, loc, bc_values)
+
         residual = np.zeros_like(sol)
         self.SpatialIntegration('i', sol, residual)
         self.SpatialIntegration('j', sol, residual)
@@ -188,7 +198,6 @@ class CSolver(ABC):
             self.SpatialIntegration('k', sol, residual)
 
         return residual
-
 
     
     @abstractmethod
