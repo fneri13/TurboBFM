@@ -1,0 +1,2 @@
+Comparison between axisymmetric 2D simulation with turboBFM and 3D simulation
+with periodic boundaries on SU2. Profiles at lower and upper wall compared.

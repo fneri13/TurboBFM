@@ -116,8 +116,6 @@ class CBoundaryCondition():
 
         un_b = 2*a_b/(gmma-1)-Jm
 
-        un_b_vec = un_b*S_dir_int
-
         dir = np.array([self.bc_value[2], self.bc_value[3], self.bc_value[4]])
         dir /= np.linalg.norm(dir)
         umag_b = un_b/(np.dot(dir, S_dir_int))
@@ -132,7 +130,7 @@ class CBoundaryCondition():
         et_b = e_b+0.5*np.linalg.norm(u_b)**2
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
-        flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)
+        flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)
         return flux
     
 
@@ -161,7 +159,7 @@ class CBoundaryCondition():
         return flux
     
 
-    def ComputeBCFlux_Inlet2(self):
+    def ComputeBCFlux_Inlet2(self) -> np.ndarray:
         """
         Assumption of normal inflow for the moment. Formulation taken from NASA report.
         """
@@ -192,11 +190,13 @@ class CBoundaryCondition():
         return flux
 
 
-    def ComputeBCFlux_Outlet(self):
+    def ComputeBCFlux_Outlet(self) -> np.ndarray:
         """
         Assumption of normal outflow for the moment. Formulation taken from 'Formulation and Implementation 
         of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects', Rodriguez et al.
         Note: _b and _int refer to boundary and internal points.
+
+        WARNING: this outlet BC seems like not working. Probably there are errors in the source article
         """
         S_dir_out = +self.S_dir     # unit normal directed outwards of the domain
         rho_int = self.Wint[0]
@@ -216,11 +216,11 @@ class CBoundaryCondition():
         et_b = self.fluid.ComputeStaticEnergy_p_rho(p_b, rho_b) + 0.5*np.linalg.norm(u_b)**2
         W_b = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         U_b = GetConservativesFromPrimitives(W_b)
-        flux = EulerFluxFromConservatives(U_b, self.S, self.fluid)  # positive flux is directed outwards
+        flux = EulerFluxFromConservatives(U_b, self.S_dir, self.fluid)  # positive flux is directed outwards
         return flux
     
 
-    def ComputeBCFlux_Outlet2(self):
+    def ComputeBCFlux_Outlet2(self) -> np.ndarray:
         """
         Formulation taken from 'Inflow/Outflow Boundary Conditions with Application to FUN3D' by Carlson.
         """
@@ -236,11 +236,11 @@ class CBoundaryCondition():
         et_b = e_b + 0.5*np.linalg.norm(u_b)**2
         Wb = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
         Ub = GetConservativesFromPrimitives(Wb)
-        flux = EulerFluxFromConservatives(Ub, self.S, self.fluid)  # positive flux is directed outwards
+        flux = EulerFluxFromConservatives(Ub, self.S_dir, self.fluid)  # positive flux is directed outwards
         return flux
     
     
-    def ComputeBCFlux_Inlet_Supersonic(self):
+    def ComputeBCFlux_Inlet_Supersonic(self) -> np.ndarray:
         """
         Supersonic inlet flux. The state is taken from the specified BCs
         """
@@ -258,7 +258,7 @@ class CBoundaryCondition():
         return flux
 
 
-    def ComputeBCFlux_Outlet_Supersonic(self):
+    def ComputeBCFlux_Outlet_Supersonic(self) -> np.ndarray:
         """
         Flux compute directly with internal flow values
         """
@@ -266,15 +266,14 @@ class CBoundaryCondition():
         return flux
 
 
-    def ComputeBCFlux_Wedge(self):
+    def ComputeBCFlux_Wedge(self) -> np.ndarray:
         """
         Compute the boundary flux for axisymmetric simulations at wedge boundaries.
         Be careful, that is assumed that element where Ub is stored is at theta=0.
         """
-
+        # coordinates of the surface midpoint
         ys = self.CG[1]
         zs = self.CG[2]
-
         rs = np.sqrt(ys**2+zs**2)
         thetas = np.arctan2(zs, ys)
 

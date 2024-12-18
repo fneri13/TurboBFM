@@ -50,38 +50,35 @@ class CConfig:
 
 
 
-    def GetGridFilepath(self):
+    def GetGridFilepath(self) -> str:
         return str(self.config_parser.get('CFD', 'GRID_FILE'))
     
 
-    def GetVerbosity(self):
+    def GetVerbosity(self) -> int:
         return int(self.config_parser.get('DEBUG', 'VERBOSITY_LEVEL'))
     
 
-    def GetFluidName(self):
+    def GetFluidName(self) -> str:
         return str(self.config_parser.get('CFD', 'FLUID_NAME'))
     
 
-    def GetFluidGamma(self):
-        try:
-            return float(self.config_parser.get('CFD', 'FLUID_GAMMA'))
-        except: 
-            return 0.0
-    
+    def GetFluidGamma(self) -> float:
+        return float(self.config_parser.get('CFD', 'FLUID_GAMMA'))
+        
 
-    def GetFluidRConstant(self):
+    def GetFluidRConstant(self) -> float:
         return float(self.config_parser.get('CFD', 'FLUID_R_CONSTANT'))
 
 
-    def GetFluidModel(self):
+    def GetFluidModel(self) -> str:
         return str(self.config_parser.get('CFD', 'FLUID_MODEL'))
 
 
-    def GetKindSolver(self):
+    def GetKindSolver(self) -> str:
         return str(self.config_parser.get('CFD', 'KIND_SOLVER'))
     
 
-    def GetBoundaryTypeI(self):
+    def GetBoundaryTypeI(self) -> list:
         mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_I')
         assert(len(mark.split())==2)
         mark = mark.split(',')
@@ -89,7 +86,7 @@ class CConfig:
         return markers
     
 
-    def GetBoundaryTypeJ(self):
+    def GetBoundaryTypeJ(self) -> list:
         mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_J')
         assert(len(mark.split())==2)
         mark = mark.split(',')
@@ -97,7 +94,7 @@ class CConfig:
         return markers
     
 
-    def GetBoundaryTypeK(self):
+    def GetBoundaryTypeK(self) -> list:
         mark = self.config_parser.get('CFD', 'BOUNDARY_TYPE_K')
         assert(len(mark.split())==2)
         mark = mark.split(',')
@@ -105,55 +102,55 @@ class CConfig:
         return markers
     
 
-    def GetInletValue(self):
+    def GetInletValue(self) -> list:
         inlet = self.config_parser.get('CFD', 'INLET_VALUE')
         inlet = [float(x.strip()) for x in inlet.split(',')]
         return inlet
     
 
-    def GetPeriodicValue(self):
+    def GetPeriodicValue(self) -> list:
         inlet = self.config_parser.get('CFD', 'PERIODIC_VALUE')
         inlet = [float(x.strip()) for x in inlet.split(',')]
         return inlet
     
 
-    def GetAdvectionVelocity(self):
+    def GetAdvectionVelocity(self) -> list:
         u = self.config_parser.get('CFD', 'ADVECTION_VELOCITY')
         u = [float(x.strip()) for x in u.split(',')]
         return u
     
 
-    def GetOutletValue(self):
+    def GetOutletValue(self) -> float:
         return float(self.config_parser.get('CFD', 'OUTLET_VALUE'))
     
 
-    def GetInitMach(self):
+    def GetInitMach(self) -> float:
         return float(self.config_parser.get('CFD', 'INIT_MACH_NUMBER'))
 
 
-    def GetInitTemperature(self):
+    def GetInitTemperature(self) -> float:
         return float(self.config_parser.get('CFD', 'INIT_TEMPERATURE'))
     
 
-    def GetInitPressure(self):
+    def GetInitPressure(self) -> float:
         return float(self.config_parser.get('CFD', 'INIT_PRESSURE'))
     
 
-    def GetInitDirection(self):
+    def GetInitDirection(self) -> np.ndarray:
         dir = self.config_parser.get('CFD', 'INIT_DIRECTION')
         dir = [float(x.strip()) for x in dir.split(',')]
         return np.array(dir)
     
 
-    def GetCFL(self):
+    def GetCFL(self) -> float:
         return float(self.config_parser.get('CFD', 'CFL'))
     
 
-    def GetLaplaceDiffusivity(self):
+    def GetLaplaceDiffusivity(self) -> float:
         return float(self.config_parser.get('CFD', 'LAPLACE_DIFFUSIVITY'))
     
 
-    def GetAdvectionRotation(self):
+    def GetAdvectionRotation(self) -> bool:
         rot = str(self.config_parser.get('CFD', 'ADVECTION_ROTATION')).lower()
         if rot=='yes':
             return True
@@ -161,11 +158,11 @@ class CConfig:
             return False
 
 
-    def GetNIterations(self):
+    def GetNIterations(self) -> int:
         return int(self.config_parser.get('CFD', 'N_ITERATIONS'))
     
 
-    def GetSaveUnsteady(self):
+    def GetSaveUnsteady(self) -> bool:
         res = str(self.config_parser.get('CFD', 'SAVE_UNSTEADY'))
         if res.lower()=='yes':
             return True
@@ -173,21 +170,21 @@ class CConfig:
             return False
     
 
-    def GetSaveUnsteadyInterval(self):
+    def GetSaveUnsteadyInterval(self) -> int:
         return int(self.config_parser.get('CFD', 'SAVE_UNSTEADY_INTERVAL'))
     
 
-    def GetSolutionName(self):
+    def GetSolutionName(self) -> str:
         return str(self.config_parser.get('CFD', 'SOLUTION_NAME'))
     
 
-    def GetDirichletValues(self):
+    def GetDirichletValues(self) -> np.ndarray:
         dir = self.config_parser.get('CFD', 'DIRICHLET_VALUES')
         dir = [float(x.strip()) for x in dir.split(',')]
         return np.array(dir)
     
 
-    def GetTimeIntegrationType(self):
+    def GetTimeIntegrationType(self)  -> str:
         """
         Return the time integration integration type. Following Anderson advices:
         `rk`=0 -> forward euler
@@ -234,7 +231,7 @@ class CConfig:
         return coeffs
     
     
-    def GetTimeStepGlobal(self):
+    def GetTimeStepGlobal(self) -> bool:
         method = self.config_parser.get('CFD', 'TIME_STEP_METHOD')
         if method.lower()=='global':
             return True
@@ -244,7 +241,7 @@ class CConfig:
             raise ValueError('Unknown time step method')
     
 
-    def GetTimeStepLocal(self):
+    def GetTimeStepLocal(self) -> bool:
         glob = self.GetTimeStepGlobal()
         if glob:
             return False
@@ -252,7 +249,7 @@ class CConfig:
             True
     
 
-    def GetRestartSolution(self):
+    def GetRestartSolution(self) -> bool:
         try:
             res = str(self.config_parser.get('CFD', 'RESTART_SOLUTION'))
             if res.lower()=='yes':
@@ -262,26 +259,26 @@ class CConfig:
         except:
             return False
     
-    def GetTopology(self):
+    def GetTopology(self) -> str:
         res = str(self.config_parser.get('CFD', 'TOPOLOGY'))
         if res.lower()=='axisymmetric':
             return 'axisymmetric'
         else:
             return 'cartesian'
     
-    def GetRestartSolutionFilepath(self):
+    def GetRestartSolutionFilepath(self) -> str:
         return str(self.config_parser.get('CFD', 'RESTART_SOLUTION_FILEPATH'))
     
     
-    def GetInletBCType(self):
+    def GetInletBCType(self) -> str:
         return str(self.config_parser.get('CFD', 'INLET_BC_TYPE'))
     
 
-    def GetConvectionScheme(self):
+    def GetConvectionScheme(self) -> str:
         return str(self.config_parser.get('CFD', 'CONVECTION_SCHEME'))
     
 
-    def IsBFM(self):
+    def IsBFM(self) -> bool:
         try:
             bfm = str(self.config_parser.get('CFD', 'BFM_ACTIVE'))
             if bfm.lower()=='yes':
@@ -291,11 +288,11 @@ class CConfig:
         except:
             return False
     
-    def GetBlockageFilePath(self):
+    def GetBlockageFilePath(self) -> str:
         return str(self.config_parser.get('CFD', 'BLOCKAGE_FILE_PATH'))
     
 
-    def GetRotationAxis(self):
+    def GetRotationAxis(self) -> str:
         vec = self.config_parser.get('CFD', 'ROTATION_AXIS')
         vec = [float(x.strip()) for x in vec.split(',')]
         vec = np.array(vec)
