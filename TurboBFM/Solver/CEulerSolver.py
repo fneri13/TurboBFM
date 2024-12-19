@@ -35,6 +35,8 @@ class CEulerSolver(CSolver):
             raise ValueError('Real Fluid Model not implemented')
         else:
             raise ValueError('Unknown Fluid Model')
+        
+        self.radial_pressure_profile = None
     
 
     @override
