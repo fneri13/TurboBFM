@@ -452,8 +452,6 @@ class CEulerSolver(CSolver):
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
                         Ub = Sol[iFace, jFace, kFace, :]   
                         S = -Surf[iFace, jFace, kFace, :]
-                        CG_minusR = midpS[iFace, jFace-1, kFace, :] # point at lower radius
-                        U_minusR = Sol[iFace, jFace-1, kFace, :] # point at lower radius
                         CG = midpS[iFace, jFace, kFace, :]       
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, 
                                                       self.radial_pressure_profile, jFace,
@@ -465,8 +463,6 @@ class CEulerSolver(CSolver):
                         bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
                         Ub = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
                         S = Surf[iFace, jFace, kFace, :]  
-                        CG_minusR = midpS[iFace-1*step_mask[0], jFace-1*step_mask[1]-1, kFace-1*step_mask[2], :] # point at lower radius
-                        U_minusR = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1]-1, kFace-1*step_mask[2], :] # point at lower radius
                         CG = midpS[iFace, jFace, kFace, :]                   
                         boundary = CBoundaryCondition(bc_type, bc_value, Ub, S, CG, 
                                                       self.radial_pressure_profile, jFace-1*step_mask[1],
@@ -799,20 +795,31 @@ class CEulerSolver(CSolver):
             for j in range(self.nj):
                 for k in range(self.nk):
                     b = self.mesh.blockage_V[i,j,k]
-                    W = GetPrimitivesFromConservatives(sol[i,j,k,:])
-                    rho = W[0]
-                    u = W[1:-1]
-                    et = W[-1]
-                    ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
-                    bgrad = self.mesh.blockage_V_grad[i,j,k,:]
-                    common_term = -1/b*(rho*np.dot(u,bgrad))
+                    if b==1:
+                        pass
+                    else:
+                        W = GetPrimitivesFromConservatives(sol[i,j,k,:])
+                        rho = W[0]
+                        u = W[1:-1]
+                        et = W[-1]
+                        ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
+                        bgrad = self.mesh.blockage_V_grad[i,j,k,:]
 
-                    source[i,j,k,0] = common_term
-                    source[i,j,k,1] = common_term*u[0]
-                    source[i,j,k,2] = common_term*u[1]
-                    source[i,j,k,3] = common_term*u[2]
-                    source[i,j,k,4] = common_term*ht
-                    source[i,j,k,:] *= self.mesh.V[i,j,k]
+                        # FORMULATION THOLLET
+                        # common_term = -1/b*(rho*np.dot(u,bgrad))
+                        # source[i,j,k,0] = common_term
+                        # source[i,j,k,1] = common_term*u[0]
+                        # source[i,j,k,2] = common_term*u[1]
+                        # source[i,j,k,3] = common_term*u[2]
+                        # source[i,j,k,4] = common_term*ht
+                        # source[i,j,k,:] *= self.mesh.V[i,j,k]
+
+                        # FORMULATION MAGRINI
+                        p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
+                        source[i,j,k,1] = 1/b*p*bgrad[0]
+                        source[i,j,k,2] = 1/b*p*bgrad[1]
+                        source[i,j,k,:] *= self.mesh.V[i,j,k]
+
         return source
     
 

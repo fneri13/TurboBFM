@@ -110,8 +110,8 @@ class CSolver(ABC):
         time_physical = 0
         kind_solver = self.config.GetKindSolver()
 
-        # if self.config.IsBFM():
-        #     self.mesh.V *= self.mesh.blockage_V
+        if self.config.IsBFM():
+            self.mesh.AddBlockageGrid(self.config.GetBlockageFilePath())
 
         for it in range(nIter): 
 
@@ -135,27 +135,22 @@ class CSolver(ABC):
             # Time-integration coefficient list
             rk_coeff = self.config.GetRungeKuttaCoeffs()
             residual_list = []
-            # source_term_list = []
+            source_term_list = []
             for i in range(len(rk_coeff)):
                 residual_list.append(np.zeros_like(sol_old))
-                # source_term_list.append(np.zeros_like(sol_old))
+                source_term_list.append(np.zeros_like(sol_old))
 
             # RK steps
             for iStep in range(len(rk_coeff)):      
                 residual_list[iStep] = self.ComputeResidual(sol_old)
-                # source_term_list[iStep] = self.ComputeSourceTerm(sol_old)
+                source_term_list[iStep] = self.ComputeSourceTerm(sol_old)
 
                 sol_new = self.solution.copy() 
                 for coeff in rk_coeff[iStep]:
                     for iEq in range(self.nEq):
                         sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
-                        # sol_new[:,:,:,iEq] += source_term_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:] 
-                    # if kind_solver=='Euler':
-                    #     sol_new = self.CorrectBoundaryVelocities(sol_new)
+                        sol_new[:,:,:,iEq] += coeff*source_term_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]
                 sol_old = sol_new 
-            
-            # if kind_solver=='Euler':
-            #         sol_new = self.CorrectBoundaryVelocities(sol_new)
             
             self.solution = sol_new.copy()
             self.PrintInfoResiduals(residual_list[-1], it, time_physical)

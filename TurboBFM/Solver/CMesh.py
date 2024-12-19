@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Postprocess import styles
 import pickle
+import os
 from scipy.interpolate import griddata
 
 class CMesh():
@@ -56,10 +57,6 @@ class CMesh():
         self.ComputeVolumes()
         self.ComputeMeshQuality()
         self.ComputeBoundaryAreas()
-
-        # if config.IsBFM():
-        #     self.AddBlockageGrid(config.GetBlockageFilePath())
-
         self.PrintMeshInfo()
 
     
@@ -722,13 +719,13 @@ class CMesh():
             blockage = pickle.load(file)
             blockage = blockage['Blockage']
         
-        # self.blockage_V = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
-        # for k in range(self.V.shape[2]):
-        #     self.blockage_V[:,:,k] = blockage
+        self.blockage_V = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
+        for k in range(self.V.shape[2]):
+            self.blockage_V[:,:,k] = blockage
         
-        # assert self.blockage_V.shape == self.V.shape, "The blockage grid and the elements grid must have the same shape"
+        assert self.blockage_V.shape == self.V.shape, "The blockage grid and the elements grid must have the same shape"
         
-        # self.rotation_axis = self.config.GetRotationAxis()
+        self.rotation_axis = self.config.GetRotationAxis()
 
         # # interpolate the blockage values to the surface centers, for later use in the flux evaluations.
         # def interpolate_b_on_cg(cg):
@@ -756,12 +753,27 @@ class CMesh():
 
 
         # Compute gradients with variable spacing
-        # print('ATTENTION, GRADIENT OF THE BLOCKAGE COMPUTED ONLY FOR RECTANGULAR MESH, IMPLEMENT GREEN-GAUSS LATER')
-        # dbdax, dbdr = np.gradient(self.blockage_V[:,:,0], self.X[:,0,0], self.Y[0,:,0], edge_order=2)
-        # self.blockage_V_grad = np.zeros((self.ni, self.nj, self.nk, 3))
-        # for k in range(self.nk):
-        #     self.blockage_V_grad[:,:,k,0] = dbdax
-        #     self.blockage_V_grad[:,:,k,1] = dbdr
+        print('ATTENTION, GRADIENT OF THE BLOCKAGE COMPUTED ONLY FOR RECTANGULAR MESH, IMPLEMENT GREEN-GAUSS LATER')
+        dbdax, dbdr = np.gradient(self.blockage_V[:,:,0], self.X[:,0,0], self.Y[0,:,0], edge_order=2)
+        self.blockage_V_grad = np.zeros((self.ni, self.nj, self.nk, 3))
+        for k in range(self.nk):
+            self.blockage_V_grad[:,:,k,0] = dbdax
+            self.blockage_V_grad[:,:,k,1] = dbdr
+    
+
+    def ContourBlockage(self, save_filename=None):
+        """
+        Plot the contour fo the blockage on the mesh grid. If save_filename is specified it also saves the pictures
+        """
+        plt.figure()
+        plt.contourf(self.X[:,:,0], self.Y[:,:,0], self.blockage_V[:,:,0], levels=styles.N_levels, cmap=styles.color_map)
+        plt.colorbar()
+        ax = plt.gca()
+        ax.set_aspect('equal')
+
+        if save_filename is not None:
+            os.makedirs('Pictures')
+            plt.savefig('Pictures/%s.pdf', bbox_inches='tight')
         
 
 
