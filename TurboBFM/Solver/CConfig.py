@@ -257,14 +257,17 @@ class CConfig:
             else:
                 return False
         except:
-            return False
+            return False # false by default
     
     def GetTopology(self) -> str:
-        res = str(self.config_parser.get('CFD', 'TOPOLOGY'))
-        if res.lower()=='axisymmetric':
-            return 'axisymmetric'
-        else:
-            return 'cartesian'
+        try:
+            res = str(self.config_parser.get('CFD', 'TOPOLOGY'))
+            if res.lower()=='axisymmetric':
+                return 'axisymmetric'
+            else:
+                return 'cartesian'
+        except:
+            return 'cartesian' # default value
     
     def GetRestartSolutionFilepath(self) -> str:
         return str(self.config_parser.get('CFD', 'RESTART_SOLUTION_FILEPATH'))
@@ -288,6 +291,7 @@ class CConfig:
         except:
             return False
     
+
     def GetBlockageFilePath(self) -> str:
         return str(self.config_parser.get('CFD', 'BLOCKAGE_FILE_PATH'))
     
