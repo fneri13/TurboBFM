@@ -9,6 +9,7 @@ from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Postprocess import styles
 from TurboBFM.Solver.math import GreenGaussGradient
 from abc import ABC, abstractmethod
+from pyevtk.hl import gridToVTK
 import os
 
 
@@ -279,27 +280,41 @@ class CSolver(ABC):
             interval = self.config.GetSaveUnsteadyInterval()
             if (save and it%interval==0) or (save and it==nIter-1) or (save and it==0):
                 file_name = self.config.GetSolutionName()
-                file_name += '_%06i.pik' %(it)
+                file_name += '_%06i' %(it)
 
-                if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
-                    results = {'X': self.mesh.X,
-                               'Y': self.mesh.Y,
-                               'Z': self.mesh.Z,
-                               'U': self.solution,
-                               'Res': self.residual_history}
-                elif self.nDim==2:
-                    results = {'X': self.mesh.X,
-                               'Y': self.mesh.Y,
-                               'U': self.solution,
-                               'Res': self.residual_history}
                 
-                if self.kindSolver.lower()=='euler':
-                    results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
+                if self.config.SavePIK():
+                    if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
+                        results = {'X': self.mesh.X,
+                                'Y': self.mesh.Y,
+                                'Z': self.mesh.Z,
+                                'U': self.solution,
+                                'Res': self.residual_history}
+                    elif self.nDim==2:
+                        results = {'X': self.mesh.X,
+                                'Y': self.mesh.Y,
+                                'U': self.solution,
+                                'Res': self.residual_history}
                 
-                os.makedirs('Results', exist_ok=True)
-                with open('Results/%s' %file_name, 'wb') as file:
-                    pickle.dump(results, file)
-    
+                    if self.kindSolver.lower()=='euler':
+                        results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
+
+                    os.makedirs('Results', exist_ok=True)
+                    with open('Results/%s.pik' %file_name, 'wb') as file:
+                        pickle.dump(results, file)
+                
+
+                
+                if self.config.SaveVTK():
+                    os.makedirs('Results_VTK', exist_ok=True)
+                    output_filename = file_name
+                    velocity = (np.ascontiguousarray(self.solution[:,:,:,1]/self.solution[:,:,:,0]),
+                                np.ascontiguousarray(self.solution[:,:,:,2]/self.solution[:,:,:,0]),
+                                np.ascontiguousarray(self.solution[:,:,:,3]/self.solution[:,:,:,0]))
+                    gridToVTK('Results_VTK/' + output_filename, np.ascontiguousarray(self.mesh.X), np.ascontiguousarray(self.mesh.Y), np.ascontiguousarray(self.mesh.Z), pointData={"Density": np.ascontiguousarray(self.solution[:,:,:,0]),
+                                                                                                "Velocity": velocity,
+                                                                                                "TotalEnergy": np.ascontiguousarray(self.solution[:,:,:,4]/self.solution[:,:,:,0])})
+                    
 
     def ComputeSolutionGradient(self):
         """

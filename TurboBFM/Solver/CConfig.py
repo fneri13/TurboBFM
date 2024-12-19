@@ -315,7 +315,34 @@ class CConfig:
             raise ValueError('The rotation axis cannot be skewed')
         
         return axis
-
     
+
+
+    def SaveVTK(self) -> bool:
+        """
+        If not specified, False by default
+        """
+        try:
+            vtk =  str(self.config_parser.get('CFD', 'SAVE_VTK'))
+            if vtk.lower()=='yes':
+                return True
+            else:
+                return False
+        except:
+            return False
+    
+
+    def SavePIK(self) -> bool:
+        """
+        If not specified, True by default
+        """
+        try:
+            vtk =  str(self.config_parser.get('CFD', 'SAVE_PIK'))
+            if vtk.lower()=='yes':
+                return True
+            else:
+                return False
+        except:
+            return True
         
     

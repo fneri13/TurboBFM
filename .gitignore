@@ -13,6 +13,9 @@
 # Package files
 *.jar
 
+# VTK vts files
+*.vts
+
 
 # JetBrains IDE
 .idea/

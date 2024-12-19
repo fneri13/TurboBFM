@@ -9,7 +9,8 @@ setup(
     install_requires=[
         'numpy',
         'matplotlib',
-        'scipy'
+        'scipy',
+        'pyevtk'
     ],
     packages=find_packages(),
 )
