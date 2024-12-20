@@ -794,8 +794,9 @@ class CEulerSolver(CSolver):
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
-                    b = self.mesh.blockage_V[i,j,k]
-                    if np.linalg.norm(self.mesh.blockage_V_grad[i,j,k,:])>1e-12:
+                    b = self.mesh.blockage[i,j,k]
+                    bgrad = self.mesh.blockage_gradient[i,j,k,:]
+                    if np.linalg.norm(bgrad)<1e-9:
                         pass
                     else:
                         W = GetPrimitivesFromConservatives(sol[i,j,k,:])
@@ -803,7 +804,7 @@ class CEulerSolver(CSolver):
                         u = W[1:-1]
                         et = W[-1]
                         ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
-                        bgrad = self.mesh.blockage_V_grad[i,j,k,:]
+                        
 
                         # FORMULATION THOLLET
                         # common_term = -1/b*(rho*np.dot(u,bgrad))

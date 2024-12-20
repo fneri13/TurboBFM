@@ -112,6 +112,7 @@ class CSolver(ABC):
 
         if self.config.IsBFM():
             self.mesh.AddBlockageGrid(self.config.GetBlockageFilePath())
+            self.mesh.blockage_gradient = self.ComputeGradient(self.mesh.blockage)
 
         for it in range(nIter): 
 
@@ -311,10 +312,16 @@ class CSolver(ABC):
                                                                                                 "TotalEnergy": np.ascontiguousarray(self.solution[:,:,:,4]/self.solution[:,:,:,0])})
                     
 
-    def ComputeSolutionGradient(self):
+    def ComputeGradient(self, phi):
         """
-        Compute the gradient of the solution using Green-Gauss theorem
+        Compute the gradient of the scalar solution phi using Green-Gauss theorem
         """
+        # check that the dimensions coincide with the grid
+        assert phi.shape[0]==self.ni
+        assert phi.shape[1]==self.nj
+        assert phi.shape[2]==self.nk
+
+        gradient = np.zeros((self.ni, self.nj, self.nk, 3))
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
@@ -324,40 +331,52 @@ class CSolver(ABC):
                     Ss, CGs = self.mesh.GetSurfaceData(i, j, k, 'south', 'all')
                     Sb, CGb = self.mesh.GetSurfaceData(i, j, k, 'bottom', 'all')
                     St, CGt = self.mesh.GetSurfaceData(i, j, k, 'top', 'all')
-                    for eq in range(self.nEq):
-                        Uw = self.InterpolateSolution(i, j, k, eq, 'west')
-                        Ue = self.InterpolateSolution(i, j, k, eq, 'east')
-                        Un = self.InterpolateSolution(i, j, k, eq, 'north')
-                        Us = self.InterpolateSolution(i, j, k, eq, 'south')
-                        Ut = self.InterpolateSolution(i, j, k, eq, 'top')
-                        Ub = self.InterpolateSolution(i, j, k, eq, 'bottom')
-                        self.solution_gradient[i,j,k,eq,:] = GreenGaussGradient((Sw, Se, Sn, Ss, St, Sb),
-                                                                                (Uw, Ue, Un, Us, Ut, Ub),
-                                                                                self.mesh.V[i,j,k])
+                    Uw = self.InterpolateScalar(phi, i, j, k, CGw, 'west')
+                    Ue = self.InterpolateScalar(phi, i, j, k, CGe, 'east')
+                    Un = self.InterpolateScalar(phi, i, j, k, CGn, 'north')
+                    Us = self.InterpolateScalar(phi, i, j, k, CGs, 'south')
+                    Ut = self.InterpolateScalar(phi, i, j, k, CGt, 'top')
+                    Ub = self.InterpolateScalar(phi, i, j, k, CGb, 'bottom')
+                    gradient[i,j,k,:] = GreenGaussGradient((Sw, Se, Sn, Ss, St, Sb),
+                                                            (Uw, Ue, Un, Us, Ut, Ub),
+                                                            self.mesh.V[i,j,k])
+        return gradient
     
 
 
-    def InterpolateSolution(self, i, j, k, eq, dir):
+    def InterpolateScalar(self, field, i, j, k, CG, dir):
         """
-        Interpolate the solution between the nodes. Zero order, at the extremes, the extreme values is taken.
+        Interpolate the field between the nodes. Zero order, at the extremes, the extreme values is taken.
         """
         try:
+            p1 = np.array([self.mesh.X[i,j,k], self.mesh.Y[i,j,k], self.mesh.Z[i,j,k]])
+            u1 = field[i,j,k]
             if dir=='west':
-                u = (self.solution[i-1,j,k,eq] + self.solution[i,j,k,eq])/2.0
+                p2 = np.array([self.mesh.X[i-1,j,k], self.mesh.Y[i-1,j,k], self.mesh.Z[i-1,j,k]])
+                u2 = field[i-1,j,k]
             elif dir=='east':
-                u = (self.solution[i+1,j,k,eq] + self.solution[i,j,k,eq])/2.0
+                p2 = np.array([self.mesh.X[i+1,j,k], self.mesh.Y[i+1,j,k], self.mesh.Z[i+1,j,k]])
+                u2 = field[i+1,j,k]
             elif dir=='north':
-                u = (self.solution[i,j+1,k,eq] + self.solution[i,j,k,eq])/2.0
+                p2 = np.array([self.mesh.X[i,j+1,k], self.mesh.Y[i,j+1,k], self.mesh.Z[i,j+1,k]])
+                u2 = field[i,j+1,k]
             elif dir=='south':
-                u = (self.solution[i,j-1,k,eq] + self.solution[i,j,k,eq])/2.0
+                p2 = np.array([self.mesh.X[i,j-1,k], self.mesh.Y[i,j-1,k], self.mesh.Z[i,j-1,k]])
+                u2 = field[i,j-1,k]
             elif dir=='top':
-                u = (self.solution[i,j,k+1,eq] + self.solution[i,j,k,eq])/2.0
+                p2 = np.array([self.mesh.X[i,j,k+1], self.mesh.Y[i,j,k+1], self.mesh.Z[i,j,k+1]])
+                u2 = field[i,j,k+1]
             elif dir=='bottom':
-                u = (self.solution[i,j,k-1,eq] + self.solution[i,j,k,eq])/2.0
+                p2 = np.array([self.mesh.X[i,j,k-1], self.mesh.Y[i,j,k-1], self.mesh.Z[i,j,k-1]])
+                u2 = field[i,j,k-1]
+            d1 = np.linalg.norm(CG-p1)
+            d2 = np.linalg.norm(CG-p2)
+            u_intp = u1+(u2-u1)*d1/(d1+d2)
         except:
-            u = self.solution[i,j,k,eq]
-        
-        return u
+            u_intp = field[i,j,k]
+        return u_intp
+    
+
     
     
 
