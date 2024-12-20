@@ -795,7 +795,7 @@ class CEulerSolver(CSolver):
             for j in range(self.nj):
                 for k in range(self.nk):
                     b = self.mesh.blockage_V[i,j,k]
-                    if b==1:
+                    if np.linalg.norm(self.mesh.blockage_V_grad[i,j,k,:])>1e-12:
                         pass
                     else:
                         W = GetPrimitivesFromConservatives(sol[i,j,k,:])
