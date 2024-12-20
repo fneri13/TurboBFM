@@ -20,6 +20,7 @@ proc.Contour2D('ut', save_filename='Contour')
 proc.Contour2D('ua', save_filename='Contour')
 proc.Plot1D('Mach', 'j', -1)
 proc.Plot1D('p', 'j', -1)
+proc.PrintDeltaMassFlows()
 
 
 plt.show()

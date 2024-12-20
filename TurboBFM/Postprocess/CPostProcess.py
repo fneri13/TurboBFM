@@ -382,4 +382,25 @@ class CPostProcess():
         theta = np.arctan2(z, y)
         ut = uy*np.sin(theta)+uz*np.cos(theta)
         return ut
+    
+
+    def PrintDeltaMassFlows(self):
+        def compute_delta(m1, m2):
+            if m1<1e-6 and m2<1e-6:
+                return 0
+            else:
+                return np.abs(m1-m2)/np.mean(m1+m2)*100
+        
+        mi_in = self.data['MassFlow'][0][-1]
+        mi_out = self.data['MassFlow'][1][-1]
+
+        mj_in = self.data['MassFlow'][2][-1]
+        mj_out = self.data['MassFlow'][3][-1]
+
+        mk_in = self.data['MassFlow'][4][-1]
+        mk_out = self.data['MassFlow'][5][-1]
+
+        print(r'Delta mass flows along i [percent]:     %.5f' %(compute_delta(mi_in, mi_out)))
+        print(r'Delta mass flows along j [percent]:     %.5f' %(compute_delta(mj_in, mj_out)))
+        print(r'Delta mass flows along k [percent]:     %.5f' %(compute_delta(mk_in, mk_out)))
 

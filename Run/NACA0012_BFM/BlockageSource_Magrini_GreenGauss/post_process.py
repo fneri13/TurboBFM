@@ -26,6 +26,7 @@ proc.Plot1D('p', 'j', 0)
 # proc.Plot1D_yAVG('T', xlim=[0.2, 0.3])
 # proc.Plot1D_yAVG('Momentumx', xlim=[0.2, 0.3])
 proc.Save_1D_yAVG(save_filename='1d_AVG')
+proc.PrintDeltaMassFlows()
 
 
 plt.show()
