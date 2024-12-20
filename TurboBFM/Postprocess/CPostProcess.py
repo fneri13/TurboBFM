@@ -230,7 +230,6 @@ class CPostProcess():
             name = 'Cp1D'
             label = r'$\bar{C}_p \ \rm{[-]}$'
             field2D = self.ComputePressureCoefficient(self.data['U'][:,:,idx_k,:])
-            
         elif field_name.lower()=='mach':
             name = 'Mach1D'
             label = r'$M \ \rm{[-]}$'
@@ -279,6 +278,89 @@ class CPostProcess():
 
         if save_filename is not None:
             plt.savefig(self.pictures_folder + '/' + save_filename + '_' + name + '.pdf', bbox_inches='tight')
+    
+
+    def Plot1D_yAVG(self, field_name, idx_k=0, save_filename=None, ref_points=None, xlim=None):
+        """
+        Plot the y-avg solution along x, at index idx_k of a certain field.
+        """
+        def compute_y_avg(f2D):
+            favg = np.sum(f2D, axis=1)/f2D.shape[1]
+            return favg
+
+        if field_name.lower()=='p':
+            name = 'Pressure_yAVG'
+            label = r'$p \ \rm{[kPa]}$'
+            field2D = self.ComputePressure(self.data['U'][:,:,idx_k,:])
+            field2D /= 1e3
+        elif field_name.lower()=='rho':
+            name = 'Density_yAVG'
+            label = r'$\rho \ \rm{[kg/m^3]}$'
+            field2D = self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='mach':
+            name = 'Mach1D_yAVG'
+            label = r'$M \ \rm{[-]}$'
+            field2D = self.ComputeMachNumber(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='momentumx':
+            name = 'MomentumX_yAVG'
+            label = r'$\rho u_x \ \rm{[m/s]}$'
+            field2D = self.data['U'][:,:,idx_k,1]
+        elif field_name.lower()=='t':
+            name = 'Temperature_yAVG'
+            label = r'$T \ \rm{[K]}$'
+            field2D  =self.ComputeTemperature(self.data['U'][:,:,idx_k,:])
+        else:
+            raise ValueError('Unknown field to plot')
+        
+        x_avg = compute_y_avg(self.data['X'][:,:,idx_k])
+        field_AVG = compute_y_avg(field2D)
+        xlabel = (r'$x \ \rm{[m]}$')
+        
+        plt.figure()
+        plt.plot(x_avg, field_AVG, '-o', ms=5, mfc='none')
+        plt.grid(alpha=styles.grid_opacity)
+        plt.xlabel(xlabel)
+        plt.ylabel(label)
+        if xlim is not None:
+            plt.xlim(xlim)
+
+        if save_filename is not None:
+            plt.savefig(self.pictures_folder + '/' + save_filename + '_' + name + '.pdf', bbox_inches='tight')
+    
+
+    def Save_1D_yAVG(self, save_filename=None, idx_k=0):
+        """
+        Save the pickle of the y-avg solution along x, at index idx_k of a certain field.
+        """
+        def compute_y_avg(f2D):
+            favg = np.sum(f2D, axis=1)/f2D.shape[1]
+            return favg
+
+        field2D = self.ComputePressure(self.data['U'][:,:,idx_k,:])
+        p_AVG = compute_y_avg(field2D)
+
+        field2D = self.data['U'][:,:,idx_k,0]
+        rho_AVG = compute_y_avg(field2D)
+
+        field2D = self.ComputeMachNumber(self.data['U'][:,:,idx_k,:])
+        mach_AVG = compute_y_avg(field2D) 
+
+        field2D  =self.ComputeTemperature(self.data['U'][:,:,idx_k,:])
+        T_AVG = compute_y_avg(field2D) 
+
+        x_avg = compute_y_avg(self.data['X'][:,:,idx_k])
+        field_AVG = compute_y_avg(field2D)
+
+
+        pik = {'Density': rho_AVG,
+               'Mach': mach_AVG,
+               'Pressure': p_AVG,
+               'Temperature': T_AVG,
+               'Points_2': x_avg}
+
+        with open(save_filename+'.pik', 'wb') as file:
+            pickle.dump(pik, file)
+
 
 
     def ComputeRadialVelocity(self, data, y, z):

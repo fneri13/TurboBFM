@@ -816,9 +816,25 @@ class CEulerSolver(CSolver):
 
                         # FORMULATION MAGRINI
                         p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
-                        source[i,j,k,1] = 1/b*p*bgrad[0]
-                        source[i,j,k,2] = 1/b*p*bgrad[1]
-                        source[i,j,k,:] *= self.mesh.V[i,j,k]
+                        
+                        F = np.array([rho*u[0], 
+                                      rho*u[0]**2 + p,
+                                      rho*u[0]*u[1],
+                                      rho*u[0]*u[2],
+                                      ht*u[0]])
+                        
+                        G = np.array([rho*u[1], 
+                                      rho*u[0]*u[1],
+                                      rho*u[1]**2 + p,
+                                      rho*u[1]*u[2],
+                                      ht*u[1]])
+                        
+                        Sb = np.array([0,
+                                       p*bgrad[0],
+                                       p*bgrad[1],
+                                       0,
+                                       0])
+                        source[i,j,k,:] = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)*self.mesh.V[i,j,k]
 
         return source
     
