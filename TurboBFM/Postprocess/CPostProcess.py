@@ -388,6 +388,10 @@ class CPostProcess():
         def compute_delta(m1, m2):
             if m1<1e-6 and m2<1e-6:
                 return 0
+            elif m1<1e-6 and m2>=1e-6:
+                return 0
+            elif m1>1e-6 and m2<=1e-6:
+                return 0
             else:
                 return np.abs(m1-m2)/np.mean(m1+m2)*100
         

@@ -14,18 +14,19 @@ The Fundamentals of Computational Fluid Dynamics (Second Edition) by Charles Hir
 
 OUTPUT_FOLDER = 'Grid'
 L = 1
-NX = 32
-NY = 16
-SPAN = L/32
+NX = 64
+NY = 32
+SPAN = L/10
+NZ = NX//10
 STREAMWISE_COEFF = 2
 SPANWISE_COEFF = 2
-
+BUMP_PENETRATION = 0.05*L
 
 
 
 
 def func(alpha):
-    y = np.cos(alpha)/2/np.sin(alpha) + 0.1-1/2/np.sin(alpha)
+    y = np.cos(alpha)/2/np.sin(alpha) + BUMP_PENETRATION-1/2/np.sin(alpha)
     return y
 alpha = fsolve(func, 1)[0]
 r_bump = 1/2/np.sin(alpha)
@@ -37,7 +38,7 @@ y1 = np.zeros_like(x1)
 
 theta = np.linspace(0, 2*alpha, NX_bump)
 x2 = 1.5*L + r_bump*np.cos(np.pi/2+alpha-theta)
-y2 = -(r_bump-0.1*L)+r_bump*np.sin(np.pi/2+alpha-theta)
+y2 = -(r_bump-BUMP_PENETRATION)+r_bump*np.sin(np.pi/2+alpha-theta)
 
 x3 = np.linspace(2*L, 3*L, NX_bump)
 y3 = np.zeros_like(x3)
@@ -64,12 +65,12 @@ x_up = [np.linspace(0, L, NX_bump),
         np.linspace(L, 2*L, NX_bump),
         np.linspace(2*L, 3*L, NX_bump)]
 y_up = [np.zeros(NX_bump)+L,
-        np.zeros(NX_bump)+L,
+        L-y2,
         np.zeros(NX_bump)+L]
 
 Xmulti, Ymulti = [], []
 stretch_stream = ['right', 'both', 'left']
-stretch_span = ['bottom', 'bottom', 'bottom']
+stretch_span = ['both', 'both', 'both']
 for i in range(3):
     xgrid, ygrid = transfinite_grid_generation(np.vstack((x_inlet[i], y_inlet[i])), 
                                                np.vstack((x_wall[i], y_wall[i])), 
@@ -79,7 +80,6 @@ for i in range(3):
                                                streamwise_coeff=STREAMWISE_COEFF, spanwise_coeff=SPANWISE_COEFF)
     Xmulti.append(xgrid)
     Ymulti.append(ygrid)
-    plt.show()
 
 # aseemble a single block
 X = np.concatenate((Xmulti[0], Xmulti[1][1:,:], Xmulti[2][1:,:]), axis=0)
@@ -88,22 +88,39 @@ Y = np.concatenate((Ymulti[0], Ymulti[1][1:,:], Ymulti[2][1:,:]), axis=0)
 NX, NY = X.shape
 
 
+X3, Y3, Z3 = np.zeros((NX, NY, NZ)), np.zeros((NX, NY, NZ)), np.zeros((NX, NY, NZ))
+for k in range(NZ):
+    X3[:,:,k] = X
+    Y3[:,:,k] = Y
+    Z3[:,:,k] = k*SPAN/(NZ-1)
+            
 # Create a 3D scatter plots
-mesh = pv.StructuredGrid(X, Y, np.zeros_like(X))
+mesh = pv.StructuredGrid(X3, Y3, Z3)
 plotter = pv.Plotter()
 plotter.add_mesh(mesh, cmap='viridis', show_edges=True)
 plotter.show_axes()
 
-
-grid = {'X': X, 'Y': Y}
+grid = {'X': X3, 'Y': Y3, 'Z': Z3}
 # Create output directory
 if os.path.exists(OUTPUT_FOLDER):
     print('Output Folder already present')
 else:
     os.mkdir(OUTPUT_FOLDER)
-with open(OUTPUT_FOLDER + '/grid_%02i_%02i.pik' %(NX, NY), 'wb') as file:
+with open(OUTPUT_FOLDER + '/grid_%02i_%02i_%02i.pik' %(NX, NY, NZ), 'wb') as file:
     pickle.dump(grid, file)
 
+# # COMPUTE THE BLOCKAGE
+
+# block = np.zeros(NX)
+# for i in range(len(block)):
+#     block[i] = (Y[i, -1]-Y[i, 0])/(L)
+
+# plt.figure()
+# plt.plot(X[:,0], block)
+
+# bdict = {'x': X[:,0], 'b': block}
+# with open('blockage.pik', 'wb') as file:
+#     pickle.dump(bdict, file)
 
 plotter.show()
 plt.show()

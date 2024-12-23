@@ -1,8 +1,8 @@
 import pickle
 from TurboBFM.Preprocess.su2_mesh_generator import generate_2Dmesh_quads
 
-name = 'grid_124_64'
-with open("../Grid/"+name+".pik", "rb") as file:
+name = 'grid_28_16'
+with open("../Grids/"+name+".pik", "rb") as file:
     coords = pickle.load(file)
 
 X = coords['X']

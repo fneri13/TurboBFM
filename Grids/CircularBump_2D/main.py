@@ -14,9 +14,15 @@ The Fundamentals of Computational Fluid Dynamics (Second Edition) by Charles Hir
 
 OUTPUT_FOLDER = 'Grid'
 L = 1
-NX = 64
-NY = 32
+NX = 32
+NY = 16
 SPAN = L/32
+STREAMWISE_COEFF = 2
+SPANWISE_COEFF = 2
+
+
+
+
 
 def func(alpha):
     y = np.cos(alpha)/2/np.sin(alpha) + 0.1-1/2/np.sin(alpha)
@@ -36,35 +42,60 @@ y2 = -(r_bump-0.1*L)+r_bump*np.sin(np.pi/2+alpha-theta)
 x3 = np.linspace(2*L, 3*L, NX_bump)
 y3 = np.zeros_like(x3)
 
-x_wall = np.concatenate((x1, x2[1:-1], x3))
-y_wall = np.concatenate((y1, y2[1:-1], y3))
-NX = len(x_wall)
+# three blocks
+x_wall = [x1, x2, x3]
+y_wall = [y1, y2, y3]
 
+x_inlet = [np.zeros(NY),
+           np.zeros(NY)+x1[-1],
+           np.zeros(NY)+x2[-1]]
+y_inlet = [np.linspace(0, L, NY),
+           np.linspace(0, L, NY),
+           np.linspace(0, L, NY)]
 
-x_outlet = np.zeros(NY)+3*L
-y_outlet = np.zeros(NY)
+x_outlet = [np.zeros(NY)+x1[-1],
+           np.zeros(NY)+x2[-1],
+           np.zeros(NY)+x3[-1]]
+y_outlet = [np.linspace(0, L, NY),
+           np.linspace(0, L, NY),
+           np.linspace(0, L, NY)]
 
-x_up = np.linspace(0, 3*L, NX)
-y_up = np.zeros_like(x_up)+L
+x_up = [np.linspace(0, L, NX_bump),
+        np.linspace(L, 2*L, NX_bump),
+        np.linspace(2*L, 3*L, NX_bump)]
+y_up = [np.zeros(NX_bump)+L,
+        np.zeros(NX_bump)+L,
+        np.zeros(NX_bump)+L]
 
-x_inlet = np.zeros(NY)
-y_inlet = np.linspace(0, L, NY)
+Xmulti, Ymulti = [], []
+stretch_stream = ['right', 'both', 'left']
+stretch_span = ['bottom', 'bottom', 'bottom']
+for i in range(3):
+    xgrid, ygrid = transfinite_grid_generation(np.vstack((x_inlet[i], y_inlet[i])), 
+                                               np.vstack((x_wall[i], y_wall[i])), 
+                                               np.vstack((x_outlet[i], y_outlet[i])), 
+                                               np.vstack((x_up[i], y_up[i])),
+                                               stretch_type_stream=stretch_stream[i], stretch_type_span=stretch_span[i],
+                                               streamwise_coeff=STREAMWISE_COEFF, spanwise_coeff=SPANWISE_COEFF)
+    Xmulti.append(xgrid)
+    Ymulti.append(ygrid)
+    plt.show()
 
+# aseemble a single block
+X = np.concatenate((Xmulti[0], Xmulti[1][1:,:], Xmulti[2][1:,:]), axis=0)
+Y = np.concatenate((Ymulti[0], Ymulti[1][1:,:], Ymulti[2][1:,:]), axis=0)
 
-xgrid, ygrid = transfinite_grid_generation(np.vstack((x_inlet, y_inlet)), 
-                                           np.vstack((x_wall, y_wall)), 
-                                           np.vstack((x_outlet, y_outlet)), 
-                                           np.vstack((x_up, y_up)))
+NX, NY = X.shape
 
 
 # Create a 3D scatter plots
-mesh = pv.StructuredGrid(xgrid, ygrid, np.zeros_like(xgrid))
+mesh = pv.StructuredGrid(X, Y, np.zeros_like(X))
 plotter = pv.Plotter()
 plotter.add_mesh(mesh, cmap='viridis', show_edges=True)
 plotter.show_axes()
 
 
-grid = {'X': xgrid, 'Y': ygrid}
+grid = {'X': X, 'Y': Y}
 # Create output directory
 if os.path.exists(OUTPUT_FOLDER):
     print('Output Folder already present')
