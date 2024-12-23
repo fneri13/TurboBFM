@@ -28,9 +28,9 @@ class CBoundaryCondition():
 
         `CG`: surface midpoint
 
-        `U_minusR`: conservative vector at inner radial position
+        `pressure_profile`: array of pressure values along the radial direction (used only by radial equilibrium)
 
-        `CG_minusR`: surface midpoint at inner radial position
+        `idxR`: index of the element along the radial direction (used only by radial equilibrium)
 
         `idxR`: index in the radial direction (=y direction)
 
