@@ -10,6 +10,7 @@ from TurboBFM.Solver.CScheme_JST import CScheme_JST
 from TurboBFM.Solver.CScheme_Roe import CScheme_Roe
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
+from TurboBFM.Solver.CBFMSource import CBFMSource
 from TurboBFM.Postprocess import styles
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
@@ -790,6 +791,7 @@ class CEulerSolver(CSolver):
         """
         Compute the blockage source terms for every cell element, depending on the actual solution `sol`
         """
+        bfm = CBFMSource(self.config)
         source = np.zeros_like(sol)
         for i in range(self.ni):
             for j in range(self.nj):
@@ -799,43 +801,36 @@ class CEulerSolver(CSolver):
                     if np.linalg.norm(bgrad)<1e-9:
                         pass
                     else:
+
                         W = GetPrimitivesFromConservatives(sol[i,j,k,:])
                         rho = W[0]
                         u = W[1:-1]
                         et = W[-1]
                         ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
-                        
-
-                        # FORMULATION THOLLET
-                        # common_term = -1/b*(rho*np.dot(u,bgrad))
-                        # source[i,j,k,0] = common_term
-                        # source[i,j,k,1] = common_term*u[0]
-                        # source[i,j,k,2] = common_term*u[1]
-                        # source[i,j,k,3] = common_term*u[2]
-                        # source[i,j,k,4] = common_term*ht
-                        # source[i,j,k,:] *= self.mesh.V[i,j,k]
-
-                        # FORMULATION MAGRINI
                         p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
+
+                        # # FORMULATION MAGRINI
                         
-                        F = np.array([rho*u[0], 
-                                      rho*u[0]**2 + p,
-                                      rho*u[0]*u[1],
-                                      rho*u[0]*u[2],
-                                      ht*u[0]])
+                        # F = np.array([rho*u[0], 
+                        #               rho*u[0]**2 + p,
+                        #               rho*u[0]*u[1],
+                        #               rho*u[0]*u[2],
+                        #               ht*u[0]])
                         
-                        G = np.array([rho*u[1], 
-                                      rho*u[0]*u[1],
-                                      rho*u[1]**2 + p,
-                                      rho*u[1]*u[2],
-                                      ht*u[1]])
+                        # G = np.array([rho*u[1], 
+                        #               rho*u[0]*u[1],
+                        #               rho*u[1]**2 + p,
+                        #               rho*u[1]*u[2],
+                        #               ht*u[1]])
                         
-                        Sb = np.array([0,
-                                       p*bgrad[0],
-                                       p*bgrad[1],
-                                       0,
-                                       0])
-                        source[i,j,k,:] = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)*self.mesh.V[i,j,k]
+                        # Sb = np.array([0,
+                        #                p*bgrad[0],
+                        #                p*bgrad[1],
+                        #                0,
+                        #                0])
+                        # source[i,j,k,:] = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)*self.mesh.V[i,j,k]
+
+                        source[i,j,k,:] = bfm.ComputeBlockageSource(b, bgrad, rho, u, p, ht, self.mesh.V[i,j,k])
 
         return source
     

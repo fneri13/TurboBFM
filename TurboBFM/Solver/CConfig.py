@@ -292,6 +292,25 @@ class CConfig:
             return False
     
 
+    def GetBlockageActive(self) -> bool:
+        try:
+            block = str(self.config_parser.get('CFD', 'BLOCKAGE_ACTIVE'))
+            if block.lower()=='yes':
+                return True
+            else:
+                return False
+        except:
+            return True
+    
+    
+    def GetBFMModel(self) -> str:
+        try:
+            model = str(self.config_parser.get('CFD', 'BFM_MODEL'))
+            return model
+        except:
+            return 'Thollet'
+    
+
     def GetBlockageFilePath(self) -> str:
         return str(self.config_parser.get('CFD', 'BLOCKAGE_FILE_PATH'))
     
