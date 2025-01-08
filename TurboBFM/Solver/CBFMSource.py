@@ -15,6 +15,23 @@ class CBFMSource():
     def ComputeBlockageSource(self, b: float, bgrad: np.ndarray, rho: float, u: np.ndarray, p: float, ht: float, Vol: float) -> np.ndarray:
         """
         Use the formulation of Magrini to compute the source terms related to the blockage
+
+        Parameters
+        -------------------------
+
+        `b`: blockage value
+
+        `bgrad`: blockage gradient array (x,y,z) ref frame
+
+        `rho`: density
+
+        `u`: velocity array (x,y,z) ref frame
+
+        `p`: pressure
+
+        `ht`: total enthalpy
+
+        `Vol`: volume of the cell
         """
         if self.blockageActive:
             F = np.array([rho*u[0], 

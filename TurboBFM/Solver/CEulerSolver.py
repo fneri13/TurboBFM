@@ -809,27 +809,6 @@ class CEulerSolver(CSolver):
                         ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
                         p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
 
-                        # # FORMULATION MAGRINI
-                        
-                        # F = np.array([rho*u[0], 
-                        #               rho*u[0]**2 + p,
-                        #               rho*u[0]*u[1],
-                        #               rho*u[0]*u[2],
-                        #               ht*u[0]])
-                        
-                        # G = np.array([rho*u[1], 
-                        #               rho*u[0]*u[1],
-                        #               rho*u[1]**2 + p,
-                        #               rho*u[1]*u[2],
-                        #               ht*u[1]])
-                        
-                        # Sb = np.array([0,
-                        #                p*bgrad[0],
-                        #                p*bgrad[1],
-                        #                0,
-                        #                0])
-                        # source[i,j,k,:] = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)*self.mesh.V[i,j,k]
-
                         source[i,j,k,:] = bfm.ComputeBlockageSource(b, bgrad, rho, u, p, ht, self.mesh.V[i,j,k])
 
         return source
