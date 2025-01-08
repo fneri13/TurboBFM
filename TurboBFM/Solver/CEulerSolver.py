@@ -781,12 +781,12 @@ class CEulerSolver(CSolver):
         Compute the source term for a certain solution
         """
         if self.config.IsBFM():
-            source = self.ComputeBlockageSource(sol)
+            source = self.ComputeBFMSource(sol)
         else:
             source = np.zeros_like(sol)
         return source
     
-    def ComputeBlockageSource(self, sol):
+    def ComputeBFMSource(self, sol):
         """
         Compute the blockage source terms for every cell element, depending on the actual solution `sol`
         """
