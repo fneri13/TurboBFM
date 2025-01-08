@@ -798,18 +798,25 @@ class CEulerSolver(CSolver):
                 for k in range(self.nk):
                     b = self.mesh.blockage[i,j,k]
                     bgrad = self.mesh.blockage_gradient[i,j,k,:]
+                    
                     if np.linalg.norm(bgrad)<1e-9:
-                        pass
-                    else:
-
+                        blockage_source = np.zeros(5, dtype=float)
+                    else: # blockage source terms computed only if the blockage gradient is different from zero
                         W = GetPrimitivesFromConservatives(sol[i,j,k,:])
                         rho = W[0]
                         u = W[1:-1]
                         et = W[-1]
                         ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
                         p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
+                        blockage_source = bfm.ComputeBlockageSource(b, bgrad, rho, u, p, ht, self.mesh.V[i,j,k])
+                    
+                    if b==1:
+                        force_source = np.zeros(5, dtype=float)
+                    else:
+                        force_source = bfm.ComputeForceSource((self.mesh.X[i,j,k], self.mesh.Y[i,j,k], self.mesh.Z[i,j,k]),
+                                                              rho, u, p, ht, self.mesh.V[i,j,k])
 
-                        source[i,j,k,:] = bfm.ComputeBlockageSource(b, bgrad, rho, u, p, ht, self.mesh.V[i,j,k])
+                    source[i,j,k,:] = blockage_source
 
         return source
     

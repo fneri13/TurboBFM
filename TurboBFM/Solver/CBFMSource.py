@@ -1,4 +1,5 @@
 import numpy as np
+from TurboBFM.Solver.math import ComputeCylindricalVectorFromCartesian
 
 class CBFMSource():
     """
@@ -14,7 +15,7 @@ class CBFMSource():
 
     def ComputeBlockageSource(self, b: float, bgrad: np.ndarray, rho: float, u: np.ndarray, p: float, ht: float, Vol: float) -> np.ndarray:
         """
-        Use the formulation of Magrini to compute the source terms related to the blockage
+        Use the formulation of Magrini (pressure based) to compute the source terms related to the blockage.
 
         Parameters
         -------------------------
@@ -56,6 +57,44 @@ class CBFMSource():
             source = np.zeros(5, dtype=float)
         
         return source
+    
+
+    def ComputeForceSource(self, P: tuple, rho: float, u: np.ndarray, p: float, ht: float, Vol: float):
+        """
+        For a certain BFM model, compute the fource source terms as a np.ndarray of size 5 (continuity, momentum, tot. energy)
+        
+        Parameters
+        -------------------------
+
+        `P`: tuple with the cell coordinates array (x,y,z) ref frame
+
+        `rho`: density
+
+        `u`: velocity array (x,y,z) ref frame
+
+        `p`: pressure
+
+        `ht`: total enthalpy
+
+        `Vol`: volume of the cell
+        """
+        x, y, z = P
+        r = np.sqrt(y**2 + z**2)
+        theta = np.arctan2(z, y)
+        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u)
+        
+        if self.model.lower()=='thollet':
+            force = self.ComputeTholletForce()
+        else:
+            raise ValueError('BFM Model %s is not supported' %self.model)
+
+        return force
+
+    def ComputeTholletForce(self):
+        """
+        Compute the force terms related to the Thollet model based on lift-drag airfoil analogy
+        """
+        return np.zeros(5)
 
 
 

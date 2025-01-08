@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import cos, sin
 
 def GreenGaussGradient(S, U, V):
         """
@@ -44,10 +45,27 @@ def GetTangentialVector(u, n):
 
 def rotate_xyz_vector_along_x(v, theta):
         """
-        Rotate a vector in cartesian components x,y,z around the first axis by an angle theta [rad]
+        Rotate a vector in cartesian components (x,y,z) around the first axis by an angle theta [rad]
         """
         vnew = np.zeros_like(v)
         vnew[0] = v[0]
         vnew[1] = np.cos(theta)*v[1]-np.sin(theta)*v[2]
         vnew[2] = np.sin(theta)*v[1]+np.cos(theta)*v[2]
         return vnew
+
+
+def ComputeCylindricalVectorFromCartesian(x, y, z, u):
+        """
+        Get the vector in cylindrical coordinates (z,r,theta) starting from the one in cartesian coords (x,y,z). 
+        The convention used in the solver is that x is the axial coordinates.
+        """
+        r = np.sqrt(y**2 + z**2)
+        theta = np.arctan2(z, y)
+
+        u_cyl = np.zeros_like(u)
+        u_cyl[0] = u[0] # axial component
+        u_cyl[1] = cos(theta)*u[1]+sin(theta)*u[2]  # radial component
+        u_cyl[2] = -sin(theta)*u[1]+cos(theta)*u[2]  # tangential component
+        return u_cyl
+        
+        
