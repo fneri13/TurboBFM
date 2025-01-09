@@ -244,8 +244,6 @@ class CMesh():
             print('                                     max: %.12f' %(np.max(self.orthogonality)*180/np.pi))
             print('                                     average: %.12f' %(np.mean(self.orthogonality)*180/np.pi))
             print('                                     std: %.12f' %(np.std(self.orthogonality)*180/np.pi))
-            if self.config.IsBFM():
-                print('Mesh file contains blockage grid:    %s' %(self.config.GetBlockageFilePath()))
             print('='*25 + ' END MESH INFORMATION ' + '='*25)
             print()
 
@@ -711,11 +709,11 @@ class CMesh():
         
         return sum
     
-    def AddBlockageGrid(self, filepath):
+    def AddBlockageGrid(self):
         """
         Add the blockage grid associated with every cell element
         """
-        with open(filepath, 'rb') as file:
+        with open(self.config.GetGridFilepath(), 'rb') as file:
             blockage = pickle.load(file)
             blockage = blockage['Blockage']
         
@@ -724,16 +722,36 @@ class CMesh():
             self.blockage[:,:,k] = blockage
         
         assert self.blockage.shape == self.V.shape, "The blockage grid and the elements grid must have the same shape"
-        
         self.rotation_axis = self.config.GetRotationAxis()
+    
 
-        # # Compute gradients with variable spacing
-        # print('ATTENTION, GRADIENT OF THE BLOCKAGE COMPUTED ONLY FOR RECTANGULAR MESH, IMPLEMENT GREEN-GAUSS LATER')
-        # dbdax, dbdr = np.gradient(self.blockage_V[:,:,0], self.X[:,0,0], self.Y[0,:,0], edge_order=2)
-        # self.blockage_V_grad = np.zeros((self.ni, self.nj, self.nk, 3))
-        # for k in range(self.nk):
-        #     self.blockage_V_grad[:,:,k,0] = dbdax
-        #     self.blockage_V_grad[:,:,k,1] = dbdr
+    def AddCamberNormalGrid(self):
+        """
+        Add the camber normal grid associated with every cell element
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            normal = data['Normal']
+        
+        self.normal_camber_cyl = np.zeros((self.ni, self.nj, self.nk, 3))
+        for k in range(self.nk):
+            self.normal_camber_cyl[:,:,k,:] = normal
+    
+
+    def AddRPMGrid(self):
+        """
+        Add the RPM grid associated with every cell element
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            revs = data['RPM']
+        
+        rpm = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
+        for k in range(self.V.shape[2]):
+            rpm[:,:,k] = revs
+        
+        self.omega = 2*np.pi*rpm/60
+                
     
 
     def ContourBlockage(self, save_filename=None):

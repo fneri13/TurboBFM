@@ -308,7 +308,7 @@ class CConfig:
             model = str(self.config_parser.get('CFD', 'BFM_MODEL'))
             return model
         except:
-            return 'Thollet'
+            return 'Hall-Thollet'
     
 
     def GetBlockageFilePath(self) -> str:
@@ -367,5 +367,9 @@ class CConfig:
                 return False
         except:
             return True
+
+
+    def GetBladesNumber(self) -> int:
+        return int(self.config_parser.get('CFD', 'BLADES_NUMBER'))
         
     

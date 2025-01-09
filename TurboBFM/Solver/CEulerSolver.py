@@ -810,13 +810,16 @@ class CEulerSolver(CSolver):
                         p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
                         blockage_source = bfm.ComputeBlockageSource(b, bgrad, rho, u, p, ht, self.mesh.V[i,j,k])
                     
-                    if b==1:
-                        force_source = np.zeros(5, dtype=float)
-                    else:
+                    if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
                         force_source = bfm.ComputeForceSource((self.mesh.X[i,j,k], self.mesh.Y[i,j,k], self.mesh.Z[i,j,k]),
-                                                              rho, u, p, ht, self.mesh.V[i,j,k])
+                                                              rho, u, p, ht, self.mesh.V[i,j,k], self.mesh.blockage[i,j,k],
+                                                              self.mesh.normal_camber_cyl[i,j,k,:],
+                                                              self.mesh.omega[i,j,k])
+                    else:
+                        force_source = np.zeros(5, dtype=float)
+                        
 
-                    source[i,j,k,:] = blockage_source
+                    source[i,j,k,:] = blockage_source+force_source
 
         return source
     

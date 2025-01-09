@@ -67,5 +67,20 @@ def ComputeCylindricalVectorFromCartesian(x, y, z, u):
         u_cyl[1] = cos(theta)*u[1]+sin(theta)*u[2]  # radial component
         u_cyl[2] = -sin(theta)*u[1]+cos(theta)*u[2]  # tangential component
         return u_cyl
+
+
+def ComputeCartesianVectorFromCylindrical(x, y, z, u):
+        """
+        Get the vector in cartesian coordinates (x, y, z) starting from the one in cylindrical coords (axial, radial, tangential). 
+        The convention used in the solver is that x is the axial coordinates.
+        """
+        r = np.sqrt(y**2 + z**2)
+        theta = np.arctan2(z, y)
+
+        u_car = np.zeros_like(u)
+        u_car[0] = u[0] # axial component
+        u_car[1] = cos(theta)*u[1]-sin(theta)*u[2]  # radial component
+        u_car[2] = +sin(theta)*u[1]+cos(theta)*u[2]  # tangential component
+        return u_car
         
         

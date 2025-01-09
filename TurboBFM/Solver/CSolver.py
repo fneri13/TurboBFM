@@ -111,8 +111,15 @@ class CSolver(ABC):
         kind_solver = self.config.GetKindSolver()
 
         if self.config.IsBFM():
-            self.mesh.AddBlockageGrid(self.config.GetBlockageFilePath())
+            print('========================= BFM INFORMATION =========================')
+            print('The BFM mode is active')
+            print('Blockage active: %s' %self.config.GetBlockageActive())
+            print('BFM model: %s' %self.config.GetBFMModel())
+            print('======================= END BFM INFORMATION =======================\n')
+            self.mesh.AddBlockageGrid()
             self.mesh.blockage_gradient = self.ComputeGradient(self.mesh.blockage)
+            self.mesh.AddRPMGrid()
+            self.mesh.AddCamberNormalGrid()
 
         for it in range(nIter): 
 
