@@ -408,3 +408,15 @@ class CPostProcess():
         print(r'Delta mass flows along j [percent]:     %.5f' %(compute_delta(mj_in, mj_out)))
         print(r'Delta mass flows along k [percent]:     %.5f' %(compute_delta(mk_in, mk_out)))
 
+
+    def PrintTurboPerformance(self, axisymmetric=True):
+        
+        mi_in = self.data['MassFlow'][0][-1]
+        mi_out = self.data['MassFlow'][1][-1]
+        if axisymmetric:
+            mi_in *= 360
+            mi_out *= 360
+        mflow = 0.5*(mi_in+mi_out)
+
+        print(r'Mass Flow [kg/s]:                       %.3f' %(mflow))
+
