@@ -98,6 +98,8 @@ class CBFMSource():
             force = self.ComputeHallTholletForceDensity()
         elif self.model.lower()=='hall':
             force = self.ComputeHallForceDensity(w_cyl, normal, pitch, omega, P)
+        elif self.model.lower()=='none':
+            return np.zeros(5)
         else:
             raise ValueError('BFM Model <%s> is not supported' %self.model)
 

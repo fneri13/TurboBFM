@@ -44,9 +44,9 @@ medium_line_width = 2
 light_line_width = 0.5
 
 # set number of levels in contourf plots
-N_levels = 20
-N_levels_medium = 50
-N_levels_fine = 100
+N_levels = 30
+N_levels_medium = 60
+N_levels_fine = 90
 
 # set colormap for contourf plots
 color_map = cm.viridis
