@@ -751,8 +751,20 @@ class CMesh():
             rpm[:,:,k] = revs
         
         self.omega = 2*np.pi*rpm/60
-                
     
+
+    def AddStreamwiseLengthGrid(self):
+        """
+        Add the streamwise length grid associated with every cell element
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            revs = data['StreamwiseLength']
+        
+        self.stwl = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
+        for k in range(self.V.shape[2]):
+            self.stwl[:,:,k] = revs
+                
 
     def ContourBlockage(self, save_filename=None):
         """

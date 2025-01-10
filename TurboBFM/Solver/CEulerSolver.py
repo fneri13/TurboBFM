@@ -791,30 +791,20 @@ class CEulerSolver(CSolver):
         """
         Compute the blockage source terms for every cell element, depending on the actual solution `sol`
         """
-        bfm = CBFMSource(self.config)
+        bfm = CBFMSource(self.config, self)
         source = np.zeros_like(sol)
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
-                    b = self.mesh.blockage[i,j,k]
-                    bgrad = self.mesh.blockage_gradient[i,j,k,:]
                     
+                    bgrad = self.mesh.blockage_gradient[i,j,k,:] # blockage source terms computed only if the blockage gradient is different from zero                    
                     if np.linalg.norm(bgrad)<1e-9:
                         blockage_source = np.zeros(5, dtype=float)
-                    else: # blockage source terms computed only if the blockage gradient is different from zero
-                        W = GetPrimitivesFromConservatives(sol[i,j,k,:])
-                        rho = W[0]
-                        u = W[1:-1]
-                        et = W[-1]
-                        ht = self.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
-                        p = self.fluid.ComputePressure_rho_u_et(rho, u, et)
-                        blockage_source = bfm.ComputeBlockageSource(b, bgrad, rho, u, p, ht, self.mesh.V[i,j,k])
+                    else: 
+                        blockage_source = bfm.ComputeBlockageSource(i, j, k)
                     
                     if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
-                        force_source = bfm.ComputeForceSource((self.mesh.X[i,j,k], self.mesh.Y[i,j,k], self.mesh.Z[i,j,k]),
-                                                              rho, u, p, ht, self.mesh.V[i,j,k], self.mesh.blockage[i,j,k],
-                                                              self.mesh.normal_camber_cyl[i,j,k,:],
-                                                              self.mesh.omega[i,j,k])
+                        force_source = bfm.ComputeForceSource(i,j,k)
                     else:
                         force_source = np.zeros(5, dtype=float)
                         

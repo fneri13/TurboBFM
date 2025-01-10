@@ -120,6 +120,7 @@ class CSolver(ABC):
             self.mesh.blockage_gradient = self.ComputeGradient(self.mesh.blockage)
             self.mesh.AddRPMGrid()
             self.mesh.AddCamberNormalGrid()
+            self.mesh.AddStreamwiseLengthGrid()
 
         for it in range(nIter): 
 
