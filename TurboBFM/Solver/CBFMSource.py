@@ -1,41 +1,49 @@
 import numpy as np
+from TurboBFM.Solver.CSolver import CSolver
+from TurboBFM.Solver.CMesh import CMesh
+from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.math import ComputeCylindricalVectorFromCartesian, ComputeCartesianVectorFromCylindrical
+from TurboBFM.Solver.euler_functions import GetPrimitivesFromConservatives
 
 class CBFMSource():
     """
     BFM source Class, where all the source terms are computed
     """
-    def __init__(self, config):
+    def __init__(self, config, solver):
         """
         Initialize the BFM class with config file info
         """
         self.config = config
+        self.solver = solver
         self.blockageActive = config.GetBlockageActive()
         self.model = config.GetBFMModel()
     
 
-    def ComputeBlockageSource(self, b: float, bgrad: np.ndarray, rho: float, u: np.ndarray, p: float, ht: float, Vol: float) -> np.ndarray:
+    def ComputeBlockageSource(self, i, j, k) -> np.ndarray:
         """
         Use the formulation of Magrini (pressure based) to compute the source terms related to the blockage.
 
         Parameters
         -------------------------
 
-        `b`: blockage value
+        `i`: i-index of cell element
 
-        `bgrad`: blockage gradient array (x,y,z) ref frame
+        `j`: j-index of cell element
 
-        `rho`: density
-
-        `u`: velocity array (x,y,z) ref frame
-
-        `p`: pressure
-
-        `ht`: total enthalpy
-
-        `Vol`: volume of the cell
+        `k`: k-index of cell element
         """
         if self.blockageActive:
+            W = GetPrimitivesFromConservatives(self.solver.solution[i,j,k,:])
+            rho = W[0]
+            u = W[1:-1]
+            et = W[-1]
+            ht = self.solver.fluid.ComputeTotalEnthalpy_rho_u_et(rho, u, et)
+            p = self.solver.fluid.ComputePressure_rho_u_et(rho, u, et)
+            
+            b = self.solver.mesh.blockage[i,j,k]
+            bgrad = self.solver.mesh.blockage_gradient[i,j,k,:]
+            Vol = self.solver.mesh.V[i,j,k]
+
             F = np.array([rho*u[0], 
                             rho*u[0]**2 + p,
                             rho*u[0]*u[1],
@@ -60,52 +68,41 @@ class CBFMSource():
         return source
     
 
-    def ComputeForceSource(self, P: tuple, rho: float, u: np.ndarray, p: float, ht: float, Vol: float, b: float, normal: np.ndarray, omega: float):
+    def ComputeForceSource(self, i, j, k):
         """
         For a certain BFM model, compute the fource source terms as a np.ndarray of size 5 (continuity, momentum, tot. energy)
         
         Parameters
         -------------------------
 
-        `P`: tuple with the cell coordinates array (x,y,z) ref frame
+        `i`: i-index of the cell
 
-        `rho`: density
+        `j`: j-index of the cell
 
-        `u`: velocity array (x,y,z) ref frame
-
-        `p`: pressure
-
-        `ht`: total enthalpy
-
-        `Vol`: volume of the cell
-
-        `b`: blockage of the cell
-
-        `normal`: normal vector of the camber
-
-        `omega`: rotational speed [rad/s] of the cell
+        `k`: k-index of the cell
         """
-        x, y, z = P
-        r = np.sqrt(y**2 + z**2)
-        theta = np.arctan2(z, y)
-        u_cart = u  # cartesian absolute velocity
-        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u)
+        # x, y, z = P
+        # r = np.sqrt(y**2 + z**2)
+        # theta = np.arctan2(z, y)
+        # u_cart = u  # cartesian absolute velocity
+        # u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u)
 
-        drag_velocity_cyl = np.array([0, 0, omega*r])
-        w_cyl = u_cyl-drag_velocity_cyl
-        pitch = 2*np.pi*r/self.config.GetBladesNumber()
+        # drag_velocity_cyl = np.array([0, 0, omega*r])
+        # w_cyl = u_cyl-drag_velocity_cyl
+        # pitch = 2*np.pi*r/self.config.GetBladesNumber()
+        Vol = self.solver.mesh.V[i,j,k]
         if self.model.lower()=='hall-thollet':
-            force = self.ComputeHallTholletForceDensity()
+            force = self.ComputeHallTholletForceDensity(i, j, k)
         elif self.model.lower()=='hall':
-            force = self.ComputeHallForceDensity(w_cyl, normal, pitch, omega, P)
+            force = self.ComputeHallForceDensity(i, j, k)
         elif self.model.lower()=='none':
-            return np.zeros(5)
+            force =  np.zeros(5)
         else:
             raise ValueError('BFM Model <%s> is not supported' %self.model)
 
         return force*Vol
 
-    def ComputeHallForceDensity(self, w, normal, pitch, omega, P):
+    def ComputeHallForceDensity(self, i, j, k):
         """
         Compute the force terms (per unit volume) related to the original Hall model based on lift-drag airfoil analogy.
 
@@ -116,12 +113,28 @@ class CBFMSource():
 
         `normal`: normal of the camber in cylindrical frame (axial, radial, tangential)
 
+        `pitch`: pitch between the blades
+
+        `omega`: rotational speed of the bladed domain considered [rad/s]
+
+        `P`: tuple of coordinates of the cell [x,y,z]
+
         """
-        x, y, z = P
+        x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
         r = np.sqrt(y**2+z**2)
-        delta = self.ComputeDeviationAngle(w, normal)
-        fn = 0.5 * np.linalg.norm(w)**2 * 2 * np.pi * delta / pitch / np.abs(normal[2])
-        fn_versor = self.ComputeInviscidForceDirection(w, normal)
+        theta = np.arctan2(z, y)
+        conservative = self.solver.solution[i,j,k,:]  # conservative vector
+        primitive = GetPrimitivesFromConservatives(conservative)
+        u_cart = primitive[1:-1]  # cartesian absolute velocity
+        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
+        omega = self.solver.mesh.omega[i,j,k]
+        drag_velocity_cyl = np.array([0, 0, omega*r])
+        w_cyl = u_cyl-drag_velocity_cyl
+        pitch = 2*np.pi*r/self.config.GetBladesNumber()
+        normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
+        delta = self.ComputeDeviationAngle(w_cyl, normal)
+        fn = 0.5 * np.linalg.norm(w_cyl)**2 * 2 * np.pi * delta / pitch / np.abs(normal[2])
+        fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
 
         if omega*fn_versor[2]<0:
             fn_versor *= -1  # the fn must push in the rotation direction
@@ -130,13 +143,55 @@ class CBFMSource():
 
         fn_cyl = fn*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
-        
         source = np.zeros(5)
         source[1] = fn_cart[0]
         source[2] = fn_cart[1]
         source[3] = fn_cart[2]
         source[4] = fn_cyl[2]*omega*r
         return source
+    
+
+    # def ComputeHallTholletForceDensity(self, w, normal, pitch, omega, P, stwl):
+    #     """
+    #     Compute the force terms (per unit volume) related to the modified Hall model by Thollet based on lift-drag airfoil analogy.
+
+    #     Parameters
+    #     -------------------------
+
+    #     `w`: relative velocity vector in cylindrical frame (axial, radial, tangential)
+
+    #     `normal`: normal of the camber in cylindrical frame (axial, radial, tangential)
+
+    #     `pitch`: pitch between the blades
+
+    #     `omega`: rotational speed of the bladed domain considered [rad/s]
+
+    #     `P`: tuple of coordinates of the cell [x,y,z]
+
+    #     `stwl`: streamwise length along the blade
+
+    #     """
+    #     Kmach = self.ComputeCompressibilityCorrection(w)
+    #     x, y, z = P
+    #     r = np.sqrt(y**2+z**2)
+    #     delta = self.ComputeDeviationAngle(w, normal)
+    #     fn = 0.5 * np.linalg.norm(w)**2 * 2 * np.pi * delta / pitch / np.abs(normal[2])
+    #     fn_versor = self.ComputeInviscidForceDirection(w, normal)
+
+    #     if omega*fn_versor[2]<0:
+    #         fn_versor *= -1  # the fn must push in the rotation direction
+    #     else:
+    #         pass
+
+    #     fn_cyl = fn*fn_versor
+    #     fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
+
+    #     source = np.zeros(5)
+    #     source[1] = fn_cart[0]
+    #     source[2] = fn_cart[1]
+    #     source[3] = fn_cart[2]
+    #     source[4] = fn_cyl[2]*omega*r
+    #     return source
     
 
     def ComputeDeviationAngle(self, w, n):
@@ -159,6 +214,12 @@ class CBFMSource():
         fn_dir = np.array([-w_dir[2], 0, w_dir[0]])
         return fn_dir
 
+
+    def ComputeCompressibilityCorrection(self, w):
+        """
+        Compute the compressibility correction factor for the thollet-hall model
+        """
+        a = self.solver.fluid.ComputeSoundSpeed_p_rho(p, rho)
 
 
         
