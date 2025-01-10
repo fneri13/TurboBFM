@@ -123,6 +123,26 @@ class CPostProcess():
             name = 'Pressure'
             label = r'$p \ \rm{[kPa]}$'
             field = self.ComputePressure(self.data['U'][:,:,idx_k,:])/1e3
+        elif field_name.lower()=='pt':
+            name = 'TotalPressure'
+            label = r'$p_t \ \rm{[kPa]}$'
+            field = self.ComputeTotalPressure(self.data['U'][:,:,idx_k,:])/1e3
+        elif field_name.lower()=='tt':
+            name = 'TotalTemperature'
+            label = r'$T_t \ \rm{[K]}$'
+            field = self.ComputeTotalTemperature(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='betatt':
+            name = 'PRtt'
+            label = r'$\beta_{tt} \ \rm{[-]}$'
+            field = self.ComputeBetaTT(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='trtt':
+            name = 'TRtt'
+            label = r'$TR_{tt} \ \rm{[-]}$'
+            field = self.ComputeTrTT(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='etatt':
+            name = 'ETAtt'
+            label = r'$\eta_{tt} \ \rm{[-]}$'
+            field = self.ComputeEtaTT(self.data['U'][:,:,idx_k,:])
         elif field_name.lower()=='s':
             name = 'Entropy'
             label = r'$s \ \rm{[kJ/kgK]}$'
@@ -182,6 +202,37 @@ class CPostProcess():
         p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
         return p
 
+
+    def ComputeTotalPressure(self, data):
+        p = self.ComputePressure(data)
+        M = self.ComputeMachNumber(data)
+        pt = p*(1+(self.fluid.gmma-1)/2*M**2)**(self.fluid.gmma/(self.fluid.gmma-1))
+        return p
+
+
+    def ComputeBetaTT(self, data):
+        pt = self.ComputeTotalPressure(data)
+        betaTT = np.zeros_like(pt)
+        for i in range(pt.shape[0]):
+            betaTT[i,:] = pt[i,:]/pt[0,:]
+        return betaTT
+    
+
+    def ComputeEtaTT(self, data):
+        betaTT = self.ComputeBetaTT(data)
+        TrTT = self.ComputeTrTT(data)
+        etaTT = (betaTT**((self.fluid.gmma-1)/self.fluid.gmma)-1)/(TrTT-1)
+        return etaTT
+    
+
+    def ComputeTrTT(self, data):
+        Tt = self.ComputeTotalTemperature(data)
+        TrTT = np.zeros_like(Tt)
+        for i in range(Tt.shape[0]):
+            TrTT[i,:] = Tt[i,:]/Tt[0,:]
+        return TrTT
+    
+
     def ComputeTemperature(self, data):
         rho = data[:,:,0]
         ux = data[:,:,1]/data[:,:,0]
@@ -192,6 +243,13 @@ class CPostProcess():
         p = self.fluid.ComputePressure_rho_u_et(rho, umag, et)
         T = p/rho/self.fluid.R
         return T
+    
+
+    def ComputeTotalTemperature(self, data):
+        T = self.ComputeTemperature(data)
+        M = self.ComputeMachNumber(data)
+        Tt = T*(1+(self.fluid.gmma-1)/2*M**2)
+        return Tt
     
     def ComputePressureCoefficient(self, data):
         rho = data[:,:,0]
@@ -226,6 +284,14 @@ class CPostProcess():
             label = r'$p \ \rm{[kPa]}$'
             field2D = self.ComputePressure(self.data['U'][:,:,idx_k,:])
             field2D /= 1e3
+        elif field_name.lower()=='betatt':
+            name = 'PRtt_1D'
+            label = r'$\beta_{tt} \ \rm{[-]}$'
+            field2D = self.ComputeBetaTT(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='etatt':
+            name = 'ETAtt_1D'
+            label = r'$\eta_{tt} \ \rm{[-]}$'
+            field2D = self.ComputeEtaTT(self.data['U'][:,:,idx_k,:])
         elif field_name.lower()=='cp':
             name = 'Cp1D'
             label = r'$\bar{C}_p \ \rm{[-]}$'
@@ -283,6 +349,8 @@ class CPostProcess():
     def Plot1D_yAVG(self, field_name, idx_k=0, save_filename=None, ref_points=None, xlim=None):
         """
         Plot the y-avg solution along x, at index idx_k of a certain field.
+
+        WARNING: this average is correct only when the grid is uniform along the span, otherwise is not correct.
         """
         def compute_y_avg(f2D):
             favg = np.sum(f2D, axis=1)/f2D.shape[1]

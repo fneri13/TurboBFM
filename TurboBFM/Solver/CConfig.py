@@ -362,5 +362,13 @@ class CConfig:
 
     def GetBladesNumber(self) -> int:
         return int(self.config_parser.get('CFD', 'BLADES_NUMBER'))
+    
+
+    def GetKinematicViscosity(self) -> float:
+        try:
+            nu =  float(self.config_parser.get('CFD', 'FLUID_KINEMATIC_VISCOSITY'))
+        except:
+            nu = 1.48e-5
+        return nu
         
     

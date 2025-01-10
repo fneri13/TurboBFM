@@ -109,16 +109,11 @@ class CBFMSource():
         Parameters
         -------------------------
 
-        `w`: relative velocity vector in cylindrical frame (axial, radial, tangential)
+        `i`: i-index of the cell
 
-        `normal`: normal of the camber in cylindrical frame (axial, radial, tangential)
+        `j`: j-index of the cell
 
-        `pitch`: pitch between the blades
-
-        `omega`: rotational speed of the bladed domain considered [rad/s]
-
-        `P`: tuple of coordinates of the cell [x,y,z]
-
+        `k`: k-index of the cell
         """
         x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
         r = np.sqrt(y**2+z**2)
@@ -151,47 +146,62 @@ class CBFMSource():
         return source
     
 
-    # def ComputeHallTholletForceDensity(self, w, normal, pitch, omega, P, stwl):
-    #     """
-    #     Compute the force terms (per unit volume) related to the modified Hall model by Thollet based on lift-drag airfoil analogy.
+    def ComputeHallTholletForceDensity(self, i, j, k):
+        """
+        Compute the force terms (per unit volume) related to the modified Hall model by Thollet based on lift-drag airfoil analogy.
 
-    #     Parameters
-    #     -------------------------
+        Parameters
+        -------------------------
 
-    #     `w`: relative velocity vector in cylindrical frame (axial, radial, tangential)
+        `i`: i-index of the cell
 
-    #     `normal`: normal of the camber in cylindrical frame (axial, radial, tangential)
+        `j`: j-index of the cell
 
-    #     `pitch`: pitch between the blades
+        `k`: k-index of the cell
+        """
+        x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
+        r = np.sqrt(y**2+z**2)
+        theta = np.arctan2(z, y)
+        conservative = self.solver.solution[i,j,k,:]  
+        primitive = GetPrimitivesFromConservatives(conservative)
+        u_cart = primitive[1:-1]  
+        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
+        omega = self.solver.mesh.omega[i,j,k]
+        drag_velocity_cyl = np.array([0, 0, omega*r])
+        w_cyl = u_cyl-drag_velocity_cyl
+        pitch = 2*np.pi*r/self.config.GetBladesNumber()
+        normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
+        delta = self.ComputeDeviationAngle(w_cyl, normal)
+        b = self.solver.mesh.blockage[i,j,k]
+        Kmach = self.ComputeCompressibilityCorrection(w_cyl, primitive)
+        
+        # inviscid component
+        fn = Kmach * np.linalg.norm(w_cyl)**2 * np.pi * np.abs(delta) / pitch / np.abs(normal[2]) / b
+        fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
+        if omega*fn_versor[2]<0:
+            fn_versor *= -1  # the fn must push in the rotation direction
+        else:
+            pass
+        fn_cyl = fn*fn_versor
+        fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
 
-    #     `omega`: rotational speed of the bladed domain considered [rad/s]
+        # viscous component
+        rho = primitive[0]
+        nu = self.config.GetKinematicViscosity()
+        Rex = np.linalg.norm(w_cyl) * self.solver.mesh.stwl[i,j,k] / nu
+        Cf = 0.0592*Rex**(-0.2)
+        delta0 = delta  # this could be calibrated later, from the deviation of the float at peak efficiency
+        fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(normal[2])) * (2*Cf + 2*np.pi*Kmach*(delta-delta0))
+        fp_vers_cyl = w_cyl/np.linalg.norm(w_cyl)
+        fp_cyl = fp*fp_vers_cyl*(-1)  # opposite to the relative velocity
+        fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
 
-    #     `P`: tuple of coordinates of the cell [x,y,z]
-
-    #     `stwl`: streamwise length along the blade
-
-    #     """
-    #     Kmach = self.ComputeCompressibilityCorrection(w)
-    #     x, y, z = P
-    #     r = np.sqrt(y**2+z**2)
-    #     delta = self.ComputeDeviationAngle(w, normal)
-    #     fn = 0.5 * np.linalg.norm(w)**2 * 2 * np.pi * delta / pitch / np.abs(normal[2])
-    #     fn_versor = self.ComputeInviscidForceDirection(w, normal)
-
-    #     if omega*fn_versor[2]<0:
-    #         fn_versor *= -1  # the fn must push in the rotation direction
-    #     else:
-    #         pass
-
-    #     fn_cyl = fn*fn_versor
-    #     fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
-
-    #     source = np.zeros(5)
-    #     source[1] = fn_cart[0]
-    #     source[2] = fn_cart[1]
-    #     source[3] = fn_cart[2]
-    #     source[4] = fn_cyl[2]*omega*r
-    #     return source
+        source = np.zeros(5)
+        source[1] = fn_cart[0]+fp_cart[0]
+        source[2] = fn_cart[1]+fp_cart[1]
+        source[3] = fn_cart[2]+fp_cart[2]
+        source[4] = (fn_cyl[2]+fp_cyl[2])*omega*r
+        return source
     
 
     def ComputeDeviationAngle(self, w, n):
@@ -215,11 +225,40 @@ class CBFMSource():
         return fn_dir
 
 
-    def ComputeCompressibilityCorrection(self, w):
+    def ComputeCompressibilityCorrection(self, w, primitive):
         """
-        Compute the compressibility correction factor for the thollet-hall model
+        Compute the compressibility correction factor for the thollet-hall model.
+
+        Paramters
+        --------------------------
+
+        `w`: relative velocity vector
+
+        `primitive`: primitive vector
         """
-        a = self.solver.fluid.ComputeSoundSpeed_p_rho(p, rho)
+        wmag = np.linalg.norm(w)
+        a = self.solver.fluid.ComputeSoundSpeed_rho_u_et(primitive[0], primitive[1:-1], primitive[-1])
+        Mrel = wmag/a
+        
+        if Mrel==1:
+            Mrel=0.999
+
+        if Mrel<1:
+            kprime = 1/np.sqrt(1-Mrel**2)
+        elif Mrel>1:
+            kprime = 2/np.pi/np.sqrt(Mrel**2-1)
+        else:
+            raise ValueError('M relative out of limitis')
+        
+        if kprime<=3:
+            kmach = kprime
+        else:
+            kmach = 3
+        
+        return kmach
+
+
+
 
 
         
