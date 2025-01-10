@@ -186,18 +186,15 @@ class CConfig:
 
     def GetTimeIntegrationType(self)  -> str:
         """
-        Return the time integration integration type. Following Anderson advices:
-        `rk`=0 -> forward euler
-        `rk`=1 -> rk4 time accurate
-        `rk`=2 -> low memory consumption, to use only for steady problems
+        Return the time integration integration type. Following Simon PhD Thesis and Essers (2003) suggestions:
+        `rk`=0 -> RK 4-th order with good dissipation properties at boundaries
+        `rk`=1 -> RK 3-rd order with good transient damping properties
         """
         a = int(self.config_parser.get('CFD', 'TIME_INTEGRATION_TYPE'))
         if a==0:
-            return 'FORWARD_EULER'
+            return 'RK41A'
         elif a==1:
-            return 'RK4_TIME_ACCURATE'
-        elif a==2:
-            return 'RK4_LOW_MEMORY'
+            return 'RK31B'
         else:
             raise ValueError('Time integration type in input file can be 0 or 1 or 2')
     
@@ -216,18 +213,12 @@ class CConfig:
         w4 = w0 - coeffs[3][0]*dt*R0 - coeffs[3][1]*dt*R1 - coeffs[3][2]*dt*R2 - - coeffs[3][3]*dt*R3
         """
         rk = self.GetTimeIntegrationType()
-        if rk=='RK4_TIME_ACCURATE':
-            coeffs = [[0.5], 
-                      [0, 0.5],  
-                      [0, 0, 1], 
-                      [1/6, 2/6, 2/6, 1/6]]
-        elif rk=='RK4_LOW_MEMORY':
-            coeffs = [[0.25], 
-                      [0, 1/3],  
-                      [0, 0, 1/2], 
-                      [0, 0, 0, 1]]
-        elif rk=='FORWARD_EULER':
-            coeffs = [[1]]
+        if rk=='RK41A':
+            coeffs = [1/4, 5/14, 14/25, 1]
+        elif rk=='RK31B':
+            coeffs = [8/17, 17/20, 1]
+        else:
+            raise ValueError('Unknown type of Runge-Kutta integration type.')
         return coeffs
     
     

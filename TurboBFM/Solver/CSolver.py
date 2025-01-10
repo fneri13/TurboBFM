@@ -142,35 +142,24 @@ class CSolver(ABC):
             
             # Time-integration coefficient list
             rk_coeff = self.config.GetRungeKuttaCoeffs()
-            residual_list = []
-            source_term_list = []
-            for i in range(len(rk_coeff)):
-                residual_list.append(np.zeros_like(sol_old))
-                source_term_list.append(np.zeros_like(sol_old))
-
-            # RK steps
             for iStep in range(len(rk_coeff)):      
-                residual_list[iStep] = self.ComputeResidual(sol_old)
-                source_term_list[iStep] = self.ComputeSourceTerm(sol_old)
+                alpha = rk_coeff[iStep]
+                residual_terms = self.ComputeResidual(sol_old)
+                source_terms = self.ComputeSourceTerm(sol_old)
 
                 sol_new = self.solution.copy() 
-                for coeff in rk_coeff[iStep]:
-                    for iEq in range(self.nEq):
-                        sol_new[:,:,:,iEq] -= coeff*residual_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
-                        sol_new[:,:,:,iEq] += coeff*source_term_list[iStep][:,:,:,iEq]*dt/self.mesh.V[:,:,:]
-                sol_old = sol_new 
+                for iEq in range(self.nEq):
+                    sol_new[:,:,:,iEq] -= alpha*residual_terms[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
+                    sol_new[:,:,:,iEq] += alpha*source_terms[:,:,:,iEq]*dt/self.mesh.V[:,:,:]
+                sol_old = sol_new.copy() 
             
             self.solution = sol_new.copy()
-            self.PrintInfoResiduals(residual_list[-1], it, time_physical)
+            self.PrintInfoResiduals(-residual_terms+source_terms, it, time_physical)
             
             if self.config.GetTimeStepGlobal():
                 time_physical += dt
             else:
                 time_physical += np.min(dt)
-
-            if self.verbosity==3 and it%100==0 and kind_solver=='Euler':
-                self.ContoursCheckMeridional('primitives')
-                plt.show()
             
             self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
             self.SaveSolution(it, nIter)
