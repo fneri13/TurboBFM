@@ -370,5 +370,30 @@ class CConfig:
         except:
             nu = 1.48e-5
         return nu
+    
+
+    def GetTurboOutput(self) -> bool:
+        """
+        Stores the data related to turbo performances. False by default
+        """
+        try:
+            turbo =  str(self.config_parser.get('CFD', 'TURBO_OUTPUT'))
+            if turbo.lower()=='yes':
+                return True
+            else:
+                return False
+        except:
+            return False
+    
+
+    def GetTurboDirection(self) -> bool:
+        """
+        Stores the data related to turbo performances. False by default
+        """
+        try:
+            dir =  str(self.config_parser.get('CFD', 'TURBO_DIRECTION'))
+            return dir
+        except:
+            return 'i'  # default turbomachinery direction evolution
         
     

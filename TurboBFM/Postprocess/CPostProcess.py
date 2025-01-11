@@ -80,6 +80,37 @@ class CPostProcess():
         plt.legend()
         if save_filename is not None:
             plt.savefig(self.pictures_folder + '/' + save_filename + '.pdf', bbox_inches='tight')
+    
+
+    def PlotTurboPerformance(self, save_filename=None, axisymmetric=True):
+        """
+        Plot the turbo performance in the iterations
+        """
+        plt.figure()
+        plt.plot(self.data['PRtt'])
+        plt.grid(alpha = styles.grid_opacity)
+        plt.xlabel('Iterations [-]')
+        plt.ylabel(r'$\beta_{tt}$ [-]')
+        if save_filename is not None:
+            plt.savefig(self.pictures_folder + '/' + save_filename + '_beta_tt.pdf', bbox_inches='tight')
+        
+        plt.figure()
+        plt.plot(self.data['ETAtt'])
+        plt.grid(alpha = styles.grid_opacity)
+        plt.xlabel('Iterations [-]')
+        plt.ylabel(r'$\eta_{tt}$ [-]')
+        if save_filename is not None:
+            plt.savefig(self.pictures_folder + '/' + save_filename + '_eta_tt.pdf', bbox_inches='tight')
+        
+        mflow = np.array(self.data['MassFlowTurbo'])
+        if axisymmetric: mflow*=360  # total mass flow rate for axissymetric simulations
+        plt.figure()
+        plt.plot(mflow)
+        plt.grid(alpha = styles.grid_opacity)
+        plt.xlabel('Iterations [-]')
+        plt.ylabel(r'$\dot{m}$ [kg/s]')
+        if save_filename is not None:
+            plt.savefig(self.pictures_folder + '/' + save_filename + '_mflow.pdf', bbox_inches='tight')
 
     
 
@@ -478,13 +509,14 @@ class CPostProcess():
 
 
     def PrintTurboPerformance(self, axisymmetric=True):
-        
-        mi_in = self.data['MassFlow'][0][-1]
-        mi_out = self.data['MassFlow'][1][-1]
-        if axisymmetric:
-            mi_in *= 360
-            mi_out *= 360
-        mflow = 0.5*(mi_in+mi_out)
+        mflow = self.data['MassFlowTurbo'][-1]
+        if axisymmetric: mflow*=360
+        prTT = self.data['PRtt'][-1]
+        etaTT = self.data['ETAtt'][-1]
 
+        print()
+        print('TURBOMACHINERY PERFORMANCE')
         print(r'Mass Flow [kg/s]:                       %.3f' %(mflow))
+        print(r'Tot-to-Tot Pressure ratio [-]:          %.3f' %(prTT))
+        print(r'Tot-to-Tot Efficiency [-]:              %.3f' %(etaTT))
 

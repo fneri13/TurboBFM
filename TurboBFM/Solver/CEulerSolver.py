@@ -98,12 +98,18 @@ class CEulerSolver(CSolver):
                                r'$\rho u_y$',
                                r'$\rho u_z$',
                                r'$\rho e_t$']
+        
         self.mi_in = []                                                 # store the mass flow entering from i
         self.mi_out = []                                                # store the mass flow exiting from i
         self.mj_in = []                                                 # store the mass flow entering from j
         self.mj_out = []                                                # store the mass flow exiting from j
         self.mk_in = []                                                 # store the mass flow entering from k
         self.mk_out = []                                                # store the mass flow exiting from k
+
+        if self.config.GetTurboOutput():
+            self.beta_tt = []                                               # store the total pressure ratio for turbo cases
+            self.eta_tt = []                                                # store the total efficiency ratio for turbo cases
+            self.m_turbo = []                                               # store the mass flow rate of the machine
 
 
     @override
@@ -745,6 +751,72 @@ class CEulerSolver(CSolver):
                 mass_flow += rhoU_n*area
         
         return mass_flow
+    
+
+    def ComputeTurboOutput(self) -> float:
+        """
+        Compute the total pressure ratio for a turbomachinery case
+        """
+        direction = self.config.GetTurboDirection()
+        if direction=='i':
+            sol_in = self.solution[0,:,:,:]
+            S_in = self.mesh.Si[0,:,:,:]
+            sol_out = self.solution[-1,:,:,:]
+            S_out = self.mesh.Si[-1,:,:,:]
+        else:
+            raise ValueError('At the moment, the turbomachine must be directed along i on the streamwise direction')
+        
+        pt_in, Tt_in, m_in = self.ComputeTurboMassFlowAverage(sol_in, S_in)
+        pt_out, Tt_out, m_out = self.ComputeTurboMassFlowAverage(sol_out, S_out)
+
+        PRtt = pt_out/pt_in
+        TRtt = Tt_out/Tt_in
+        ETAtt = (PRtt**((self.fluid.gmma-1)/self.fluid.gmma)-1)/(TRtt-1)
+        mflow = 0.5*(m_in+m_out)
+        
+        return PRtt, ETAtt, mflow
+    
+
+    def ComputeTurboMassFlowAverage(self, U, S):
+        """
+        From the conservative soluton and surface array over which is defined, compute the mass flow averaged values ot total pressure and temperature, 
+        needed for turbomachinery performance analysis
+        """
+        ni, nj = U[:,:,0].shape
+        assert U[0,0,:].shape[0] == self.nEq, 'The conservative vector array must have 5 solutions'
+        assert U[:,:,0].shape[0] == S[:,:,0].shape[0], 'The arrays of surface vector and conservative solution must be defined on the same number of cells'
+        
+        rhoU = np.zeros((ni,nj,3))
+        pt = np.zeros((ni,nj))
+        Tt = np.zeros((ni,nj))
+        mflow = 0
+        for i in range(ni):
+            for j in range(nj):
+                rhoU[i,j] = U[i,j,1:-1]
+                w = GetPrimitivesFromConservatives(U[i,j,:])
+                pt[i,j] = self.fluid.ComputeTotalPressure_rho_u_et(w[0], w[1:-1], w[-1])
+                Tt[i,j] = self.fluid.ComputeTotalTemperature_rho_u_et(w[0], w[1:-1], w[-1])
+                mflow += np.dot(rhoU[i,j,:], S[i,j,:])
+        
+        def mass_flow_average(momentum, surface, phi):
+            sum = 0
+            for i in range(ni):
+                for j in range(nj):
+                    sum += np.dot(momentum[i,j,:], surface[i,j,:])*phi[i,j]
+            return sum/mflow
+
+        pt_avg = mass_flow_average(rhoU, S, pt)
+        Tt_avg = mass_flow_average(rhoU, S, Tt)
+
+        return pt_avg, Tt_avg, mflow
+
+
+        
+
+                
+        
+
+
 
 
     def PrintMassFlowPlot(self):

@@ -138,6 +138,13 @@ class CSolver(ABC):
                 self.mk_in.append(self.ComputeMassFlow('k', 'start'))
                 self.mk_out.append(self.ComputeMassFlow('k', 'end'))
             
+            if self.config.GetTurboOutput():
+                beta_tt, eta_tt, mflow = self.ComputeTurboOutput()
+                self.beta_tt.append(beta_tt)
+                self.eta_tt.append(eta_tt)
+                self.m_turbo.append(mflow)
+
+            
             if kind_solver=='Advection':
                 self.u_advection = self.config.GetAdvectionVelocity()
             
@@ -291,6 +298,11 @@ class CSolver(ABC):
                 
                     if self.kindSolver.lower()=='euler':
                         results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
+                    
+                    if self.config.GetTurboOutput():
+                        results['PRtt'] = self.beta_tt
+                        results['ETAtt'] = self.eta_tt
+                        results['MassFlowTurbo'] = self.m_turbo
 
                     os.makedirs('Results', exist_ok=True)
                     with open('Results/%s.pik' %file_name, 'wb') as file:

@@ -60,6 +60,26 @@ class FluidIdeal():
         p = self.ComputePressure_rho_e(rho, e)
         return p
     
+
+    def ComputeTotalPressure_rho_u_et(self, rho, u, et):
+        p = self.ComputePressure_rho_u_et(rho, u, et)
+        M = self.ComputeMachNumber_rho_u_et(rho, u, et)
+        pt = p*(1+(self.gmma-1)/2*M**2)**(self.gmma/(self.gmma-1))
+        return pt
+    
+
+    def ComputeTotalTemperature_rho_u_et(self, rho, u, et):
+        T = self.ComputeTemperature_rho_u_et(rho, u, et)
+        M = self.ComputeMachNumber_rho_u_et(rho, u, et)
+        Tt = T*(1+(self.gmma-1)/2*M**2)
+        return Tt
+    
+
+    def ComputeTemperature_rho_u_et(self, rho, u, et):
+        p = self.ComputePressure_rho_u_et(rho, u, et)
+        T = p/rho/self.R
+        return T
+    
     
     def ComputeTotalEnthalpy_rho_u_et(self, rho, u, et):
         e = self.ComputeStaticEnergy_u_et(u, et)
@@ -94,6 +114,13 @@ class FluidIdeal():
         rho = p/(self.R*T)
         return rho
     
+
+    def ComputeMachNumber_rho_u_et(self, rho, u, et):
+        a = self.ComputeSoundSpeed_rho_u_et(rho, u, et)
+        umag = np.linalg.norm(u)
+        M = umag/a
+        return M
+
 
     def ComputeMachNumber_rho_umag_et(self, rho, umag, et):
         a = self.ComputeSoundSpeed_rho_u_et(rho, umag, et)
