@@ -508,7 +508,7 @@ class CPostProcess():
         print(r'Delta mass flows along k [percent]:     %.5f' %(compute_delta(mk_in, mk_out)))
 
 
-    def PrintTurboPerformance(self, axisymmetric=True):
+    def PrintTurboPerformance(self, axisymmetric=True, save_csv=True):
         mflow = self.data['MassFlowTurbo'][-1]
         if axisymmetric: mflow*=360
         prTT = self.data['PRtt'][-1]
@@ -519,4 +519,9 @@ class CPostProcess():
         print(r'Mass Flow [kg/s]:                       %.3f' %(mflow))
         print(r'Tot-to-Tot Pressure ratio [-]:          %.3f' %(prTT))
         print(r'Tot-to-Tot Efficiency [-]:              %.3f' %(etaTT))
+
+        if save_csv:
+            with open('performance.csv', 'w') as file:
+                file.write('MassFlow [kg/s],Betatt [-], Etatt[-]\n')
+                file.write('%6.3f,%6.3f,%6.3f' %(mflow, prTT, etaTT))
 
