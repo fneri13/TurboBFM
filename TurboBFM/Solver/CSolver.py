@@ -282,43 +282,54 @@ class CSolver(ABC):
                 file_name = self.config.GetSolutionName()
                 file_name += '_%06i' %(it)
 
-                
-                if self.config.SavePIK():
-                    if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
+                if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
                         results = {'X': self.mesh.X,
                                 'Y': self.mesh.Y,
                                 'Z': self.mesh.Z,
                                 'U': self.solution,
                                 'Res': self.residual_history}
-                    elif self.nDim==2:
-                        results = {'X': self.mesh.X,
-                                'Y': self.mesh.Y,
-                                'U': self.solution,
-                                'Res': self.residual_history}
+                elif self.nDim==2:
+                    results = {'X': self.mesh.X,
+                            'Y': self.mesh.Y,
+                            'U': self.solution,
+                            'Res': self.residual_history}
+            
+                if self.kindSolver.lower()=='euler':
+                    results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
                 
-                    if self.kindSolver.lower()=='euler':
-                        results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
+                if self.config.GetTurboOutput():
+                    results['PRtt'] = self.beta_tt
+                    results['ETAtt'] = self.eta_tt
+                    results['MassFlowTurbo'] = self.m_turbo
+                    results['BodyForce_Inviscid'] = self.body_force_source_inviscid[:,:,:,1:-1]
+                    results['BodyForce_Viscous'] = self.body_force_source_viscous[:,:,:,1:-1]
                     
-                    if self.config.GetTurboOutput():
-                        results['PRtt'] = self.beta_tt
-                        results['ETAtt'] = self.eta_tt
-                        results['MassFlowTurbo'] = self.m_turbo
-
+                # save the pickle file if required
+                if self.config.SavePIK():
                     os.makedirs('Results', exist_ok=True)
                     with open('Results/%s.pik' %file_name, 'wb') as file:
                         pickle.dump(results, file)
                 
 
-                
+                # save the vtk file if required
                 if self.config.SaveVTK():
                     os.makedirs('Results_VTK', exist_ok=True)
                     output_filename = file_name
                     velocity = (np.ascontiguousarray(self.solution[:,:,:,1]/self.solution[:,:,:,0]),
                                 np.ascontiguousarray(self.solution[:,:,:,2]/self.solution[:,:,:,0]),
                                 np.ascontiguousarray(self.solution[:,:,:,3]/self.solution[:,:,:,0]))
-                    gridToVTK('Results_VTK/' + output_filename, np.ascontiguousarray(self.mesh.X), np.ascontiguousarray(self.mesh.Y), np.ascontiguousarray(self.mesh.Z), pointData={"Density": np.ascontiguousarray(self.solution[:,:,:,0]),
-                                                                                                "Velocity": velocity,
-                                                                                                "TotalEnergy": np.ascontiguousarray(self.solution[:,:,:,4]/self.solution[:,:,:,0])})
+                    body_force_inviscid = (np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,1]),
+                                            np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,2]),
+                                            np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,3]))
+                    body_force_viscous = (np.ascontiguousarray(self.body_force_source_viscous[:,:,:,1]),
+                                            np.ascontiguousarray(self.body_force_source_viscous[:,:,:,2]),
+                                            np.ascontiguousarray(self.body_force_source_viscous[:,:,:,3]))
+                    gridToVTK('Results_VTK/' + output_filename, 
+                              np.ascontiguousarray(self.mesh.X), np.ascontiguousarray(self.mesh.Y), np.ascontiguousarray(self.mesh.Z),  # coords
+                              pointData={"Density": np.ascontiguousarray(self.solution[:,:,:,0]),                                       # fields
+                                        "Velocity": velocity,
+                                        "TotalEnergy": np.ascontiguousarray(self.solution[:,:,:,4]/self.solution[:,:,:,0]),
+                                        "BodyForce_Inviscid": body_force_inviscid, "BodyForce_Viscous": body_force_viscous})
                     
 
     def ComputeGradient(self, phi):

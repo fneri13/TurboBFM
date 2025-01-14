@@ -70,7 +70,7 @@ class CBFMSource():
 
     def ComputeForceSource(self, i, j, k):
         """
-        For a certain BFM model, compute the fource source terms as a np.ndarray of size 5 (continuity, momentum, tot. energy)
+        For a certain BFM model, compute the fource source density terms as a np.ndarray of size 5 (continuity, momentum, tot. energy)
         
         Parameters
         -------------------------
@@ -81,26 +81,17 @@ class CBFMSource():
 
         `k`: k-index of the cell
         """
-        # x, y, z = P
-        # r = np.sqrt(y**2 + z**2)
-        # theta = np.arctan2(z, y)
-        # u_cart = u  # cartesian absolute velocity
-        # u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u)
-
-        # drag_velocity_cyl = np.array([0, 0, omega*r])
-        # w_cyl = u_cyl-drag_velocity_cyl
-        # pitch = 2*np.pi*r/self.config.GetBladesNumber()
         Vol = self.solver.mesh.V[i,j,k]
         if self.model.lower()=='hall-thollet':
-            force = self.ComputeHallTholletForceDensity(i, j, k)
+            source_inviscid, source_viscous = self.ComputeHallTholletForceDensity(i, j, k)
         elif self.model.lower()=='hall':
-            force = self.ComputeHallForceDensity(i, j, k)
+            source_inviscid, source_viscous = self.ComputeHallForceDensity(i, j, k)
         elif self.model.lower()=='none':
-            force =  np.zeros(5)
+            source_inviscid, source_viscous =  np.zeros(5), np.zeros(5)
         else:
             raise ValueError('BFM Model <%s> is not supported' %self.model)
 
-        return force*Vol
+        return source_inviscid*Vol, source_viscous*Vol
 
     def ComputeHallForceDensity(self, i, j, k):
         """
@@ -143,7 +134,7 @@ class CBFMSource():
         source[2] = fn_cart[1]
         source[3] = fn_cart[2]
         source[4] = fn_cyl[2]*omega*r
-        return source
+        return source, np.zeros(5)
     
 
     def ComputeHallTholletForceDensity(self, i, j, k):
@@ -196,12 +187,18 @@ class CBFMSource():
         fp_cyl = fp*fp_vers_cyl*(-1)  # opposite to the relative velocity
         fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
 
-        source = np.zeros(5)
-        source[1] = fn_cart[0]+fp_cart[0]
-        source[2] = fn_cart[1]+fp_cart[1]
-        source[3] = fn_cart[2]+fp_cart[2]
-        source[4] = (fn_cyl[2]+fp_cyl[2])*omega*r
-        return source
+        source_inviscid = np.zeros(5)
+        source_inviscid[1] = fn_cart[0]
+        source_inviscid[2] = fn_cart[1]
+        source_inviscid[3] = fn_cart[2]
+        source_inviscid[4] = (fn_cyl[2])*omega*r
+
+        source_viscous = np.zeros(5)
+        source_viscous[1] = fp_cart[0]
+        source_viscous[2] = fp_cart[1]
+        source_viscous[3] = fp_cart[2]
+        source_viscous[4] = (fp_cyl[2])*omega*r
+        return source_inviscid, source_viscous
     
 
     def ComputeDeviationAngle(self, w, n):

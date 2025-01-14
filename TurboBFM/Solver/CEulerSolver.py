@@ -864,26 +864,26 @@ class CEulerSolver(CSolver):
         Compute the blockage source terms for every cell element, depending on the actual solution `sol`
         """
         bfm = CBFMSource(self.config, self)
-        source = np.zeros_like(sol)
+        blockage_source = np.zeros_like(sol)
+        self.body_force_source_inviscid = np.zeros_like(sol)
+        self.body_force_source_viscous = np.zeros_like(sol)
         for i in range(self.ni):
             for j in range(self.nj):
                 for k in range(self.nk):
                     
                     bgrad = self.mesh.blockage_gradient[i,j,k,:] # blockage source terms computed only if the blockage gradient is different from zero                    
                     if np.linalg.norm(bgrad)<1e-9:
-                        blockage_source = np.zeros(5, dtype=float)
+                        blockage_source[i,j,k,:] = np.zeros(5, dtype=float)
                     else: 
-                        blockage_source = bfm.ComputeBlockageSource(i, j, k)
+                        blockage_source[i,j,k,:] = bfm.ComputeBlockageSource(i, j, k)
                     
                     if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
-                        force_source = bfm.ComputeForceSource(i,j,k)
+                        self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = bfm.ComputeForceSource(i,j,k)  
                     else:
-                        force_source = np.zeros(5, dtype=float)
-                        
+                        self.body_force_source_inviscid[i,j,k,:] = np.zeros(5, dtype=float)
+                        self.body_force_source_viscous[i,j,k,:] = np.zeros(5, dtype=float)
 
-                    source[i,j,k,:] = blockage_source+force_source
-
-        return source
+        return blockage_source+self.body_force_source_inviscid+self.body_force_source_viscous
     
 
     def ComputeRadialEquilibriumPressureProfile(self, sol, dir, loc, p0):
