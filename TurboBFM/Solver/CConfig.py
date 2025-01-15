@@ -368,7 +368,7 @@ class CConfig:
         try:
             nu =  float(self.config_parser.get('CFD', 'FLUID_KINEMATIC_VISCOSITY'))
         except:
-            nu = 1.48e-5
+            nu = 1.48e-5 # default value for air
         return nu
     
 
