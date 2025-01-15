@@ -12,6 +12,7 @@ from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Solver.CBFMSource import CBFMSource
 from TurboBFM.Postprocess import styles
+from TurboBFM.Solver.math import ComputeCartesianVectorFromCylindrical, ComputeCylindricalVectorFromCartesian
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 from typing import override 
@@ -957,6 +958,67 @@ class CEulerSolver(CSolver):
         # plt.show()
 
         return pressure_profile
+    
+
+    def GetPressureSolution(self, solution):
+        """
+        Return the pressure array correspoding to solution
+        """
+        p = np.zeros((self.ni, self.nj, self.nk))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    U = GetPrimitivesFromConservatives(solution[i,j,k,:])
+                    p[i,j,k] = self.fluid.ComputePressure_rho_u_et(U[0], U[1:-1], U[-1])
+        return p
+    
+
+    def GetRelativeVelocitySolution(self, solution):
+        """
+        Return the relative velocity vector for every cell
+        """
+        w = np.zeros((self.ni,self.nj,self.nk,3))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    U = GetPrimitivesFromConservatives(solution[i,j,k,:])
+                    vel = U[1:-1]
+                    x = self.mesh.X[i,j,k]
+                    y = self.mesh.Y[i,j,k]
+                    z = self.mesh.Z[i,j,k]
+                    r = np.sqrt(y**2+z**2)
+                    drag_speed = self.mesh.omega[i,j,k]*r
+                    drag_vel_cyl = np.array([0, 0, drag_speed])
+                    drag_vel_cart = ComputeCartesianVectorFromCylindrical(x, y, z, drag_vel_cyl)
+                    w[i,j,k,:] = vel-drag_vel_cart
+        return w
+    
+
+    def GetMachSolution(self, solution):
+        """
+        Return the Mach array corresponding to solution
+        """
+        M = np.zeros((self.ni, self.nj, self.nk))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    U = GetPrimitivesFromConservatives(solution[i,j,k,:])
+                    M[i,j,k] = self.fluid.ComputeMachNumber_rho_u_et(U[0], U[1:-1], U[-1])
+        return M
+    
+
+    def GetRelativeMachSolution(self, solution, relative_velocity):
+        """
+        Use the previously computed relative velocity and the solution to compute the relative mach number
+        """
+        Mrel = np.zeros((self.ni, self.nj, self.nk))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    U = GetPrimitivesFromConservatives(solution[i,j,k,:])
+                    Mrel[i,j,k] = self.fluid.ComputeMachNumber_rho_u_et(U[0], relative_velocity[i,j,k,:], U[-1])
+        return Mrel
+
 
 
 
