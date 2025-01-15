@@ -183,8 +183,8 @@ class CBFMSource():
         Cf = 0.0592*Rex**(-0.2)
         delta0 = delta  # this could be calibrated later, from the deviation of the float at peak efficiency
         fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(normal[2])) * (2*Cf + 2*np.pi*Kmach*(delta-delta0))
-        fp_vers_cyl = w_cyl/np.linalg.norm(w_cyl)
-        fp_cyl = fp*fp_vers_cyl*(-1)  # opposite to the relative velocity
+        fp_vers_cyl = -w_cyl/np.linalg.norm(w_cyl) # opposite to the relative velocity
+        fp_cyl = fp*fp_vers_cyl  
         fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
 
         source_inviscid = np.zeros(5)
@@ -210,15 +210,56 @@ class CBFMSource():
         return np.abs(delta)
     
 
-    def ComputeInviscidForceDirection(self, w, n):
+    def ComputeInviscidForceDirection(self, w: np.ndarray, n: np.ndarray) -> np.ndarray:
         """
-        Compute the direction of the inviscid force component. It must be orthogonal to the relative velocity, and the radial component is found
-        using the blade lean angle.
+        Compute the direction of the inviscid force component. It must be orthogonal to the relative velocity vector, and the radial component is different from zero when only the lean angle is different from zero.
+        The relations concering the fn direction are therefore these (3 equations for 3 unknown components):
+        1) the magnitude is 1 (is a versor)
+        2) the radial component is equal to the radial component of the blade normal versor
+        3) The dot product between the force versor and the relative velocity versor must be zero
 
-        FOR NOW IS VALID ONLY FOR AXIAL MACHINES WITH ZERO LEAN
+        The direction is later chosen to be coherent with the rotational speed
+
+        Parameters
+        --------------------------------
+
+        `w`: relative velocity vector, in cylindrical coordinates (axial, radial, tangential)
+
+        `n`: blade camber normal vector, in cylindrical coordinates (axial, radial, tangential)
+
+        Return
+        --------------------------------
+
+        `fn_dir`: the inviscid force direction in cylindrical coordinates (axial, radial, tangential)
         """
-        w_dir = w/np.linalg.norm(w)
-        fn_dir = np.array([-w_dir[2], 0, w_dir[0]])
+        w_dir = w/np.linalg.norm(w) # this is the relative velocity direction, and defines also the plane where the force must lie. The dot product force*w_dir must always be zero
+        n_dir = n/np.linalg.norm(n)
+        # fn_dir = np.array([-w_dir[2], 0, w_dir[0]]) # this is valid in those cases defined by zero lean of the blade
+
+        # compute the components 
+        fn_dir_r = n[1]  # relation (2)
+
+        # the axial component is found solving a quadratic equation obtained combining relations (1) and (3), which collapse to the easy solution when lean=0
+        A = (1+w[0]**2/w[2]**2)
+        B = 2*n[1]*w[1]*w[0]/(w[2]**2)
+        C = n[1]**2 * w[1]**1 / w[2]**2 + n[1]**2 - 1
+        sol1 = (-B + np.sqrt(B**2-4*A*C))/2/A
+        sol2 = (-B - np.sqrt(B**2-4*A*C))/2/A
+
+        # of the 2 solutions, choose the one having positive value, since the axial component must in general be positive
+        if sol1>0:
+            fn_dir_ax = sol1
+        else:
+            fn_dir_ax = sol2
+            
+        # third component using the last relation
+        fn_dir_t = (-n[1]*w[1]-fn_dir_ax*w[0])/w[2]
+
+        # full versor
+        fn_dir = np.array([fn_dir_ax, fn_dir_r, fn_dir_t])
+        magnitude = np.linalg.norm(fn_dir)
+        fn_dir /= magnitude
+
         return fn_dir
 
 
@@ -242,12 +283,10 @@ class CBFMSource():
 
         if Mrel<1:
             kprime = 1/np.sqrt(1-Mrel**2)
-        elif Mrel>1:
-            kprime = 2/np.pi/np.sqrt(Mrel**2-1)
         else:
-            raise ValueError('M relative out of limitis')
+            kprime = 2/np.pi/np.sqrt(Mrel**2-1)
         
-        if kprime<=3:
+        if kprime<=3: # clipping at 3
             kmach = kprime
         else:
             kmach = 3
