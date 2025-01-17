@@ -121,6 +121,8 @@ class CSolver(ABC):
             self.mesh.AddRPMGrid()
             self.mesh.AddCamberNormalGrid()
             self.mesh.AddStreamwiseLengthGrid()
+            if self.config.GetBFMModel().lower()=='frozen-forces':
+                self.mesh.AddBodyForcesGrids()
 
         for it in range(nIter): 
 

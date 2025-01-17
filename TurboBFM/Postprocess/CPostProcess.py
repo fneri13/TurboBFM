@@ -207,6 +207,8 @@ class CPostProcess():
         cbar.set_ticks([field.min(), (field.min()+field.max())/2, field.max()])
         cbar.ax.set_xticklabels([f"{field.min():.3f}", f"{(field.min()+field.max())/2:.3f}", f"{field.max():.3f}"])  # Format as needed
 
+        contour = plt.contour(X, Y, field, levels=styles.N_levels, colors='black', vmin = field.min(), vmax = field.max(), linewidths=0.1)
+
         # Set custom formatting for the ticks
         # cbar.ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 

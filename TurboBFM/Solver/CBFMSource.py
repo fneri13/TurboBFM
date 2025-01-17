@@ -88,6 +88,8 @@ class CBFMSource():
             source_inviscid, source_viscous = self.ComputeHallForceDensity(i, j, k)
         elif self.model.lower()=='none':
             source_inviscid, source_viscous =  np.zeros(5), np.zeros(5)
+        elif self.model.lower()=='frozen-forces':
+            source_inviscid, source_viscous =  self.ComputeFrozenForcesDensity(i, j, k)
         else:
             raise ValueError('BFM Model <%s> is not supported' %self.model)
 
@@ -198,6 +200,63 @@ class CBFMSource():
         source_viscous[2] = fp_cart[1]
         source_viscous[3] = fp_cart[2]
         source_viscous[4] = (fp_cyl[2])*omega*r
+        return source_inviscid, source_viscous
+    
+
+    def ComputeFrozenForcesDensity(self, i, j, k):
+        """
+        Compute the force terms (per unit volume) related to the frozen forces extracted from SU2-CFD.
+
+        Parameters
+        -------------------------
+
+        `i`: i-index of the cell
+
+        `j`: j-index of the cell
+
+        `k`: k-index of the cell
+        """
+        x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
+        r = np.sqrt(y**2+z**2)
+        theta = np.arctan2(z, y)
+        conservative = self.solver.solution[i,j,k,:]  # conservative vector
+        primitive = GetPrimitivesFromConservatives(conservative)
+        u_cart = primitive[1:-1]  # cartesian absolute velocity
+        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
+        omega = self.solver.mesh.omega[i,j,k]
+        drag_velocity_cyl = np.array([0, 0, omega*r])
+        w_cyl = u_cyl-drag_velocity_cyl
+        pitch = 2*np.pi*r/self.config.GetBladesNumber()
+        normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
+        delta = self.ComputeDeviationAngle(w_cyl, normal)
+        fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
+
+        if omega*fn_versor[2]<0:
+            fn_versor *= -1  # the fn must push in the rotation direction
+        else:
+            pass
+        
+        fn_magnitude = self.solver.mesh.force_inviscid[i,j,k]
+        fn_cyl = fn_magnitude*fn_versor
+        fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
+
+        fp_magnitude = self.solver.mesh.force_viscous[i,j,k]
+        fp_vers_cyl = -w_cyl/np.linalg.norm(w_cyl) # opposite to the relative velocity
+        fp_cyl = fp_magnitude*fp_vers_cyl  
+        fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
+
+        source_inviscid = np.zeros(5)
+        source_inviscid[1] = fn_cart[0]
+        source_inviscid[2] = fn_cart[1]
+        source_inviscid[3] = fn_cart[2]
+        source_inviscid[4] = (fn_cyl[2])*omega*r
+
+        source_viscous = np.zeros(5)
+        source_viscous[1] = fp_cart[0]
+        source_viscous[2] = fp_cart[1]
+        source_viscous[3] = fp_cart[2]
+        source_viscous[4] = (fp_cyl[2])*omega*r
+
         return source_inviscid, source_viscous
     
 

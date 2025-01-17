@@ -753,6 +753,22 @@ class CMesh():
         self.omega = 2*np.pi*rpm/60
     
 
+    def AddBodyForcesGrids(self):
+        """
+        Add the BFM grids associated with every cell element
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            force_inviscid = data['ForceInviscid']
+            force_viscous = data['ForceViscous']
+        
+        self.force_inviscid = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
+        self.force_viscous = np.zeros_like(self.V)
+        for k in range(self.V.shape[2]):
+            self.force_inviscid[:,:,k] = force_inviscid
+            self.force_viscous[:,:,k] = force_viscous
+    
+
     def AddStreamwiseLengthGrid(self):
         """
         Add the streamwise length grid associated with every cell element
