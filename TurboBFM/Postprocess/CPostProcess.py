@@ -162,6 +162,10 @@ class CPostProcess():
             name = 'TotalTemperature'
             label = r'$T_t \ \rm{[K]}$'
             field = self.ComputeTotalTemperature(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='t':
+            name = 'Temperature'
+            label = r'$T \ \rm{[K]}$'
+            field = self.ComputeTemperature(self.data['U'][:,:,idx_k,:])
         elif field_name.lower()=='betatt':
             name = 'PRtt'
             label = r'$\beta_{tt} \ \rm{[-]}$'
@@ -283,6 +287,7 @@ class CPostProcess():
         M = self.ComputeMachNumber(data)
         Tt = T*(1+(self.fluid.gmma-1)/2*M**2)
         return Tt
+    
     
     def ComputePressureCoefficient(self, data):
         rho = data[:,:,0]
