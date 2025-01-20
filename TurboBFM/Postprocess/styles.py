@@ -49,7 +49,7 @@ N_levels_medium = 60
 N_levels_fine = 90
 
 # set colormap for contourf plots
-color_map = cm.viridis
+color_map = cm.jet
 
 # number of chars for the banners
 total_chars = 100
