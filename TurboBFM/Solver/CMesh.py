@@ -759,14 +759,17 @@ class CMesh():
         """
         with open(self.config.GetGridFilepath(), 'rb') as file:
             data = pickle.load(file)
-            force_inviscid = data['ForceInviscid']
-            force_viscous = data['ForceViscous']
+            force_axial = data['Force_Axial']
+            force_radial = data['Force_Radial']
+            force_tangential = data['Force_Tangential']
         
-        self.force_inviscid = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
-        self.force_viscous = np.zeros_like(self.V)
+        self.force_axial = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
+        self.force_radial = np.zeros_like(self.V)
+        self.force_tangential = np.zeros_like(self.V)
         for k in range(self.V.shape[2]):
-            self.force_inviscid[:,:,k] = force_inviscid
-            self.force_viscous[:,:,k] = force_viscous
+            self.force_axial[:,:,k] = force_axial
+            self.force_radial[:,:,k] = force_radial
+            self.force_tangential[:,:,k] = force_tangential
     
 
     def AddStreamwiseLengthGrid(self):

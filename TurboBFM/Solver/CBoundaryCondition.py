@@ -79,6 +79,8 @@ class CBoundaryCondition():
             flux = self.ComputeBCFlux_Outlet()
         elif self.bc_type=='outlet_re':
             flux = self.ComputeBCFlux_Outlet_RadialEquilibrium()
+        elif self.bc_type=='outlet_mf':
+            flux = self.ComputeBCFlux_Outlet_MassFlow()
         elif self.bc_type=='outlet_ss':
             flux = self.ComputeBCFlux_Outlet_Supersonic()
         elif self.bc_type=='wedge':
@@ -312,6 +314,13 @@ class CBoundaryCondition():
             Wb = np.array([rho_b, u_b[0], u_b[1], u_b[2], et_b])
             Ub = GetConservativesFromPrimitives(Wb)
             flux = EulerFluxFromConservatives(Ub, self.S_dir, self.fluid)  # positive flux is directed outwards
+        return flux
+    
+    def ComputeBCFlux_Outlet_MassFlow(self) -> np.ndarray:
+        """
+        Formulation taken from 'Inflow/Outflow Boundary Conditions with Application to FUN3D' by Carlson.
+        """
+        raise ValueError('Outlet Mass FLow condition not available yet.')
         return flux
     
     

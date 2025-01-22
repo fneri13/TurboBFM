@@ -236,26 +236,29 @@ class CBFMSource():
         else:
             pass
         
-        fn_magnitude = self.solver.mesh.force_inviscid[i,j,k]
-        fn_cyl = fn_magnitude*fn_versor
-        fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
+        f_ax = self.solver.mesh.force_axial[i,j,k]
+        f_rad = self.solver.mesh.force_radial[i,j,k]
+        f_tan = self.solver.mesh.force_tangential[i,j,k]
 
-        fp_magnitude = self.solver.mesh.force_viscous[i,j,k]
-        fp_vers_cyl = -w_cyl/np.linalg.norm(w_cyl) # opposite to the relative velocity
-        fp_cyl = fp_magnitude*fp_vers_cyl  
-        fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
+        f_cyl = np.array([f_ax, f_rad, f_tan])
+        f_n_cyl = np.dot(f_cyl, fn_versor)*fn_versor
+        f_p_cyl = f_cyl-f_n_cyl
+
+        fn_cart = ComputeCartesianVectorFromCylindrical(x,y,z,f_n_cyl)
+        fp_cart = ComputeCartesianVectorFromCylindrical(x,y,z,f_p_cyl)
+
 
         source_inviscid = np.zeros(5)
         source_inviscid[1] = fn_cart[0]
         source_inviscid[2] = fn_cart[1]
         source_inviscid[3] = fn_cart[2]
-        source_inviscid[4] = (fn_cyl[2])*omega*r
+        source_inviscid[4] = (f_n_cyl[2])*omega*r
 
         source_viscous = np.zeros(5)
         source_viscous[1] = fp_cart[0]
         source_viscous[2] = fp_cart[1]
         source_viscous[3] = fp_cart[2]
-        source_viscous[4] = (fp_cyl[2])*omega*r
+        source_viscous[4] = (f_p_cyl[2])*omega*r
 
         return source_inviscid, source_viscous
     

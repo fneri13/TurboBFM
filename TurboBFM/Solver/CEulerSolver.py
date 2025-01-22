@@ -129,7 +129,7 @@ class CEulerSolver(CSolver):
                 if type=='inlet' or type=='inlet_ss':
                     self.boundary_values[direction][location] = self.config.GetInletValue()
                     self.inlet_bc_type = self.config.GetInletBCType()
-                elif type=='outlet' or type=='outlet_ss' or type=='outlet_re':
+                elif type=='outlet' or type=='outlet_ss' or type=='outlet_re' or type=='outlet_mf':
                     self.boundary_values[direction][location] = self.config.GetOutletValue()
                 elif type=='wall' or type=='empty' or type=='wedge':
                     self.boundary_values[direction][location] = None
