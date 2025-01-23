@@ -727,7 +727,7 @@ class CMesh():
 
     def AddCamberNormalGrid(self):
         """
-        Add the camber normal grid associated with every cell element
+        Add the camber normal grid associated with every cell element. 
         """
         with open(self.config.GetGridFilepath(), 'rb') as file:
             data = pickle.load(file)

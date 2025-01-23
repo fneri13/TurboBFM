@@ -61,11 +61,11 @@ class CBFMSource():
                             p*bgrad[1],
                             0,
                             0])
-            source = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)*Vol
+            source = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)
         else:
             source = np.zeros(5, dtype=float)
         
-        return source
+        return source*Vol
     
 
     def ComputeForceSource(self, i, j, k):
@@ -81,7 +81,7 @@ class CBFMSource():
 
         `k`: k-index of the cell
         """
-        Vol = self.solver.mesh.V[i,j,k]
+        Vol = self.solver.mesh.V[i,j,k].copy()
         if self.model.lower()=='hall-thollet':
             source_inviscid, source_viscous = self.ComputeHallTholletForceDensity(i, j, k)
         elif self.model.lower()=='hall':
@@ -246,7 +246,6 @@ class CBFMSource():
 
         fn_cart = ComputeCartesianVectorFromCylindrical(x,y,z,f_n_cyl)
         fp_cart = ComputeCartesianVectorFromCylindrical(x,y,z,f_p_cyl)
-
 
         source_inviscid = np.zeros(5)
         source_inviscid[1] = fn_cart[0]

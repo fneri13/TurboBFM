@@ -8,6 +8,7 @@ from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Postprocess import styles
 from TurboBFM.Solver.math import GreenGaussGradient
+from TurboBFM.Postprocess.functions import contour_template
 from abc import ABC, abstractmethod
 from pyevtk.hl import gridToVTK
 import os
@@ -116,13 +117,33 @@ class CSolver(ABC):
             print('Blockage active: %s' %self.config.GetBlockageActive())
             print('BFM model: %s' %self.config.GetBFMModel())
             print('======================= END BFM INFORMATION =======================\n')
-            self.mesh.AddBlockageGrid()
-            self.mesh.blockage_gradient = self.ComputeGradient(self.mesh.blockage)
+            if self.config.GetBlockageActive():
+                self.mesh.AddBlockageGrid()
+                self.mesh.blockage_gradient = self.ComputeGradient(self.mesh.blockage)
+            
+            if self.config.GetVerbosity()>2:
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage[:,:,0], r'$b$ [-]')
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,0], r'$\partial_x b$ [1/m]')
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,1], r'$\partial_y b$ [1/m]')
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,2], r'$\partial_z b$ [1/m]')
+
             self.mesh.AddRPMGrid()
+            if self.config.GetVerbosity()>2: contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.omega[:,:,0], r'$\Omega$ [rad/s]')
+
             self.mesh.AddCamberNormalGrid()
-            self.mesh.AddStreamwiseLengthGrid()
+            if self.config.GetVerbosity()>2:
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl[:,:,0,0], r'$n_{ax}$ [-]')
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl[:,:,0,1], r'$n_{r}$ [-]')
+                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl[:,:,0,2], r'$n_{\theta}$ [-]')
+            if self.config.GetBFMModel().lower()=='hall-thollet':
+                self.mesh.AddStreamwiseLengthGrid()
+                if self.config.GetVerbosity()>2: contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.stwl[:,:,0], r'$s_{stwl}$ [-]')
             if self.config.GetBFMModel().lower()=='frozen-forces':
                 self.mesh.AddBodyForcesGrids()
+                if self.config.GetVerbosity()>2:
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_axial[:,:,0], r'$f_{ax}$ [-]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_radial[:,:,0], r'$f_{r}$ [-]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_tangential[:,:,0], r'$f_{\theta}$ [-]')
 
         for it in range(nIter): 
 
