@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import splprep, splev
+
 
 def transfinite_grid_generation(c_left: np.ndarray, c_bottom: np.ndarray, c_right: np.ndarray, c_top: np.ndarray, 
                                 stretch_type_stream='both', stretch_type_span='both', 
@@ -36,20 +38,33 @@ def transfinite_grid_generation(c_left: np.ndarray, c_bottom: np.ndarray, c_righ
     if ny is None:
         ny = c_left.shape[1]
 
+    
+    def compute_spline(x, y, u, degree=1, smooth=0):
+        tck, _ = splprep([x, y], s=smooth, k=degree)
+        x_spline, y_spline = splev(u, tck)
+        return x_spline, y_spline
+
     t_streamwise = np.linspace(0, 1, nx)
     t_spanwise = np.linspace(0, 1, ny)
 
-    splinex_bottom = CubicSpline(t_streamwise, c_bottom[0, :])
-    spliney_bottom = CubicSpline(t_streamwise, c_bottom[1, :])
+    x, y = compute_spline(c_bottom[0, :], c_bottom[1, :], t_streamwise)
+    splinex_bottom = CubicSpline(t_streamwise, x)
+    spliney_bottom = CubicSpline(t_streamwise, y)
 
-    splinex_top = CubicSpline(t_streamwise, c_top[0, :])
-    spliney_top = CubicSpline(t_streamwise, c_top[1, :])
+    
+    x, y = compute_spline(c_top[0, :], c_top[1, :], t_streamwise)
+    splinex_top = CubicSpline(t_streamwise, x)
+    spliney_top = CubicSpline(t_streamwise, y)
 
-    splinex_left = CubicSpline(t_spanwise, c_left[0, :])
-    spliney_left = CubicSpline(t_spanwise, c_left[1, :])
+    
+    x, y = compute_spline(c_left[0, :], c_left[1, :], t_spanwise)
+    splinex_left = CubicSpline(t_spanwise, x)
+    spliney_left = CubicSpline(t_spanwise, y)
 
-    splinex_right = CubicSpline(t_spanwise, c_right[0, :])
-    spliney_right = CubicSpline(t_spanwise, c_right[1, :])
+    
+    x, y = compute_spline(c_right[0, :], c_right[1, :], t_spanwise)
+    splinex_right = CubicSpline(t_spanwise, x)
+    spliney_right = CubicSpline(t_spanwise, y)
 
     xi = np.linspace(0, 1, nx)
     eta = np.linspace(0, 1, ny)
@@ -68,11 +83,11 @@ def transfinite_grid_generation(c_left: np.ndarray, c_bottom: np.ndarray, c_righ
 
     if spanwise_coeff != 1:
         if stretch_type_span.lower() == 'up':
-            eta = eriksson_stretching_function_final(eta, streamwise_coeff)
+            eta = eriksson_stretching_function_final(eta, spanwise_coeff)
         elif stretch_type_span.lower() == 'both':
-            eta = eriksson_stretching_function_both(eta, streamwise_coeff)
+            eta = eriksson_stretching_function_both(eta, spanwise_coeff)
         elif stretch_type_span.lower() == 'bottom':
-            eta = eriksson_stretching_function_initial(eta, streamwise_coeff)
+            eta = eriksson_stretching_function_initial(eta, spanwise_coeff)
         else:
             raise ValueError('Unrecognized block topology')
 
