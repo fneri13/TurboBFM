@@ -872,11 +872,12 @@ class CEulerSolver(CSolver):
             for j in range(self.nj):
                 for k in range(self.nk):
                     
-                    bgrad = self.mesh.blockage_gradient[i,j,k,:] # blockage source terms computed only if the blockage gradient is different from zero                    
-                    if np.linalg.norm(bgrad)<1e-9:
-                        blockage_source[i,j,k,:] = np.zeros(5, dtype=float)
-                    else: 
-                        blockage_source[i,j,k,:] = bfm.ComputeBlockageSource(i, j, k)
+                    if self.config.GetBlockageActive():
+                        bgrad = self.mesh.blockage_gradient[i,j,k,:] # blockage source terms computed only if the blockage gradient is different from zero                    
+                        if np.linalg.norm(bgrad)<1e-9:
+                            blockage_source[i,j,k,:] = np.zeros(5, dtype=float)
+                        else: 
+                            blockage_source[i,j,k,:] = bfm.ComputeBlockageSource(i, j, k)
                     
                     if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
                         self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = bfm.ComputeForceSource(i,j,k)  

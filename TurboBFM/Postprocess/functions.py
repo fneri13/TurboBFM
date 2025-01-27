@@ -32,7 +32,7 @@ def contour_template(z, r, f, name, vmin=None, vmax=None, save_filename=None):
             maxval = vmax
         
         if minval==maxval:
-             maxval += 1e-16
+             maxval += 1e-9
         levels = np.linspace(minval, maxval, N_levels)
         fig, ax = plt.subplots()
         contour = ax.contourf(z, r, f, levels=levels, cmap=color_map, vmin = minval, vmax = maxval)
