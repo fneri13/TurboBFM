@@ -42,6 +42,11 @@ class CBFMSource():
             
             b = self.solver.mesh.blockage[i,j,k]
             bgrad = self.solver.mesh.blockage_gradient[i,j,k,:]
+            bgrad_cart = ComputeCartesianVectorFromCylindrical(self.solver.mesh.X[i,j,k],
+                                                               self.solver.mesh.Y[i,j,k],
+                                                               self.solver.mesh.Z[i,j,k],
+                                                               bgrad)
+
             Vol = self.solver.mesh.V[i,j,k]
 
             if block_source_type.lower() == 'magrini':
@@ -62,10 +67,10 @@ class CBFMSource():
                                 p*bgrad[1],
                                 0,
                                 0])
-                source = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)
+                source = (-1/b*bgrad_cart[0]*F -1/b*bgrad_cart[1]*G + 1/b*Sb)
             
             elif block_source_type.lower()=='thollet':
-                common_term = -1/b*rho*np.dot(u, bgrad)
+                common_term = -1/b*rho*np.dot(u, bgrad_cart)
                 source = np.zeros(5, dtype=float)
                 source[0] = common_term
                 source[1] = common_term*u[0]
@@ -126,6 +131,7 @@ class CBFMSource():
         theta = np.arctan2(z, y)
         conservative = self.solver.solution[i,j,k,:]  # conservative vector
         primitive = GetPrimitivesFromConservatives(conservative)
+        rho = primitive[0]
         u_cart = primitive[1:-1]  # cartesian absolute velocity
         u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
         omega = self.solver.mesh.omega[i,j,k]
@@ -149,7 +155,8 @@ class CBFMSource():
         source[2] = fn_cart[1]
         source[3] = fn_cart[2]
         source[4] = fn_cyl[2]*omega*r
-        return source, np.zeros(5)
+        
+        return source*rho, np.zeros(5)
     
 
     def ComputeHallTholletForceDensity(self, i, j, k):
@@ -168,8 +175,7 @@ class CBFMSource():
         x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
         r = np.sqrt(y**2+z**2)
         theta = np.arctan2(z, y)
-        conservative = self.solver.solution[i,j,k,:]  
-        primitive = GetPrimitivesFromConservatives(conservative)
+        primitive = GetPrimitivesFromConservatives(self.solver.solution[i,j,k,:])
         u_cart = primitive[1:-1]  
         u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
         omega = self.solver.mesh.omega[i,j,k]
@@ -197,7 +203,7 @@ class CBFMSource():
         Rex = np.linalg.norm(w_cyl) * self.solver.mesh.stwl[i,j,k] / nu
         Cf = 0.0592*Rex**(-0.2)
         delta0 = delta  # this could be calibrated later, from the deviation of the float at peak efficiency
-        fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(normal[2])) * (2*Cf + 2*np.pi*Kmach*(delta-delta0))
+        fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(normal[2])) * (Cf + np.pi*Kmach*(delta-delta0))
         fp_vers_cyl = -w_cyl/np.linalg.norm(w_cyl) # opposite to the relative velocity
         fp_cyl = fp*fp_vers_cyl  
         fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
@@ -213,7 +219,7 @@ class CBFMSource():
         source_viscous[2] = fp_cart[1]
         source_viscous[3] = fp_cart[2]
         source_viscous[4] = (fp_cyl[2])*omega*r
-        return source_inviscid, source_viscous
+        return source_inviscid*rho, source_viscous*rho
     
 
     def ComputeFrozenForcesDensity(self, i, j, k):
@@ -279,6 +285,7 @@ class CBFMSource():
         """
         Compute the absolute value of the deviation angle between the velocity vector and the camber surface defined by n
         """
+        n /= np.linalg.norm(n)
         wn = np.dot(w, n)
         delta = np.arcsin(wn/np.linalg.norm(w))
         return np.abs(delta)
