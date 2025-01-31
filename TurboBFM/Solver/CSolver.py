@@ -319,7 +319,7 @@ class CSolver(ABC):
                     if self.kindSolver.lower()=='euler':
                         results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
                     
-                    if self.config.GetBlockageActive:
+                    if self.config.GetBlockageActive():
                         results['Blockage'] = self.mesh.blockage
                         results['Blockage_Gradient'] = self.mesh.blockage_gradient
                     

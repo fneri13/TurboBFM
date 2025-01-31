@@ -151,12 +151,12 @@ class CBFMSource():
         fn_cyl = fn*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
         source = np.zeros(5)
-        source[1] = fn_cart[0]
-        source[2] = fn_cart[1]
-        source[3] = fn_cart[2]
-        source[4] = fn_cyl[2]*omega*r
+        source[1] = fn_cart[0]*rho
+        source[2] = fn_cart[1]*rho
+        source[3] = fn_cart[2]*rho
+        source[4] = fn_cyl[2]*omega*r*rho
         
-        return source*rho, np.zeros(5)
+        return source, np.zeros(5)
     
 
     def ComputeHallTholletForceDensity(self, i, j, k):
@@ -209,17 +209,18 @@ class CBFMSource():
         fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
 
         source_inviscid = np.zeros(5)
-        source_inviscid[1] = fn_cart[0]
-        source_inviscid[2] = fn_cart[1]
-        source_inviscid[3] = fn_cart[2]
-        source_inviscid[4] = (fn_cyl[2])*omega*r
+        source_inviscid[1] = fn_cart[0]*rho
+        source_inviscid[2] = fn_cart[1]*rho
+        source_inviscid[3] = fn_cart[2]*rho
+        source_inviscid[4] = (fn_cyl[2])*omega*r*rho
 
         source_viscous = np.zeros(5)
-        source_viscous[1] = fp_cart[0]
-        source_viscous[2] = fp_cart[1]
-        source_viscous[3] = fp_cart[2]
-        source_viscous[4] = (fp_cyl[2])*omega*r
-        return source_inviscid*rho, source_viscous*rho
+        source_viscous[1] = fp_cart[0]*rho
+        source_viscous[2] = fp_cart[1]*rho
+        source_viscous[3] = fp_cart[2]*rho
+        source_viscous[4] = (fp_cyl[2])*omega*r*rho
+
+        return source_inviscid, source_viscous
     
 
     def ComputeFrozenForcesDensity(self, i, j, k):
@@ -245,9 +246,7 @@ class CBFMSource():
         omega = self.solver.mesh.omega[i,j,k]
         drag_velocity_cyl = np.array([0, 0, omega*r])
         w_cyl = u_cyl-drag_velocity_cyl
-        pitch = 2*np.pi*r/self.config.GetBladesNumber()
         normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
-        delta = self.ComputeDeviationAngle(w_cyl, normal)
         fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
 
         if omega*fn_versor[2]<0:
