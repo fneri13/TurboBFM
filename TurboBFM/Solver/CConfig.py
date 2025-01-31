@@ -299,7 +299,7 @@ class CConfig:
             model = str(self.config_parser.get('CFD', 'BFM_MODEL'))
             return model
         except:
-            return 'Hall-Thollet'
+            return 'Hall' # default
     
 
     def GetBlockageFilePath(self) -> str:

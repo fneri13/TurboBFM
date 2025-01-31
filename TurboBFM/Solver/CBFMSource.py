@@ -19,7 +19,7 @@ class CBFMSource():
         self.model = config.GetBFMModel()
     
 
-    def ComputeBlockageSource(self, i, j, k) -> np.ndarray:
+    def ComputeBlockageSource(self, i, j, k, block_source_type='thollet') -> np.ndarray:
         """
         Use the formulation of Magrini (pressure based) to compute the source terms related to the blockage.
 
@@ -44,24 +44,37 @@ class CBFMSource():
             bgrad = self.solver.mesh.blockage_gradient[i,j,k,:]
             Vol = self.solver.mesh.V[i,j,k]
 
-            F = np.array([rho*u[0], 
-                            rho*u[0]**2 + p,
-                            rho*u[0]*u[1],
-                            rho*u[0]*u[2],
-                            ht*u[0]])
+            if block_source_type.lower() == 'magrini':
+                F = np.array([rho*u[0], 
+                                rho*u[0]**2 + p,
+                                rho*u[0]*u[1],
+                                rho*u[0]*u[2],
+                                ht*u[0]])
+                
+                G = np.array([rho*u[1], 
+                                rho*u[0]*u[1],
+                                rho*u[1]**2 + p,
+                                rho*u[1]*u[2],
+                                ht*u[1]])
+                
+                Sb = np.array([0,
+                                p*bgrad[0],
+                                p*bgrad[1],
+                                0,
+                                0])
+                source = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)
             
-            G = np.array([rho*u[1], 
-                            rho*u[0]*u[1],
-                            rho*u[1]**2 + p,
-                            rho*u[1]*u[2],
-                            ht*u[1]])
-            
-            Sb = np.array([0,
-                            p*bgrad[0],
-                            p*bgrad[1],
-                            0,
-                            0])
-            source = (-1/b*bgrad[0]*F -1/b*bgrad[1]*G + 1/b*Sb)
+            elif block_source_type.lower()=='thollet':
+                common_term = -1/b*rho*np.dot(u, bgrad)
+                source = np.zeros(5, dtype=float)
+                source[0] = common_term
+                source[1] = common_term*u[0]
+                source[2] = common_term*u[1]
+                source[3] = common_term*u[2]
+                source[4] = common_term*ht
+
+            else:
+                raise ValueError('Unrecognized blockage source method')
         else:
             source = np.zeros(5, dtype=float)
         

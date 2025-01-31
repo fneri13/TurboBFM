@@ -879,11 +879,12 @@ class CEulerSolver(CSolver):
                         else: 
                             blockage_source[i,j,k,:] = bfm.ComputeBlockageSource(i, j, k)
                     
-                    if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
-                        self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = bfm.ComputeForceSource(i,j,k)  
-                    else:
-                        self.body_force_source_inviscid[i,j,k,:] = np.zeros(5, dtype=float)
-                        self.body_force_source_viscous[i,j,k,:] = np.zeros(5, dtype=float)
+                    if self.config.GetBFMModel().lower()!='none':
+                        if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
+                            self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = bfm.ComputeForceSource(i,j,k)  
+                        else:
+                            self.body_force_source_inviscid[i,j,k,:] = np.zeros(5, dtype=float)
+                            self.body_force_source_viscous[i,j,k,:] = np.zeros(5, dtype=float)
 
         return blockage_source+self.body_force_source_inviscid+self.body_force_source_viscous
     
