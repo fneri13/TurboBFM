@@ -12,7 +12,7 @@ from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Solver.CBFMSource import CBFMSource
 from TurboBFM.Postprocess import styles
-from TurboBFM.Solver.math import ComputeCartesianVectorFromCylindrical, ComputeCylindricalVectorFromCartesian
+from TurboBFM.Solver.math import ComputeCartesianVectorFromCylindrical, ComputeCylindricalVectorFromCartesian, IntegrateScalarFlux, IntegrateVectorFlux
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 from typing import override 
@@ -742,15 +742,7 @@ class CEulerSolver(CSolver):
         else:
             raise ValueError('Direction and location dont correspond to acceptable values')
         
-        mass_flow = 0
-        ni, nj = S[:,:,0].shape
-        for i in range(ni):
-            for j in range(nj):
-                area = np.linalg.norm(S[i,j,:])
-                normal = S[i,j,:]/area
-                rhoU_n = np.dot(rhoU[i,j,:], normal)
-                mass_flow += rhoU_n*area
-        
+        mass_flow = IntegrateVectorFlux(rhoU, S)
         return mass_flow
     
 
@@ -788,26 +780,21 @@ class CEulerSolver(CSolver):
         assert U[:,:,0].shape[0] == S[:,:,0].shape[0], 'The arrays of surface vector and conservative solution must be defined on the same number of cells'
         
         rhoU = np.zeros((ni,nj,3))
-        pt = np.zeros((ni,nj))
-        Tt = np.zeros((ni,nj))
-        mflow = 0
+        rhoU_pt = np.zeros((ni,nj,3))
+        rhoU_Tt = np.zeros((ni,nj,3))
         for i in range(ni):
             for j in range(nj):
-                rhoU[i,j] = U[i,j,1:-1]
+                rhoU[i,j,:] = U[i,j,1:-1]
                 w = GetPrimitivesFromConservatives(U[i,j,:])
-                pt[i,j] = self.fluid.ComputeTotalPressure_rho_u_et(w[0], w[1:-1], w[-1])
-                Tt[i,j] = self.fluid.ComputeTotalTemperature_rho_u_et(w[0], w[1:-1], w[-1])
-                mflow += np.dot(rhoU[i,j,:], S[i,j,:])
-        
-        def mass_flow_average(momentum, surface, phi):
-            sum = 0
-            for i in range(ni):
-                for j in range(nj):
-                    sum += np.dot(momentum[i,j,:], surface[i,j,:])*phi[i,j]
-            return sum/mflow
+                pt = self.fluid.ComputeTotalPressure_rho_u_et(w[0], w[1:-1], w[-1])
+                Tt = self.fluid.ComputeTotalTemperature_rho_u_et(w[0], w[1:-1], w[-1])
 
-        pt_avg = mass_flow_average(rhoU, S, pt)
-        Tt_avg = mass_flow_average(rhoU, S, Tt)
+                rhoU_pt[i,j,:] = rhoU[i,j,:]*pt
+                rhoU_Tt[i,j,:] = rhoU[i,j,:]*Tt
+
+        mflow = IntegrateVectorFlux(rhoU, S)
+        pt_avg = IntegrateVectorFlux(rhoU_pt, S)/mflow
+        Tt_avg = IntegrateVectorFlux(rhoU_Tt, S)/mflow
 
         return pt_avg, Tt_avg, mflow
 
@@ -973,6 +960,19 @@ class CEulerSolver(CSolver):
                     U = GetPrimitivesFromConservatives(solution[i,j,k,:])
                     p[i,j,k] = self.fluid.ComputePressure_rho_u_et(U[0], U[1:-1], U[-1])
         return p
+
+
+    def GetTemperatureSolution(self, solution):
+        """
+        Return the temperature array correspoding to solution
+        """
+        T = np.zeros((self.ni, self.nj, self.nk))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    U = GetPrimitivesFromConservatives(solution[i,j,k,:])
+                    T[i,j,k] = self.fluid.ComputeStaticTemperature_rho_u_et(U[0], U[1:-1], U[-1])
+        return T
     
 
     def GetRelativeVelocitySolution(self, solution):

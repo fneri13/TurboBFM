@@ -713,15 +713,17 @@ class CMesh():
         """
         Add the blockage grid associated with every cell element
         """
-        with open(self.config.GetGridFilepath(), 'rb') as file:
-            blockage = pickle.load(file)
-            blockage = blockage['Blockage']
+        try:
+            with open(self.config.GetGridFilepath(), 'rb') as file:
+                blockage = pickle.load(file)
+                blockage = blockage['Blockage']
+        except:
+            raise ValueError("The Blockage is active but the grid file doesn't contain any blockage field.")
         
-        self.blockage = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
+        self.blockage = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers for every mesh node
         for k in range(self.V.shape[2]):
             self.blockage[:,:,k] = blockage
         
-        assert self.blockage.shape == self.V.shape, "The blockage grid and the elements grid must have the same shape"
         self.rotation_axis = self.config.GetRotationAxis()
     
 
@@ -729,9 +731,12 @@ class CMesh():
         """
         Add the camber normal grid associated with every cell element. 
         """
-        with open(self.config.GetGridFilepath(), 'rb') as file:
-            data = pickle.load(file)
-            normal = data['Normal']
+        try:
+            with open(self.config.GetGridFilepath(), 'rb') as file:
+                data = pickle.load(file)
+                normal = data['Normal']
+        except:
+            raise ValueError('The BFM model is different from NONE, but the grid file does not contain any data on the camber normal vector')
         
         self.normal_camber_cyl = np.zeros((self.ni, self.nj, self.nk, 3))
         for k in range(self.nk):
@@ -757,11 +762,14 @@ class CMesh():
         """
         Add the BFM grids associated with every cell element
         """
-        with open(self.config.GetGridFilepath(), 'rb') as file:
-            data = pickle.load(file)
-            force_axial = data['Force_Axial']
-            force_radial = data['Force_Radial']
-            force_tangential = data['Force_Tangential']
+        try:
+            with open(self.config.GetGridFilepath(), 'rb') as file:
+                data = pickle.load(file)
+                force_axial = data['Force_Axial']
+                force_radial = data['Force_Radial']
+                force_tangential = data['Force_Tangential']
+        except:
+            raise ValueError("The BFM Model Frozen Forces requires the forces data in the grid file. They are not present.")
         
         self.force_axial = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
         self.force_radial = np.zeros_like(self.V)
@@ -776,9 +784,12 @@ class CMesh():
         """
         Add the streamwise length grid associated with every cell element
         """
-        with open(self.config.GetGridFilepath(), 'rb') as file:
-            data = pickle.load(file)
-            revs = data['StreamwiseLength']
+        try:
+            with open(self.config.GetGridFilepath(), 'rb') as file:
+                data = pickle.load(file)
+                revs = data['StreamwiseLength']
+        except:
+            raise ValueError('The BFM model selected requires information on the StreamwiseLength, but the grid file does not contain it.')
         
         self.stwl = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
         for k in range(self.V.shape[2]):

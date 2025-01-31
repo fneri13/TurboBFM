@@ -83,4 +83,50 @@ def ComputeCartesianVectorFromCylindrical(x, y, z, u):
         u_car[2] = +sin(theta)*u[1]+cos(theta)*u[2]  # tangential component
         return u_car
         
-        
+
+def IntegrateVectorFlux(vec: np.ndarray, S: np.ndarray):
+        """
+        Integration of the vector field on the Surface, obtaning the integral flux of a vectorial quantity.
+
+        Parameters:
+        ----------------------------------
+
+        `vec`: array of vectorial quantities defined on the surfaces centers (ni,nj,3)
+
+        `S: array of surfaces vectors (ni,nj,3)
+        """
+        assert vec[:,:,0].shape[0] == S[:,:,0].shape[0]
+        assert vec[:,:,0].shape[1] == S[:,:,0].shape[1]
+
+        ni, nj = S[:,:,0].shape
+        flux = 0
+        for i in range(ni):
+            for j in range(nj):
+                tmp = np.dot(vec[i,j,:], S[i,j,:])
+                flux += tmp
+        return flux
+
+
+def IntegrateScalarFlux(phi: np.ndarray, S: np.ndarray):
+        """
+        Integration of a scalar field on the Surface, obtaning the summation of value of the scalar quantity times the surface area.
+
+        Parameters:
+        ----------------------------------
+
+        `phi`: array of vectorial quantities defined on the surfaces centers (ni,nj)
+
+        `S: array of surfaces vectors (ni,nj,3)
+        """
+        assert phi[:,:].shape[0] == S[:,:,0].shape[0]
+        assert phi[:,:].shape[1] == S[:,:,0].shape[1]
+
+        ni, nj = S[:,:,0].shape
+        sum = 0
+        for i in range(ni):
+            for j in range(nj):
+                area = np.linalg.norm(S[i,j,:])
+                tmp = phi[i,j]*area
+                sum += tmp
+        return sum
+

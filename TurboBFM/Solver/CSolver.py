@@ -309,34 +309,30 @@ class CSolver(ABC):
                 file_name = self.config.GetSolutionName()
                 file_name += '_%06i' %(it)
 
-                if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
-                        results = {'X': self.mesh.X,
-                                'Y': self.mesh.Y,
-                                'Z': self.mesh.Z,
-                                'U': self.solution,
-                                'Res': self.residual_history}
-                elif self.nDim==2:
+                if self.config.SavePIK():
                     results = {'X': self.mesh.X,
                             'Y': self.mesh.Y,
+                            'Z': self.mesh.Z,
                             'U': self.solution,
                             'Res': self.residual_history}
-            
-                if self.kindSolver.lower()=='euler':
-                    results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
                 
-                if self.config.GetTurboOutput():
-                    results['PRtt'] = self.beta_tt
-                    results['ETAtt'] = self.eta_tt
-                    results['MassFlowTurbo'] = self.m_turbo
+                    if self.kindSolver.lower()=='euler':
+                        results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
                     
-                # save the pickle file if required
-                if self.config.SavePIK():
+                    if self.config.GetBlockageActive:
+                        results['Blockage'] = self.mesh.blockage
+                        results['Blockage_Gradient'] = self.mesh.blockage_gradient
+                    
+                    if self.config.GetTurboOutput():
+                        results['PRtt'] = self.beta_tt
+                        results['ETAtt'] = self.eta_tt
+                        results['MassFlowTurbo'] = self.m_turbo
+                    
                     os.makedirs('Results', exist_ok=True)
                     with open('Results/%s.pik' %file_name, 'wb') as file:
                         pickle.dump(results, file)
                 
 
-                # save the vtk file if required
                 if self.config.SaveVTK():
                     os.makedirs('Results_VTK', exist_ok=True)
                     output_filename = file_name
@@ -344,14 +340,12 @@ class CSolver(ABC):
                     pointsData = {} # main dictionnary storing all the fields
 
                     pointsData["Density"] = np.ascontiguousarray(self.solution[:,:,:,0])
-
                     pointsData["Velocity"] = (np.ascontiguousarray(self.solution[:,:,:,1]/self.solution[:,:,:,0]),
                                               np.ascontiguousarray(self.solution[:,:,:,2]/self.solution[:,:,:,0]),
                                               np.ascontiguousarray(self.solution[:,:,:,3]/self.solution[:,:,:,0]))
-                    
                     pointsData["Mach"] = np.ascontiguousarray(self.GetMachSolution(self.solution))
-                    
                     pointsData["Pressure"] = np.ascontiguousarray(self.GetPressureSolution(self.solution))
+                    pointsData["Temperature"] = np.ascontiguousarray(self.GetTemperatureSolution(self.solution))
                     
                     if self.config.IsBFM() and self.config.GetTurboOutput():
                         w = self.GetRelativeVelocitySolution(self.solution)
