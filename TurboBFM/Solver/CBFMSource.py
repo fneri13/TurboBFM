@@ -67,6 +67,7 @@ class CBFMSource():
                                 p*bgrad[1],
                                 0,
                                 0])
+                
                 source = (-1/b*bgrad_cart[0]*F -1/b*bgrad_cart[1]*G + 1/b*Sb)
             
             elif block_source_type.lower()=='thollet':
