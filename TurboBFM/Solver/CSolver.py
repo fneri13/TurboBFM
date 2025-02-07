@@ -9,6 +9,7 @@ from TurboBFM.Solver.CBoundaryCondition import CBoundaryCondition
 from TurboBFM.Postprocess import styles
 from TurboBFM.Solver.math import GreenGaussGradient
 from TurboBFM.Postprocess.functions import contour_template
+from TurboBFM.Solver.numba_functions import fake_spatial_integration, numba_fake_spatial_integration
 from abc import ABC, abstractmethod
 from pyevtk.hl import gridToVTK
 import os
@@ -199,10 +200,10 @@ class CSolver(ABC):
             self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
             self.SaveSolution(it, nIter)
 
-        if kind_solver=='Euler':
-            self.ContoursCheckMeridional('primitives')
-            self.PrintMassFlowPlot()
-            self.PlotResidualsHistory()
+        # if kind_solver=='Euler':
+        #     self.ContoursCheckMeridional('primitives')
+        #     self.PrintMassFlowPlot()
+        #     self.PlotResidualsHistory()
 
 
     def ComputeResidual(self, sol):
@@ -221,9 +222,12 @@ class CSolver(ABC):
 
         residual = np.zeros_like(sol)
         self.SpatialIntegration('i', sol, residual)
-        self.SpatialIntegration('j', sol, residual)
-        if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
-            self.SpatialIntegration('k', sol, residual)
+        # self.SpatialIntegration('j', sol, residual)
+        # if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
+        #     self.SpatialIntegration('k', sol, residual)
+        # fake_spatial_integration(residual)
+        numba_fake_spatial_integration(residual)
+        
 
         return residual
 
