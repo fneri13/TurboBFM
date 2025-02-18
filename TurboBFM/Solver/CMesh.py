@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D 
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Postprocess import styles
+import pyvista as pv
 import pickle
 import os
 from scipy.interpolate import griddata
