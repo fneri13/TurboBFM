@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pyvista as pv
 from mpl_toolkits.mplot3d import Axes3D 
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Postprocess import styles
