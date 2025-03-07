@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from TurboBFM.Solver.CSolver import CSolver
 from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
@@ -89,7 +90,7 @@ class CBFMSource():
 
     def ComputeForceSource(self, i, j, k):
         """
-        For a certain BFM model, compute the fource source density terms as a np.ndarray of size 5 (continuity, momentum, tot. energy)
+        For a certain BFM model, compute the fource source terms as a np.ndarray of size 5 (continuity, momentum, tot. energy).
         
         Parameters
         -------------------------
@@ -99,6 +100,11 @@ class CBFMSource():
         `j`: j-index of the cell
 
         `k`: k-index of the cell
+        
+        Return
+        -------------------------
+
+        `source`: np.ndarray of size 5 containing the source terms (the dimension for the momentum equations is [N]). The sources are already multiplied by the volume of the cell
         """
         Vol = self.solver.mesh.V[i,j,k].copy()
         if self.model.lower()=='hall-thollet':
@@ -236,49 +242,52 @@ class CBFMSource():
         `j`: j-index of the cell
 
         `k`: k-index of the cell
+        
+        Return
+        -------------------------
+
+        `source`: np.ndarray of size 5 containing the source terms (the dimension for the momentum equations is [N/m^3])
         """
         x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
         r = np.sqrt(y**2+z**2)
         theta = np.arctan2(z, y)
         conservative = self.solver.solution[i,j,k,:]  # conservative vector
         primitive = GetPrimitivesFromConservatives(conservative)
+        density = primitive[0]
         u_cart = primitive[1:-1]  # cartesian absolute velocity
         u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
         omega = self.solver.mesh.omega[i,j,k]
         drag_velocity_cyl = np.array([0, 0, omega*r])
         w_cyl = u_cyl-drag_velocity_cyl
-        normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
-        fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
+        w_cart = ComputeCartesianVectorFromCylindrical(x, y, z, w_cyl)
+        f_loss_versor = -w_cart/np.linalg.norm(w_cart)
 
-        if omega*fn_versor[2]<0:
-            fn_versor *= -1  # the fn must push in the rotation direction
-        else:
-            pass
-        
         f_ax = self.solver.mesh.force_axial[i,j,k]
         f_rad = self.solver.mesh.force_radial[i,j,k]
         f_tan = self.solver.mesh.force_tangential[i,j,k]
 
         f_cyl = np.array([f_ax, f_rad, f_tan])
-        f_n_cyl = np.dot(f_cyl, fn_versor)*fn_versor
-        f_p_cyl = f_cyl-f_n_cyl
-
-        fn_cart = ComputeCartesianVectorFromCylindrical(x,y,z,f_n_cyl)
-        fp_cart = ComputeCartesianVectorFromCylindrical(x,y,z,f_p_cyl)
-
+        f_cart = ComputeCartesianVectorFromCylindrical(x, y, z, f_cyl)
+        
+        fp_cart = np.dot(f_cart, f_loss_versor)*f_loss_versor
+        fn_cart = f_cart - fp_cart
+        
+        fp_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, fp_cart)
+        fn_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, fn_cart)
+        
         source_inviscid = np.zeros(5)
         source_inviscid[1] = fn_cart[0]
         source_inviscid[2] = fn_cart[1]
         source_inviscid[3] = fn_cart[2]
-        source_inviscid[4] = (f_n_cyl[2])*omega*r
+        source_inviscid[4] = (fn_cyl[2])*omega*r
 
         source_viscous = np.zeros(5)
         source_viscous[1] = fp_cart[0]
         source_viscous[2] = fp_cart[1]
         source_viscous[3] = fp_cart[2]
-        source_viscous[4] = (f_p_cyl[2])*omega*r
+        source_viscous[4] = (fp_cyl[2])*omega*r
 
-        return source_inviscid, source_viscous
+        return source_inviscid*density, source_viscous*density
     
 
     def ComputeDeviationAngle(self, w, n):
@@ -321,9 +330,9 @@ class CBFMSource():
         fn_dir_r = n[1]  # relation (2)
 
         # the axial component is found solving a quadratic equation obtained combining relations (1) and (3), which collapse to the easy solution when lean=0
-        A = (1+w[0]**2/w[2]**2)
-        B = 2*n[1]*w[1]*w[0]/(w[2]**2)
-        C = n[1]**2 * w[1]**1 / w[2]**2 + n[1]**2 - 1
+        A = (1+w[0]**2/(w[2]**2+1e-12))
+        B = 2*n[1]*w[1]*w[0]/(w[2]**2+1e-12)
+        C = n[1]**2 * w[1]**1 / (w[2]**2+1e-12) + n[1]**2 - 1
         sol1 = (-B + np.sqrt(B**2-4*A*C))/2/A
         sol2 = (-B - np.sqrt(B**2-4*A*C))/2/A
 
@@ -340,6 +349,10 @@ class CBFMSource():
         fn_dir = np.array([fn_dir_ax, fn_dir_r, fn_dir_t])
         magnitude = np.linalg.norm(fn_dir)
         fn_dir /= magnitude
+        
+        if any(math.isnan(x) for x in fn_dir):
+            print("NaN found during calculation of inviscid force direction. Radial component set to zero.")
+            fn_dir = np.array([-w_dir[2], 0, w_dir[0]])
 
         return fn_dir
 
