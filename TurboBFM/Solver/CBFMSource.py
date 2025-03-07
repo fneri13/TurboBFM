@@ -132,6 +132,11 @@ class CBFMSource():
         `j`: j-index of the cell
 
         `k`: k-index of the cell
+        
+        Return
+        -------------------------
+
+        `source`: np.ndarray of size 5 containing the source terms (the dimension for the momentum equations is [N/m^3])
         """
         x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
         r = np.sqrt(y**2+z**2)
@@ -180,6 +185,11 @@ class CBFMSource():
         `j`: j-index of the cell
 
         `k`: k-index of the cell
+        
+        Return
+        -------------------------
+
+        `source`: np.ndarray of size 5 containing the source terms (the dimension for the momentum equations is [N/m^3])
         """
         x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
         r = np.sqrt(y**2+z**2)
