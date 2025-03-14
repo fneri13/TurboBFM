@@ -718,13 +718,13 @@ class CMesh():
                 blockage = pickle.load(file)
                 blockage = blockage['Blockage']
         except:
-            raise ValueError("The Blockage is active but the grid file doesn't contain any blockage field.")
+            raise ValueError(f"The Blockage is active but the grid file '{self.config.GetGridFilepath()}' doesn't contain any blockage field.")
         
         self.blockage = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers for every mesh node
-        for k in range(self.V.shape[2]):
+        
+        for k in range(self.V.shape[2]): # store the blockage values also in the third direction
             self.blockage[:,:,k] = blockage
         
-        self.rotation_axis = self.config.GetRotationAxis()
     
 
     def AddCamberNormalGrid(self):
@@ -738,24 +738,39 @@ class CMesh():
         except:
             raise ValueError('The BFM model is different from NONE, but the grid file does not contain any data on the camber normal vector')
         
-        self.normal_camber_cyl = np.zeros((self.ni, self.nj, self.nk, 3))
-        for k in range(self.nk):
-            self.normal_camber_cyl[:,:,k,:] = normal
+        self.normal_camber_cyl = {}
+        self.normal_camber_cyl['Axial'] = normal['Axial']
+        self.normal_camber_cyl['Radial'] = normal['Radial'] 
+        self.normal_camber_cyl['Tangential'] = normal['Tangential']
     
 
     def AddRPMGrid(self):
         """
-        Add the RPM grid associated with every cell element
+        Add the RPM grid associated with every cell element. Only one element in the third direction
         """
         with open(self.config.GetGridFilepath(), 'rb') as file:
             data = pickle.load(file)
-            revs = data['RPM']
-        
-        rpm = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
-        for k in range(self.V.shape[2]):
-            rpm[:,:,k] = revs
-        
+            rpm = data['RPM']
         self.omega = 2*np.pi*rpm/60
+        self.rotation_axis = self.config.GetRotationAxis()
+    
+    def AddBladeIsPresentGrid(self):
+        """
+        Add the blade presence grid
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            present = data['BladePresent']
+        self.bladeIsPresent = present
+    
+    def AddNumberBladesGrid(self):
+        """
+        Add the number of blades
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            n = data['NumberBlades']
+        self.numberBlades = n
     
 
     def AddBodyForcesGrids(self):
@@ -787,13 +802,10 @@ class CMesh():
         try:
             with open(self.config.GetGridFilepath(), 'rb') as file:
                 data = pickle.load(file)
-                revs = data['StreamwiseLength']
+                stwl = data['StreamwiseLength']
         except:
             raise ValueError('The BFM model selected requires information on the StreamwiseLength, but the grid file does not contain it.')
-        
-        self.stwl = np.zeros_like(self.V) # storing the blockage values corresponding to cell centers
-        for k in range(self.V.shape[2]):
-            self.stwl[:,:,k] = revs
+        self.stwl = stwl
                 
 
     def ContourBlockage(self, save_filename=None):

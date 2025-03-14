@@ -34,7 +34,7 @@ class CEulerSolver(CSolver):
         if self.fluidModel.lower()=='ideal':
             self.fluid = FluidIdeal(self.fluidGamma, self.fluidR)
         elif self.fluidModel.lower()=='real':
-            raise ValueError('Real Fluid Model not implemented')
+            raise ValueError('Real Fluid Model not implemented yet')
         else:
             raise ValueError('Unknown Fluid Model')
         
@@ -142,7 +142,7 @@ class CEulerSolver(CSolver):
     @override
     def InitializeSolution(self):
         """
-        Given the boundary conditions, initialize the solution as to be associated with them
+        Given the boundary conditions, initialize the solution to be associated with them
         """
         if self.config.GetRestartSolution()==False:
             M = self.config.GetInitMach()
@@ -867,7 +867,7 @@ class CEulerSolver(CSolver):
                             blockage_source[i,j,k,:] = bfm.ComputeBlockageSource(i, j, k)
                     
                     if self.config.GetBFMModel().lower()!='none':
-                        if np.linalg.norm(self.mesh.normal_camber_cyl[i,j,k,:])>0.5:
+                        if self.mesh.bladeIsPresent[i,j]>0.5:
                             self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = bfm.ComputeForceSource(i,j,k)  
                         else:
                             self.body_force_source_inviscid[i,j,k,:] = np.zeros(5, dtype=float)
@@ -989,7 +989,7 @@ class CEulerSolver(CSolver):
                     y = self.mesh.Y[i,j,k]
                     z = self.mesh.Z[i,j,k]
                     r = np.sqrt(y**2+z**2)
-                    drag_speed = self.mesh.omega[i,j,k]*r
+                    drag_speed = self.mesh.omega[i,j]*r
                     drag_vel_cyl = np.array([0, 0, drag_speed])
                     drag_vel_cart = ComputeCartesianVectorFromCylindrical(x, y, z, drag_vel_cyl)
                     w[i,j,k,:] = vel-drag_vel_cart

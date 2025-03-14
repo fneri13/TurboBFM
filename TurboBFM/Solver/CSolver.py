@@ -117,32 +117,39 @@ class CSolver(ABC):
             print('Blockage active: %s' %self.config.GetBlockageActive())
             print('BFM model: %s' %self.config.GetBFMModel())
             print('======================= END BFM INFORMATION =======================\n')
+            
+            BFModel = self.config.GetBFMModel().lower()
+            
             if self.config.GetBlockageActive():
                 self.mesh.AddBlockageGrid()
                 self.mesh.blockage_gradient = self.ComputeGradient(self.mesh.blockage)
-            
-            if self.config.GetVerbosity()>2:
-                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage[:,:,0], r'$b$ [-]')
-                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,0], r'$\partial_x b$ [1/m]')
-                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,1], r'$\partial_y b$ [1/m]')
-                contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,2], r'$\partial_z b$ [1/m]')
-
-            try:
-                self.mesh.AddRPMGrid()
-                if self.config.GetVerbosity()>2: contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.omega[:,:,0], r'$\Omega$ [rad/s]')
-            except:
-                pass
-            
-            if self.config.GetBFMModel().lower() != 'none':
-                self.mesh.AddCamberNormalGrid()
                 if self.config.GetVerbosity()>2:
-                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl[:,:,0,0], r'$n_{ax}$ [-]')
-                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl[:,:,0,1], r'$n_{r}$ [-]')
-                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl[:,:,0,2], r'$n_{\theta}$ [-]')
-                if self.config.GetBFMModel().lower()=='hall-thollet':
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage[:,:,0], r'$b$ [-]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,0], r'$\partial_x b$ [1/m]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,1], r'$\partial_y b$ [1/m]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,2], r'$\partial_z b$ [1/m]')
+
+            if BFModel == 'hall-thollet' or BFModel.lower() == 'hall':
+                self.mesh.AddRPMGrid()
+                self.mesh.AddCamberNormalGrid()
+                self.mesh.AddBladeIsPresentGrid()
+                self.mesh.AddNumberBladesGrid()
+
+                if self.config.GetVerbosity()>2:
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.omega, r'$\Omega$ [rad/s]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl['Axial'], r'$n_{ax}$ [-]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl['Radial'], r'$n_{r}$ [-]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.normal_camber_cyl['Tangential'], r'$n_{\theta}$ [-]')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.bladeIsPresent, r'Blade Presence')
+                    contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.numberBlades, r'Blades Number')
+     
+                if BFModel=='hall-thollet':
                     self.mesh.AddStreamwiseLengthGrid()
-                    if self.config.GetVerbosity()>2: contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.stwl[:,:,0], r'$s_{stwl}$ [-]')
-                if self.config.GetBFMModel().lower()=='frozen-forces':
+                    if self.config.GetVerbosity()>2: 
+                        contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.stwl, r'$s_{stwl}$ [-]')
+                
+                if BFModel=='frozen-forces':
+                    raise ValueError('Warning, check how the things are implemented, dont duplicate data unnecessarily')
                     self.mesh.AddBodyForcesGrids()
                     if self.config.GetVerbosity()>2:
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_axial[:,:,0], r'$f_{ax}$ [-]')
@@ -179,17 +186,17 @@ class CSolver(ABC):
             rk_coeff = self.config.GetRungeKuttaCoeffs()
             for iStep in range(len(rk_coeff)):      
                 alpha = rk_coeff[iStep]
-                residual_terms = self.ComputeResidual(sol_old)
-                source_terms = self.ComputeSourceTerm(sol_old)
+                fluxResiduals = self.ComputeFluxResiduals(sol_old)
+                sourceTerms = self.ComputeSourceTerm(sol_old)
 
                 sol_new = self.solution.copy() 
                 for iEq in range(self.nEq):
-                    sol_new[:,:,:,iEq] -= alpha*residual_terms[:,:,:,iEq]*dt/self.mesh.V[:,:,:]  
-                    sol_new[:,:,:,iEq] += alpha*source_terms[:,:,:,iEq]*dt/self.mesh.V[:,:,:]
+                    sol_new[:,:,:,iEq] -= alpha*dt/self.mesh.V[:,:,:] * fluxResiduals[:,:,:,iEq]
+                    sol_new[:,:,:,iEq] += alpha*dt/self.mesh.V[:,:,:] * sourceTerms[:,:,:,iEq]
                 sol_old = sol_new.copy() 
             
             self.solution = sol_new.copy()
-            self.PrintInfoResiduals(-residual_terms+source_terms, it, time_physical)
+            self.PrintInfoResiduals(-fluxResiduals+sourceTerms, it, time_physical)
             
             if self.config.GetTimeStepGlobal():
                 time_physical += dt
@@ -199,15 +206,10 @@ class CSolver(ABC):
             self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
             self.SaveSolution(it, nIter)
 
-        # if kind_solver=='Euler':
-        #     self.ContoursCheckMeridional('primitives')
-        #     self.PrintMassFlowPlot()
-        #     self.PlotResidualsHistory()
 
-
-    def ComputeResidual(self, sol):
+    def ComputeFluxResiduals(self, sol):
         """
-        For a given flow solution, compute the residual
+        For a given flow solution, compute the advection fluxes
         """
         # before computing the residuals, perform some preprocessing on the boundary conditions
         dirs = ['i', 'j', 'k']
@@ -219,13 +221,13 @@ class CSolver(ABC):
                 if bc_type=='outlet_re':
                     self.radial_pressure_profile = self.ComputeRadialEquilibriumPressureProfile(sol, dir, loc, bc_values)
 
-        residual = np.zeros_like(sol)
-        self.SpatialIntegration('i', sol, residual)
-        self.SpatialIntegration('j', sol, residual)
+        fluxResidual = np.zeros_like(sol)
+        self.SpatialIntegration('i', sol, fluxResidual)
+        self.SpatialIntegration('j', sol, fluxResidual)
         if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
-            self.SpatialIntegration('k', sol, residual)
+            self.SpatialIntegration('k', sol, fluxResidual)
 
-        return residual
+        return fluxResidual
 
     
     @abstractmethod

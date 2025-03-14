@@ -146,14 +146,21 @@ class CBFMSource():
         rho = primitive[0]
         u_cart = primitive[1:-1]  # cartesian absolute velocity
         u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
-        omega = self.solver.mesh.omega[i,j,k]
+        omega = self.solver.mesh.omega[i,j]
         drag_velocity_cyl = np.array([0, 0, omega*r])
         w_cyl = u_cyl-drag_velocity_cyl
-        pitch = 2*np.pi*r/self.config.GetBladesNumber()
-        normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
-        delta = self.ComputeDeviationAngle(w_cyl, normal)
-        fn = 0.5 * np.linalg.norm(w_cyl)**2 * 2 * np.pi * delta / pitch / np.abs(normal[2])
-        fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
+        numberBlades = self.solver.mesh.numberBlades[i,j]
+        if numberBlades==0:
+            raise ValueError('No blades found in cell %i, %i, %i, where the Hall source term is trying to be computed' %(i,j,k))
+        
+        pitch = 2*np.pi*r/numberBlades
+        n_camber_ax = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
+        n_camber_rad = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
+        n_camber_tan = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
+        n_vector_cyl = np.array([n_camber_ax, n_camber_rad, n_camber_tan])
+        deviationAngle = self.ComputeDeviationAngle(w_cyl, n_vector_cyl)
+        fn = np.linalg.norm(w_cyl)**2 * np.pi * deviationAngle / pitch / n_camber_tan
+        fn_versor = self.ComputeInviscidForceDirection(w_cyl, n_vector_cyl)
 
         if omega*fn_versor[2]<0:
             fn_versor *= -1  # the fn must push in the rotation direction
@@ -170,7 +177,7 @@ class CBFMSource():
         
         source_viscous = np.zeros(5)
         
-        return source_inviscid*rho, source_viscous
+        return source_inviscid*rho, source_viscous*rho
     
 
     def ComputeHallTholletForceDensity(self, i, j, k):
@@ -307,9 +314,9 @@ class CBFMSource():
         Compute the absolute value of the deviation angle between the velocity vector and the camber surface defined by n
         """
         n /= np.linalg.norm(n)
-        wn = np.dot(w, n)
+        wn = np.dot(w, -n) # for a compressor the deviation angle is positive when the wn component is opposite to the normal vector pointing in the push direction of the blade
         delta = np.arcsin(wn/np.linalg.norm(w))
-        return np.abs(delta)
+        return delta
     
 
     def ComputeInviscidForceDirection(self, w: np.ndarray, n: np.ndarray) -> np.ndarray:
