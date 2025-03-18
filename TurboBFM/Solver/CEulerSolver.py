@@ -14,7 +14,7 @@ from TurboBFM.Solver.CBFMSource import CBFMSource
 from TurboBFM.Postprocess import styles
 from TurboBFM.Solver.math import ComputeCartesianVectorFromCylindrical, ComputeCylindricalVectorFromCartesian, IntegrateScalarFlux, IntegrateVectorFlux
 from scipy.integrate import odeint
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, griddata
 from typing import override 
 
 
@@ -166,9 +166,36 @@ class CEulerSolver(CSolver):
         elif self.config.GetRestartSolution()==True:
             filepath = self.config.GetRestartSolutionFilepath()
             with open(filepath, 'rb') as file:
-                data = pickle.load(file)
+                restartData = pickle.load(file)
             
-            self.solution = data['U']
+            shapeRestartFile = restartData['U'].shape
+            shapeCurrentFile = self.solution.shape
+            
+            # initialize the fields with the restart file
+            if shapeCurrentFile==shapeRestartFile:
+                self.solution = restartData['U']
+            else:
+                print()
+                print('WARNING: The restart file has different dimensions than the current mesh. Nearest Neighbor interpolation is used.')
+                print()
+                
+                xPoints = restartData['X']
+                yPoints = restartData['Y']
+                zPoints = restartData['Z']
+                points = (xPoints.flatten(), yPoints.flatten(), zPoints.flatten())
+                
+                xEval = self.mesh.X.flatten()
+                yEval = self.mesh.Y.flatten()
+                zEval = self.mesh.Z.flatten()
+                
+                
+                for i in range(5):
+                    values = (restartData['U'][:,:,:,i]).flatten()
+                    interpValues = griddata(points, values, (xEval, yEval, zEval), method='nearest')
+                    self.solution[:,:,:,i] = np.reshape(interpValues, (self.ni, self.nj, self.nk))
+                    
+            
+            # update the iteration number
             its = filepath.split('.pik')
             self.restart_iterations = int(its[0][-6:])
 
