@@ -109,6 +109,7 @@ class CEulerSolver(CSolver):
 
         if self.config.GetTurboOutput():
             self.beta_tt = []                                               # store the total pressure ratio for turbo cases
+            self.tau_tt = []                                                # store the total temperature ratio for turbo cases
             self.eta_tt = []                                                # store the total efficiency ratio for turbo cases
             self.m_turbo = []                                               # store the mass flow rate of the machine
 
@@ -768,7 +769,7 @@ class CEulerSolver(CSolver):
         ETAtt = (PRtt**((self.fluid.gmma-1)/self.fluid.gmma)-1)/(TRtt-1)
         mflow = 0.5*(m_in+m_out)
         
-        return PRtt, ETAtt, mflow
+        return PRtt, TRtt, ETAtt, mflow
     
 
     def ComputeTurboMassFlowAverage(self, U, S):

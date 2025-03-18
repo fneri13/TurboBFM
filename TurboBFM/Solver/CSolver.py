@@ -174,8 +174,9 @@ class CSolver(ABC):
                 self.mk_out.append(self.ComputeMassFlow('k', 'end'))
             
             if self.config.GetTurboOutput():
-                beta_tt, eta_tt, mflow = self.ComputeTurboOutput()
+                beta_tt, tau_tt, eta_tt, mflow = self.ComputeTurboOutput()
                 self.beta_tt.append(beta_tt)
+                self.tau_tt.append(tau_tt)
                 self.eta_tt.append(eta_tt)
                 self.m_turbo.append(mflow)
 
@@ -332,6 +333,7 @@ class CSolver(ABC):
                     
                     if self.config.GetTurboOutput():
                         results['PRtt'] = self.beta_tt
+                        results['TRtt'] = self.tau_tt
                         results['ETAtt'] = self.eta_tt
                         results['MassFlowTurbo'] = self.m_turbo
                     

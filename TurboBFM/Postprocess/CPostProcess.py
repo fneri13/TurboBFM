@@ -67,13 +67,12 @@ class CPostProcess():
                  r'$\dot{m}_{K,IN}$',
                  r'$\dot{m}_{K,OUT}$']
         
+        markers = ['-o', '-s', '->', '-<', '-^', '-o']
+        
         plt.figure()
 
         for i in range(len(self.data['MassFlow'])):
-            if dim==2 and i<4:
-                plt.plot(self.data['MassFlow'][i], label=names[i])
-            else:
-                plt.plot(self.data['MassFlow'][i], label=names[i])
+            plt.plot(self.data['MassFlow'][i], markers[i], mfc='none', label=names[i])
         plt.grid(alpha = styles.grid_opacity)
         plt.xlabel('Iterations [-]')
         plt.ylabel(r'Mass Flow $[kg/s]$')
@@ -364,6 +363,10 @@ class CPostProcess():
             name = 'Temperature'
             label = r'$T \ \rm{[K]}$'
             field2D  =self.ComputeTemperature(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='tt':
+            name = 'TotalTemperature'
+            label = r'$T_t \ \rm{[K]}$'
+            field2D  =self.ComputeTotalTemperature(self.data['U'][:,:,idx_k,:])
         else:
             raise ValueError('Unknown field to plot')
         
@@ -505,16 +508,12 @@ class CPostProcess():
         return ut
     
 
-    def PrintDeltaMassFlows(self):
+    def PrintDeltaMassFlows(self, threshold=1E-02):
         def compute_delta(m1, m2):
-            if m1<1e-6 and m2<1e-6:
-                return 0
-            elif m1<1e-6 and m2>=1e-6:
-                return 0
-            elif m1>1e-6 and m2<=1e-6:
-                return 0
+            if np.abs(m1)<threshold and np.abs(m2)<threshold:
+                return 0 # no flow in this direction
             else:
-                return np.abs(m1-m2)/np.mean(m1+m2)*100
+                return np.abs(m1-m2)/np.mean(m1+m2)*100 # averaged error
         
         mi_in = self.data['MassFlow'][0][-1]
         mi_out = self.data['MassFlow'][1][-1]
@@ -525,9 +524,9 @@ class CPostProcess():
         mk_in = self.data['MassFlow'][4][-1]
         mk_out = self.data['MassFlow'][5][-1]
 
-        print(r'Delta mass flows along i [percent]:     %.5f' %(compute_delta(mi_in, mi_out)))
-        print(r'Delta mass flows along j [percent]:     %.5f' %(compute_delta(mj_in, mj_out)))
-        print(r'Delta mass flows along k [percent]:     %.5f' %(compute_delta(mk_in, mk_out)))
+        print(r'Delta mass flows along i [percent]:     %.3f' %(compute_delta(mi_in, mi_out)))
+        print(r'Delta mass flows along j [percent]:     %.3f' %(compute_delta(mj_in, mj_out)))
+        print(r'Delta mass flows along k [percent]:     %.3f' %(compute_delta(mk_in, mk_out)))
 
 
     def PrintTurboPerformance(self, axisymmetric=True, save_csv=True):
@@ -535,11 +534,13 @@ class CPostProcess():
         if axisymmetric: mflow*=360
         prTT = self.data['PRtt'][-1]
         etaTT = self.data['ETAtt'][-1]
-
+        trTT = self.data['TRtt'][-1]
+        
         print()
         print('TURBOMACHINERY PERFORMANCE')
         print(r'Mass Flow [kg/s]:                       %.3f' %(mflow))
         print(r'Tot-to-Tot Pressure ratio [-]:          %.3f' %(prTT))
+        print(r'Tot-to-Tot Temperature ratio [-]:       %.3f' %(trTT))
         print(r'Tot-to-Tot Efficiency [-]:              %.3f' %(etaTT))
 
         if save_csv:
