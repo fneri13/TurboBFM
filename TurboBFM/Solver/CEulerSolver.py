@@ -188,12 +188,10 @@ class CEulerSolver(CSolver):
                 yEval = self.mesh.Y.flatten()
                 zEval = self.mesh.Z.flatten()
                 
-                
                 for i in range(5):
                     values = (restartData['U'][:,:,:,i]).flatten()
                     interpValues = griddata(points, values, (xEval, yEval, zEval), method='nearest')
-                    self.solution[:,:,:,i] = np.reshape(interpValues, (self.ni, self.nj, self.nk))
-                    
+                    self.solution[:,:,:,i] = np.reshape(interpValues, (self.ni, self.nj, self.nk))    
             
             # update the iteration number
             its = filepath.split('.pik')
