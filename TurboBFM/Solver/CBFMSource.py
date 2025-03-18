@@ -158,16 +158,14 @@ class CBFMSource():
         n_camber_rad = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
         n_camber_tan = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
         n_vector_cyl = np.array([n_camber_ax, n_camber_rad, n_camber_tan])
-        deviationAngle = self.ComputeDeviationAngle(w_cyl, n_vector_cyl)
-        fn = np.linalg.norm(w_cyl)**2 * np.pi * deviationAngle / pitch / n_camber_tan
+        deviationAngle = self.ComputeAbsDeviationAngle(w_cyl, n_vector_cyl)
+        fn_magnitude = np.linalg.norm(w_cyl)**2 * np.pi * deviationAngle / pitch / n_camber_tan
         fn_versor = self.ComputeInviscidForceDirection(w_cyl, n_vector_cyl)
 
-        if omega*fn_versor[2]<0:
-            fn_versor *= -1  # the fn must push in the rotation direction
-        else:
-            pass
-
-        fn_cyl = fn*fn_versor
+        if np.abs(omega)<1:
+            fn_versor *= -1 # if it is a stator, for sure it pushes in the opposite direction of rotors
+        
+        fn_cyl = fn_magnitude*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
         source_inviscid = np.zeros(5)
         source_inviscid[1] = fn_cart[0]
@@ -204,32 +202,39 @@ class CBFMSource():
         primitive = GetPrimitivesFromConservatives(self.solver.solution[i,j,k,:])
         u_cart = primitive[1:-1]  
         u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
-        omega = self.solver.mesh.omega[i,j,k]
+        omega = self.solver.mesh.omega[i,j]
         drag_velocity_cyl = np.array([0, 0, omega*r])
         w_cyl = u_cyl-drag_velocity_cyl
-        pitch = 2*np.pi*r/self.config.GetBladesNumber()
-        normal = self.solver.mesh.normal_camber_cyl[i,j,k,:]
-        delta = self.ComputeDeviationAngle(w_cyl, normal)
+        numberBlades = self.solver.mesh.numberBlades[i,j]
+        if numberBlades==0:
+            raise ValueError('No blades found in cell %i, %i, %i, where the Hall source term is trying to be computed' %(i,j,k))
+        
+        pitch = 2*np.pi*r/numberBlades
+        n_camber_ax = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
+        n_camber_rad = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
+        n_camber_tan = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
+        n_vector_cyl = np.array([n_camber_ax, n_camber_rad, n_camber_tan])
+        deviationAngle = self.ComputeAbsDeviationAngle(w_cyl, n_vector_cyl)
         b = self.solver.mesh.blockage[i,j,k]
         Kmach = self.ComputeCompressibilityCorrection(w_cyl, primitive)
         
         # inviscid component
-        fn = Kmach * np.linalg.norm(w_cyl)**2 * np.pi * np.abs(delta) / pitch / np.abs(normal[2]) / b
-        fn_versor = self.ComputeInviscidForceDirection(w_cyl, normal)
-        if omega*fn_versor[2]<0:
-            fn_versor *= -1  # the fn must push in the rotation direction
-        else:
-            pass
+        fn = Kmach * np.linalg.norm(w_cyl)**2 * np.pi * np.abs(deviationAngle) / pitch / np.abs(n_camber_tan) / b
+        fn_versor = self.ComputeInviscidForceDirection(w_cyl, n_vector_cyl)
+
+        if np.abs(omega)<1:
+            fn_versor *= -1
+            
         fn_cyl = fn*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
 
         # viscous component
         rho = primitive[0]
         nu = self.config.GetKinematicViscosity()
-        Rex = np.linalg.norm(w_cyl) * self.solver.mesh.stwl[i,j,k] / nu
+        Rex = np.linalg.norm(w_cyl) * self.solver.mesh.stwl[i,j] / nu
         Cf = 0.0592*Rex**(-0.2)
-        delta0 = delta  # this could be calibrated later, from the deviation of the float at peak efficiency
-        fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(normal[2])) * (Cf + np.pi*Kmach*(delta-delta0))
+        delta0 = deviationAngle  # this could be calibrated later, from the deviation of the float at peak efficiency
+        fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(n_camber_tan)) * (Cf + np.pi*Kmach*(deviationAngle-delta0))
         fp_vers_cyl = -w_cyl/np.linalg.norm(w_cyl) # opposite to the relative velocity
         fp_cyl = fp*fp_vers_cyl  
         fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
@@ -309,14 +314,14 @@ class CBFMSource():
         return source_inviscid*density, source_viscous*density
     
 
-    def ComputeDeviationAngle(self, w, n):
+    def ComputeAbsDeviationAngle(self, w, n):
         """
         Compute the absolute value of the deviation angle between the velocity vector and the camber surface defined by n
         """
         n /= np.linalg.norm(n)
-        wn = np.dot(w, -n) # for a compressor the deviation angle is positive when the wn component is opposite to the normal vector pointing in the push direction of the blade
+        wn = np.dot(w, n)
         delta = np.arcsin(wn/np.linalg.norm(w))
-        return delta
+        return np.abs(delta)
     
 
     def ComputeInviscidForceDirection(self, w: np.ndarray, n: np.ndarray) -> np.ndarray:
@@ -324,11 +329,9 @@ class CBFMSource():
         Compute the direction of the inviscid force component. It must be orthogonal to the relative velocity vector, and the radial component is different from zero when only the lean angle is different from zero.
         The relations concering the fn direction are therefore these (3 equations for 3 unknown components):
         1) the magnitude is 1 (is a versor)
-        2) the radial component is equal to the radial component of the blade normal versor
-        3) The dot product between the force versor and the relative velocity versor must be zero
-
-        The direction is later chosen to be coherent with the rotational speed
-
+        2) the force radial component is equal to the radial component of the blade normal versor
+        3) The dot product between the force versor and the relative velocity versor must be zero, since they are orthogonal
+        
         Parameters
         --------------------------------
 
@@ -341,33 +344,43 @@ class CBFMSource():
 
         `fn_dir`: the inviscid force direction in cylindrical coordinates (axial, radial, tangential)
         """
-        w_dir = w/np.linalg.norm(w) # this is the relative velocity direction, and defines also the plane where the force must lie. The dot product force*w_dir must always be zero
+        w += 1e-3
+        w_dir = w/np.linalg.norm(w) 
         n_dir = n/np.linalg.norm(n)
-        # fn_dir = np.array([-w_dir[2], 0, w_dir[0]]) # this is valid in those cases defined by zero lean of the blade
+        
+        # axial=1, radial=2, tangential=3 are the indices
+        w_ax = w_dir[0]
+        w_rad = w_dir[1]
+        w_tan = w_dir[2]
 
-        # compute the components 
-        fn_dir_r = n[1]  # relation (2)
-
-        # the axial component is found solving a quadratic equation obtained combining relations (1) and (3), which collapse to the easy solution when lean=0
-        A = (1+w[0]**2/(w[2]**2+1e-12))
-        B = 2*n[1]*w[1]*w[0]/(w[2]**2+1e-12)
-        C = n[1]**2 * w[1]**1 / (w[2]**2+1e-12) + n[1]**2 - 1
-        sol1 = (-B + np.sqrt(B**2-4*A*C))/2/A
-        sol2 = (-B - np.sqrt(B**2-4*A*C))/2/A
-
-        # of the 2 solutions, choose the one having positive value, since the axial component must in general be positive
-        if sol1>0:
-            fn_dir_ax = sol1
+        n_ax = n_dir[0]
+        n_rad = n_dir[1]
+        n_tan = n_dir[2]
+        
+        A = w_tan**2 + w_ax**2
+        B = 2 * w_rad * w_ax * n_rad
+        C = (w_tan**2 * n_rad**2) + (w_rad**2 * n_rad**2) - w_tan**2 
+        
+        fAxial_1 = (-B + np.sqrt(B**2-4*A*C))/2/A
+        fAxial_2 = (-B - np.sqrt(B**2-4*A*C))/2/A
+        
+        def compute_tangential(fax):
+            ftan = (-w_ax*fax - w_rad*n_rad)/w_tan
+            return ftan
+        
+        fTangential_1 = compute_tangential(fAxial_1)
+        fTangential_2 = compute_tangential(fAxial_2)
+        
+        fRadial_1 = n_rad
+        fRadial_2 = n_rad
+        
+        fn_versor_1 = np.array([fAxial_1, fRadial_1, fTangential_1])
+        fn_versor_2 = np.array([fAxial_2, fRadial_2, fTangential_2])
+        
+        if np.dot(fn_versor_1, n) > 0:
+            fn_dir = fn_versor_1
         else:
-            fn_dir_ax = sol2
-            
-        # third component using the last relation
-        fn_dir_t = (-n[1]*w[1]-fn_dir_ax*w[0])/w[2]
-
-        # full versor
-        fn_dir = np.array([fn_dir_ax, fn_dir_r, fn_dir_t])
-        magnitude = np.linalg.norm(fn_dir)
-        fn_dir /= magnitude
+            fn_dir = fn_versor_2
         
         if any(math.isnan(x) for x in fn_dir):
             print("NaN found during calculation of inviscid force direction. Radial component set to zero.")

@@ -174,10 +174,6 @@ class CPostProcess():
             name = 'TRtt'
             label = r'$TR_{tt} \ \rm{[-]}$'
             field = self.ComputeTrTT(self.data['U'][:,:,idx_k,:])
-        elif field_name.lower()=='etatt':
-            name = 'ETAtt'
-            label = r'$\eta_{tt} \ \rm{[-]}$'
-            field = self.ComputeEtaTT(self.data['U'][:,:,idx_k,:])
         elif field_name.lower()=='s':
             name = 'Entropy'
             label = r'$s \ \rm{[kJ/kgK]}$'
@@ -244,7 +240,7 @@ class CPostProcess():
         p = self.ComputePressure(data)
         M = self.ComputeMachNumber(data)
         pt = p*(1+(self.fluid.gmma-1)/2*M**2)**(self.fluid.gmma/(self.fluid.gmma-1))
-        return p
+        return pt
 
 
     def ComputeBetaTT(self, data):
@@ -258,7 +254,7 @@ class CPostProcess():
     def ComputeEtaTT(self, data):
         betaTT = self.ComputeBetaTT(data)
         TrTT = self.ComputeTrTT(data)
-        etaTT = (betaTT**((self.fluid.gmma-1)/self.fluid.gmma)-1)/(TrTT-1)
+        etaTT = (betaTT**((self.fluid.gmma-1)/self.fluid.gmma)-1)/(TrTT-1+1e-12)
         return etaTT
     
 
@@ -322,10 +318,19 @@ class CPostProcess():
             label = r'$p \ \rm{[kPa]}$'
             field2D = self.ComputePressure(self.data['U'][:,:,idx_k,:])
             field2D /= 1e3
+        elif field_name.lower()=='pt':
+            name = 'TotalPressure1D'
+            label = r'$p_t \ \rm{[kPa]}$'
+            field2D = self.ComputeTotalPressure(self.data['U'][:,:,idx_k,:])
+            field2D /= 1e3
         elif field_name.lower()=='betatt':
             name = 'PRtt_1D'
             label = r'$\beta_{tt} \ \rm{[-]}$'
             field2D = self.ComputeBetaTT(self.data['U'][:,:,idx_k,:])
+        elif field_name.lower()=='trtt':
+            name = 'TRtt_1D'
+            label = r'$TR_{tt} \ \rm{[-]}$'
+            field2D = self.ComputeTrTT(self.data['U'][:,:,idx_k,:])
         elif field_name.lower()=='etatt':
             name = 'ETAtt_1D'
             label = r'$\eta_{tt} \ \rm{[-]}$'
