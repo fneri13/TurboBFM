@@ -309,7 +309,7 @@ class CSolver(ABC):
         save = self.config.GetSaveUnsteady()
         if save:
             interval = self.config.GetSaveUnsteadyInterval()
-            if (save and it%interval==0) or (save and it==nIter-1):
+            if ((save and it%interval==0) or (save and it==nIter-1)) and it>0:
                 file_name = self.config.GetSolutionName()
                 file_name += '_%06i' %(it)
                 

@@ -159,11 +159,11 @@ class CBFMSource():
         n_camber_tan = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
         n_vector_cyl = np.array([n_camber_ax, n_camber_rad, n_camber_tan])
         deviationAngle = self.ComputeAbsDeviationAngle(w_cyl, n_vector_cyl)
-        fn_magnitude = np.linalg.norm(w_cyl)**2 * np.pi * deviationAngle / pitch / n_camber_tan
+        fn_magnitude = np.linalg.norm(w_cyl)**2 * np.pi * deviationAngle / pitch / np.abs(n_camber_tan)
         fn_versor = self.ComputeInviscidForceDirection(w_cyl, n_vector_cyl)
 
-        if np.abs(omega)<1:
-            fn_versor *= -1 # if it is a stator, for sure it pushes in the opposite direction of rotors
+        # if np.abs(omega)<1:
+        #     fn_versor *= -1 # if it is a stator, for sure it pushes in the opposite direction of rotors
         
         fn_cyl = fn_magnitude*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
