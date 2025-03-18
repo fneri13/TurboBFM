@@ -607,11 +607,12 @@ class CEulerSolver(CSolver):
             res[i] = np.linalg.norm(residuals[:,:,:,i].flatten())/len(residuals[:,:,:,i].flatten())
             if res[i]!=0:
                 res[i] = np.log10(res[i])
-        if it==0:
+        if it==0 or self.residualFlag is True:
             # Header
             print("|" + "-" * ((col_width)*7+6) + "|")
             print(f"{'|'}{'Iteration':<{col_width}}{'|'}{'Time[s]':<{col_width}}{'|'}{'rms[Rho]':>{col_width}}{'|'}{'rms[RhoU]':>{col_width}}{'|'}{'rms[RhoV]':>{col_width}}{'|'}{'rms[RhoW]':>{col_width}}{'|'}{'rms[RhoE]':>{col_width}}{'|'}")
             print("|" + "-" * ((col_width)*7+6) + "|")
+            self.residualFlag = False # reset the flag to not print the header every time
 
         # Data row
         print(

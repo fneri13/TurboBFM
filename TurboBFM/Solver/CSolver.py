@@ -28,6 +28,7 @@ class CSolver(ABC):
         self.mesh = mesh
         self.nDim = mesh.nDim
         self.verbosity = self.config.GetVerbosity()
+        self.residualFlag = True
         
         # save a local copy of elements number
         self.ni = mesh.ni
