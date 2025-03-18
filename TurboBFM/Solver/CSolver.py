@@ -294,7 +294,7 @@ class CSolver(ABC):
         """
     
 
-    def SaveSolution(self, it, nIter):
+    def SaveSolution(self, it, nIter, col_width: int = 14):
         """
         Check if a solution must be saved, and in case do it.
 
@@ -308,10 +308,14 @@ class CSolver(ABC):
         save = self.config.GetSaveUnsteady()
         if save:
             interval = self.config.GetSaveUnsteadyInterval()
-            if (save and it%interval==0) or (save and it==nIter-1) or (save and it==0):
+            if (save and it%interval==0) or (save and it==nIter-1):
                 file_name = self.config.GetSolutionName()
                 file_name += '_%06i' %(it)
+                
+                print("|" + "-" * ((col_width)*7+6) + "|")
+                print('|RESULTS OUTPUT:')
 
+                #PICKLE OUTPUT
                 if self.config.SavePIK():
                     results = {'X': self.mesh.X,
                             'Y': self.mesh.Y,
@@ -334,43 +338,50 @@ class CSolver(ABC):
                     os.makedirs('Results', exist_ok=True)
                     with open('Results/%s.pik' %file_name, 'wb') as file:
                         pickle.dump(results, file)
+                        print('|Saved %s.pik in Results folder' %file_name)
                 
-
+                # VTK OUTPUT
                 if self.config.SaveVTK():
                     os.makedirs('Results_VTK', exist_ok=True)
                     output_filename = file_name
 
-                    pointsData = {} # main dictionnary storing all the fields
+                    pointsData = {} # main dictionary storing all the fields
 
-                    pointsData["Density"] = np.ascontiguousarray(self.solution[:,:,:,0])
-                    pointsData["Velocity"] = (np.ascontiguousarray(self.solution[:,:,:,1]/self.solution[:,:,:,0]),
-                                              np.ascontiguousarray(self.solution[:,:,:,2]/self.solution[:,:,:,0]),
-                                              np.ascontiguousarray(self.solution[:,:,:,3]/self.solution[:,:,:,0]))
-                    pointsData["Mach"] = np.ascontiguousarray(self.GetMachSolution(self.solution))
-                    pointsData["Pressure"] = np.ascontiguousarray(self.GetPressureSolution(self.solution))
-                    pointsData["Temperature"] = np.ascontiguousarray(self.GetTemperatureSolution(self.solution))
+                    pointsData["Density [kg/m³]"] = np.ascontiguousarray(self.solution[:,:,:,0])
+                    pointsData["Velocity [m/s]"] = (np.ascontiguousarray(self.solution[:,:,:,1]/self.solution[:,:,:,0]),
+                                                    np.ascontiguousarray(self.solution[:,:,:,2]/self.solution[:,:,:,0]),
+                                                    np.ascontiguousarray(self.solution[:,:,:,3]/self.solution[:,:,:,0]))
+                    pointsData["Mach [-]"] = np.ascontiguousarray(self.GetMachSolution(self.solution))
+                    pointsData["Pressure [Pa]"] = np.ascontiguousarray(self.GetPressureSolution(self.solution))
+                    pointsData["Total Pressure [Pa]"] = np.ascontiguousarray(self.GetTotalPressureSolution(self.solution))
+                    pointsData["Temperature [K]"] = np.ascontiguousarray(self.GetTemperatureSolution(self.solution))
+                    pointsData["Total Temperature [K]"] = np.ascontiguousarray(self.GetTotalTemperatureSolution(self.solution))
+                    pointsData[" Entropy [J/kgK]"] = np.ascontiguousarray(self.GetEntropySolution(self.solution))
                     
                     if self.config.IsBFM() and self.config.GetTurboOutput():
                         w = self.GetRelativeVelocitySolution(self.solution)
-                        pointsData['Velocity_Relative'] = (np.ascontiguousarray(w[:,:,:,0]),
-                                                           np.ascontiguousarray(w[:,:,:,1]),
-                                                           np.ascontiguousarray(w[:,:,:,2]))
+                        pointsData['Relative Velocity [m/s]'] = (np.ascontiguousarray(w[:,:,:,0]),
+                                                                 np.ascontiguousarray(w[:,:,:,1]),
+                                                                 np.ascontiguousarray(w[:,:,:,2]))
                         
-                        pointsData["Mach_Relative"] = np.ascontiguousarray(self.GetRelativeMachSolution(self.solution, w))
+                        pointsData["Relative Mach [-]"] = np.ascontiguousarray(self.GetRelativeMachSolution(self.solution, w))
 
-                        pointsData["BodyForce_Inviscid"] = (np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,1])/self.mesh.V,
-                                                            np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,2])/self.mesh.V,
-                                                            np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,3])/self.mesh.V)
+                        pointsData["Inviscid Body Force [N/m³]"] = (np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,1])/self.mesh.V,
+                                                                    np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,2])/self.mesh.V,
+                                                                    np.ascontiguousarray(self.body_force_source_inviscid[:,:,:,3])/self.mesh.V)
                         
-                        pointsData["BodyForce_Viscous"] = (np.ascontiguousarray(self.body_force_source_viscous[:,:,:,1])/self.mesh.V,
-                                                        np.ascontiguousarray(self.body_force_source_viscous[:,:,:,2])/self.mesh.V,
-                                                        np.ascontiguousarray(self.body_force_source_viscous[:,:,:,3])/self.mesh.V)
+                        pointsData["Viscous Body Force [N/m³]"] = (np.ascontiguousarray(self.body_force_source_viscous[:,:,:,1])/self.mesh.V,
+                                                                   np.ascontiguousarray(self.body_force_source_viscous[:,:,:,2])/self.mesh.V,
+                                                                   np.ascontiguousarray(self.body_force_source_viscous[:,:,:,3])/self.mesh.V)
                     
                     gridToVTK('Results_VTK/' + output_filename, 
                               np.ascontiguousarray(self.mesh.X), # x coords
                               np.ascontiguousarray(self.mesh.Y), # y coords
                               np.ascontiguousarray(self.mesh.Z), # z coords
                               pointData=pointsData)              # flow fields
+                    
+                    print('|Saved %s.vts in Results_VTK folder' %output_filename)
+                    print("|" + "-" * ((col_width)*7+6) + "|")
                     
 
     def ComputeGradient(self, phi):

@@ -126,5 +126,17 @@ class FluidIdeal():
         a = self.ComputeSoundSpeed_rho_u_et(rho, umag, et)
         M = umag/a
         return M
+    
+    def ComputeTotalPressure_p_M(self, pressure, mach):
+        totalPressure = pressure*(1+(self.gmma-1)/2*mach**2)**(self.gmma/(self.gmma-1))
+        return totalPressure
+    
+    def ComputeTotalTemperature_T_M(self, temperature, mach):
+        totalTemp = temperature*(1+(self.gmma-1)/2*mach**2)
+        return totalTemp
+    
+    def ComputeEntropy_p_rho(self, pressure, density):
+        entropy = pressure/(density**self.gmma)
+        return entropy
 
 

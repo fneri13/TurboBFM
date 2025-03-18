@@ -220,7 +220,8 @@ class CPostProcess():
         rho = data[:,:,0]
         ux = data[:,:,1]/data[:,:,0]
         uy = data[:,:,2]/data[:,:,0]
-        umag = np.sqrt(ux**2+uy**2)
+        uz = data[:,:,3]/data[:,:,0]
+        umag = np.sqrt(ux**2+uy**2+uz**2)
         et = data[:,:,-1]/data[:,:,0]
         M = self.fluid.ComputeMachNumber_rho_umag_et(rho, umag, et)
         return M

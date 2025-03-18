@@ -961,7 +961,30 @@ class CEulerSolver(CSolver):
                     U = GetPrimitivesFromConservatives(solution[i,j,k,:])
                     p[i,j,k] = self.fluid.ComputePressure_rho_u_et(U[0], U[1:-1], U[-1])
         return p
+    
+    def GetTotalPressureSolution(self, solution):
+        """
+        Return the total pressure array correspoding to solution
+        """
+        pressure = self.GetPressureSolution(solution)
+        mach = self.GetMachSolution(solution)
+        totalPressure = self.fluid.ComputeTotalPressure_p_M(pressure, mach)
+        return totalPressure
+    
+    def GetTotalTemperatureSolution(self, solution):
+        """
+        Return the total temp array correspoding to solution
+        """
+        temperature = self.GetTemperatureSolution(solution)
+        mach = self.GetMachSolution(solution)
+        totalTemp = self.fluid.ComputeTotalTemperature_T_M(temperature, mach)
+        return totalTemp
 
+    def GetEntropySolution(self, solution):
+        pressure = self.GetPressureSolution(solution)
+        density = solution[:,:,:,0]
+        entropy = self.fluid.ComputeEntropy_p_rho(pressure, density)
+        return entropy
 
     def GetTemperatureSolution(self, solution):
         """
