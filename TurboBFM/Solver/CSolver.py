@@ -157,7 +157,9 @@ class CSolver(ABC):
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_radial[:,:,0], r'$f_{r}$ [-]')
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_tangential[:,:,0], r'$f_{\theta}$ [-]')
 
+        it_ramp = 0
         for it in range(nIter): 
+            it_ramp += 1
 
             if self.config.GetRestartSolution(): # if the solution was restarted update the it number
                 it += (self.restart_iterations+1)
@@ -190,6 +192,7 @@ class CSolver(ABC):
                 alpha = rk_coeff[iStep]
                 fluxResiduals = self.ComputeFluxResiduals(sol_old)
                 sourceTerms = self.ComputeSourceTerm(sol_old)
+                sourceTerms *= self.GetSourceRampCoefficient(it_ramp)
 
                 sol_new = self.solution.copy() 
                 for iEq in range(self.nEq):
@@ -208,6 +211,11 @@ class CSolver(ABC):
             self.CheckConvergence(self.solution, it+1) # proceed only if nans are not found
             self.SaveSolution(it, nIter)
 
+    def GetSourceRampCoefficient(self, itRamp):
+        totalRampIterations = self.config.GetSourceRampIterations()
+        coeff = itRamp/totalRampIterations
+        return coeff
+    
 
     def ComputeFluxResiduals(self, sol):
         """

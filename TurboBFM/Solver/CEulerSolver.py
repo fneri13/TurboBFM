@@ -59,7 +59,7 @@ class CEulerSolver(CSolver):
             print('Initial Mach [-]:                        %.2f' %(self.config.GetInitMach()))
             print('Initial Temperature [K]:                 %.2f' %(self.config.GetInitTemperature()))
             print('Initial Pressure [kPa]:                  %.2f' %(self.config.GetInitPressure()/1e3))
-            print('Initial flow direction [-]:              (%.2f, %.2f, %.2f)' %(dir[0], dir[1], dir[2]))
+            print('Initial flow direction [-]:              %s' %(dir))
             print('Boundary type at i=0:                    %s' %(self.GetBoundaryCondition('i', 'begin')[0]))
             print('Boundary type at i=ni:                   %s' %(self.GetBoundaryCondition('i', 'end')[0]))
             print('Boundary type at j=0:                    %s' %(self.GetBoundaryCondition('j', 'begin')[0]))
@@ -150,12 +150,23 @@ class CEulerSolver(CSolver):
             T = self.config.GetInitTemperature()
             P = self.config.GetInitPressure()
             dir = self.config.GetInitDirection()
-            rho, u , et = self.ComputeInitFields(M, T, P, dir)
+            rho, uMagnitude , et = self.ComputeInitFields(M, T, P)
+            
             primitives = np.zeros((self.ni, self.nj, self.nk, 5))
             primitives[:,:,:,0] = rho
-            primitives[:,:,:,1] = u[0]
-            primitives[:,:,:,2] = u[1]
-            primitives[:,:,:,3] = u[2]
+            
+            if isinstance(dir, np.ndarray):
+                initDirection = dir/np.linalg.norm(dir)
+                primitives[:,:,:,1] = uMagnitude*initDirection[0]
+                primitives[:,:,:,2] = uMagnitude*initDirection[1]
+                primitives[:,:,:,3] = uMagnitude*initDirection[2]
+            elif dir=='adaptive':
+                # the flow direction follows the i-direction of the grid
+                initDirection = self.mesh.getGridDirection('i')
+                primitives[:,:,:,1] = uMagnitude*initDirection[:,:,:,0]
+                primitives[:,:,:,2] = uMagnitude*initDirection[:,:,:,1]
+                primitives[:,:,:,3] = uMagnitude*initDirection[:,:,:,2]
+            
             primitives[:,:,:,4] = et
 
             for i in range(self.ni):
@@ -405,7 +416,7 @@ class CEulerSolver(CSolver):
         contour_template(array, names, idx)
 
         
-    def ComputeInitFields(self, M: float, T: float, P: float, dir: np.ndarray):
+    def ComputeInitFields(self, M: float, T: float, P: float):
         """
         Compute initialization values from the specified parameters
 
@@ -433,11 +444,9 @@ class CEulerSolver(CSolver):
         R = self.config.GetFluidRConstant()
         ss = np.sqrt(gmma*R*T)
         u_mag = ss*M
-        dir /= np.linalg.norm(dir)
-        u = u_mag*dir
         rho = P/R/T
         et = (P / (gmma - 1) / rho) + 0.5*u_mag**2
-        return rho, u, et
+        return rho, u_mag, et
            
     @override
     def SpatialIntegration(self, dir, Sol, Res):

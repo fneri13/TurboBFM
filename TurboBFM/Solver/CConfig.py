@@ -137,9 +137,12 @@ class CConfig:
     
 
     def GetInitDirection(self) -> np.ndarray:
-        dir = self.config_parser.get('CFD', 'INIT_DIRECTION')
-        dir = [float(x.strip()) for x in dir.split(',')]
-        return np.array(dir)
+        try:
+            dir = self.config_parser.get('CFD', 'INIT_DIRECTION')
+            dir = [float(x.strip()) for x in dir.split(',')]
+            return np.array(dir)
+        except:
+            return 'adaptive'
     
 
     def GetCFL(self) -> float:
@@ -230,6 +233,13 @@ class CConfig:
             return False
         else:
             raise ValueError('Unknown time step method')
+    
+    
+    def GetSourceRampIterations(self) -> float:
+        try:
+            return float(self.config_parser.get('CFD', 'SOURCE_RAMP_ITERATIONS'))
+        except:
+            return 500 # default
     
 
     def GetTimeStepLocal(self) -> bool:

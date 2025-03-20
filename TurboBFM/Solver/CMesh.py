@@ -821,6 +821,50 @@ class CMesh():
         if save_filename is not None:
             os.makedirs('Pictures')
             plt.savefig('Pictures/%s.pdf', bbox_inches='tight')
+    
+    
+    def getGridDirection(self, grid_direction):
+        """For every mesh point get the direction vector connecting it to hig neighbor
+
+        Args:
+            grid_direction (str): along which computational axis get the direction (only i for the moment)
+
+        Raises:
+            ValueError: if other axis are taken
+
+        Returns:
+            np.ndarray: direction vectors arrays
+        """
+        if grid_direction!='i':
+            raise ValueError('The grid direction must be i. Ohter directions are not implemented for the moment')
+        
+        # take care of those cases where nk is only 1
+        if self.nk==1:
+            rangeK = 1
+        else:
+            rangeK = self.nk
+                    
+        direction = np.zeros((self.ni, self.nj, self.nk, 3))
+        for i in range(self.ni-1):
+            for j in range(self.nj-1):
+                for k in range(rangeK):
+                    deltaX = self.X[i+1,j,k] - self.X[i,j,k]
+                    deltaY = self.Y[i+1,j,k] - self.Y[i,j,k] 
+                    deltaZ = self.Z[i+1,j,k] - self.Z[i,j,k]
+                    deltaS = np.sqrt(deltaX**2 + deltaY**2 + deltaZ**2)
+                    direction[i,j,k,0] = deltaX/deltaS
+                    direction[i,j,k,1] = deltaY/deltaS
+                    direction[i,j,k,2] = deltaZ/deltaS
+        
+        # copy the last values from the last-1
+        direction[-1,:,:,:] = direction[-2,:,:,:]
+        direction[:,-1,:,:] = direction[:,-2,:,:]
+        try:
+            direction[:,:,-1,:] = direction[:,:,:-2,:]
+        except:
+            pass
+        
+        return direction
         
 
 
