@@ -5,6 +5,7 @@ from TurboBFM.Solver.CMesh import CMesh
 from TurboBFM.Solver.CFluid import FluidIdeal
 from TurboBFM.Solver.math import ComputeCylindricalVectorFromCartesian, ComputeCartesianVectorFromCylindrical
 from TurboBFM.Solver.euler_functions import GetPrimitivesFromConservatives
+from numpy import sin,cos,tan,arctan2,arccos,arcsin,pi
 
 class CBFMSource():
     """
@@ -18,6 +19,7 @@ class CBFMSource():
         self.solver = solver
         self.blockageActive = config.GetBlockageActive()
         self.model = config.GetBFMModel()
+        self.deviationAngle = np.zeros_like(self.solver.mesh.X)
     
 
     def ComputeBlockageSource(self, i, j, k, block_source_type='thollet') -> np.ndarray:
@@ -138,44 +140,41 @@ class CBFMSource():
 
         `source`: np.ndarray of size 5 containing the source terms (the dimension for the momentum equations is [N/m^3])
         """
-        x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
-        r = np.sqrt(y**2+z**2)
-        theta = np.arctan2(z, y)
-        conservative = self.solver.solution[i,j,k,:]  # conservative vector
+        xNode, yNode, zNode = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
+        radius = np.sqrt(yNode**2+zNode**2)
+        conservative = self.solver.solution[i,j,k,:]
         primitive = GetPrimitivesFromConservatives(conservative)
-        rho = primitive[0]
-        u_cart = primitive[1:-1]  # cartesian absolute velocity
-        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
+        density = primitive[0]
+        velocityCartesian = primitive[1:-1]  # cartesian absolute velocity
+        velocityCylindric = ComputeCylindricalVectorFromCartesian(xNode, yNode, zNode, velocityCartesian)
         omega = self.solver.mesh.omega[i,j]
-        drag_velocity_cyl = np.array([0, 0, omega*r])
-        w_cyl = u_cyl-drag_velocity_cyl
+        dragVelocityCylindric = np.array([0, 0, omega*radius])
+        relativeVelocityCylindric = velocityCylindric-dragVelocityCylindric
         numberBlades = self.solver.mesh.numberBlades[i,j]
         if numberBlades==0:
             raise ValueError('No blades found in cell %i, %i, %i, where the Hall source term is trying to be computed' %(i,j,k))
+        pitch = 2*np.pi*radius/numberBlades
+        normalCamberAxial = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
+        normalCamberRadial = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
+        normalCamberTangential = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
+        normalCamberCylindric = np.array([normalCamberAxial, normalCamberRadial, normalCamberTangential])
+        deviationAngle = self.ComputeDeviationAngle(relativeVelocityCylindric, normalCamberCylindric)
+        self.deviationAngle[i,j,k] = deviationAngle # bookkeep this in memory for later output in vtk file
         
-        pitch = 2*np.pi*r/numberBlades
-        n_camber_ax = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
-        n_camber_rad = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
-        n_camber_tan = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
-        n_vector_cyl = np.array([n_camber_ax, n_camber_rad, n_camber_tan])
-        deviationAngle = self.ComputeAbsDeviationAngle(w_cyl, n_vector_cyl)
-        fn_magnitude = np.linalg.norm(w_cyl)**2 * np.pi * deviationAngle / pitch / np.abs(n_camber_tan)
-        fn_versor = self.ComputeInviscidForceDirection(w_cyl, n_vector_cyl)
-
-        # if np.abs(omega)<1:
-        #     fn_versor *= -1 # if it is a stator, for sure it pushes in the opposite direction of rotors
+        forceMagnitude = np.linalg.norm(relativeVelocityCylindric)**2 * np.pi * deviationAngle / pitch / np.abs(normalCamberTangential)
+        forceVersorCylindric = self.ComputeInviscidForceDirection(relativeVelocityCylindric, normalCamberCylindric)
+        forceCylindric = forceMagnitude*forceVersorCylindric
+        forceCartesian = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, forceCylindric)
         
-        fn_cyl = fn_magnitude*fn_versor
-        fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
-        source_inviscid = np.zeros(5)
-        source_inviscid[1] = fn_cart[0]
-        source_inviscid[2] = fn_cart[1]
-        source_inviscid[3] = fn_cart[2]
-        source_inviscid[4] = fn_cyl[2]*omega*r
+        sourceInviscid = np.zeros(5)
+        sourceInviscid[1] = forceCartesian[0]
+        sourceInviscid[2] = forceCartesian[1]
+        sourceInviscid[3] = forceCartesian[2]
+        sourceInviscid[4] = forceCylindric[2]*omega*radius
+    
+        sourceViscous = np.zeros(5)
         
-        source_viscous = np.zeros(5)
-        
-        return source_inviscid*rho, source_viscous*rho
+        return sourceInviscid*density, sourceViscous*density
     
 
     def ComputeHallTholletForceDensity(self, i, j, k):
@@ -314,14 +313,16 @@ class CBFMSource():
         return source_inviscid*density, source_viscous*density
     
 
-    def ComputeAbsDeviationAngle(self, w, n):
+    def ComputeDeviationAngle(self, w, n):
         """
-        Compute the absolute value of the deviation angle between the velocity vector and the camber surface defined by n
+        Compute the value of the deviation angle between the velocity vector and the camber surface defined by n.
+        The convention here is that the angle is positive when the relative velocity vector has negative component
+        along the direction of the camber normal, since the normal is oriented from SS to PS side of the blade (the push direction).
         """
         n /= np.linalg.norm(n)
         wn = np.dot(w, n)
-        delta = np.arcsin(wn/np.linalg.norm(w))
-        return np.abs(delta)
+        delta = -np.arcsin(wn/np.linalg.norm(w)) # positive deviation angle when w points in the oppositve direction as n
+        return delta
     
 
     def ComputeInviscidForceDirection(self, w: np.ndarray, n: np.ndarray) -> np.ndarray:
@@ -344,25 +345,26 @@ class CBFMSource():
 
         `fn_dir`: the inviscid force direction in cylindrical coordinates (axial, radial, tangential)
         """
-        w += 1e-3
+        
+        w += 1e-6
         w_dir = w/np.linalg.norm(w) 
         n_dir = n/np.linalg.norm(n)
-        
-        # axial=1, radial=2, tangential=3 are the indices
         w_ax = w_dir[0]
         w_rad = w_dir[1]
         w_tan = w_dir[2]
-
         n_ax = n_dir[0]
         n_rad = n_dir[1]
         n_tan = n_dir[2]
-        
         A = w_tan**2 + w_ax**2
         B = 2 * w_rad * w_ax * n_rad
         C = (w_tan**2 * n_rad**2) + (w_rad**2 * n_rad**2) - w_tan**2 
+        deltaEquation = B**2-4*A*C
         
-        fAxial_1 = (-B + np.sqrt(B**2-4*A*C))/2/A
-        fAxial_2 = (-B - np.sqrt(B**2-4*A*C))/2/A
+        if deltaEquation < 0:
+            print('Delta quadratic equation negative')
+        
+        fAxial_1 = (-B + np.sqrt(deltaEquation))/2/A
+        fAxial_2 = (-B - np.sqrt(deltaEquation))/2/A
         
         def compute_tangential(fax):
             ftan = (-w_ax*fax - w_rad*n_rad)/w_tan
@@ -387,6 +389,27 @@ class CBFMSource():
             fn_dir = np.array([-w_dir[2], 0, w_dir[0]])
 
         return fn_dir
+    
+    
+    def ComputeInviscidForceDirection_MagriniFormula(self, w: np.ndarray, n: np.ndarray) -> np.ndarray:
+        w_dir = w/np.linalg.norm(w)
+        n_dir = n/np.linalg.norm(n)
+        beta = np.arctan2(w[2],w[0])
+        lmbda = np.arctan2(w[1], np.sqrt(w[0]**2+w[2]**2))
+        delta = - np.arccos(n[1])
+        delta = 0
+        fn_axial = -sin(delta)*sin(lmbda)*cos(beta) + cos(delta)*sin(beta)
+        fn_radial = -sin(delta)*cos(beta)
+        fn_tan = -sin(delta)*sin(lmbda)*sin(beta)-cos(delta)*cos(beta)
+        
+        fn_versor = np.array([fn_axial, fn_radial, fn_tan])
+        norm = np.linalg.norm(fn_versor)
+        
+        if np.dot(fn_versor, n)<0:
+            fn_versor *= -1
+        
+        return fn_versor
+        
 
 
     def ComputeCompressibilityCorrection(self, w, primitive):
