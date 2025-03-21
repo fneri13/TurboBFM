@@ -55,7 +55,7 @@ class CPostProcess():
             plt.savefig(self.pictures_folder + '/' + save_filename + '.pdf', bbox_inches='tight')
 
 
-    def PlotMassFlow(self, save_filename=None, dim=2):
+    def PlotMassFlow(self, save_filename=None, dim=2, topology='axisymmetric'):
         """
         Plot the residuals. If drop=True shift to zero value at first iteration. If dim=2 it doesn't plot the residual for the z-momentum
         """
@@ -69,9 +69,13 @@ class CPostProcess():
         
         markers = ['-o', '-s', '->', '-<', '-^', '-o']
         
+        if topology == 'axisymmetric':
+            rangeLoop = 4
+        else:
+            rangeLoop = len(names)
+        
         plt.figure()
-
-        for i in range(len(self.data['MassFlow'])):
+        for i in range(rangeLoop):
             plt.plot(self.data['MassFlow'][i], markers[i], mfc='none', label=names[i])
         plt.grid(alpha = styles.grid_opacity)
         plt.xlabel('Iterations [-]')
