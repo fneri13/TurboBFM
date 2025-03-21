@@ -748,7 +748,9 @@ class CEulerSolver(CSolver):
 
     def ComputeMassFlow(self, direction: str, location: str) -> float:
         """
-        Compute the mass flow passing through a boundary defined by direction and location
+        Compute the mass flow passing through a boundary defined by direction and location. Just keep in mind that if the simulation is axisymmetric, 
+        the mass flows computed on the k-boundaries are not correct, since the velocity vectors don't lie on those boundaries, and the mass flow would therefore
+        be wrongly computed. In any case their behavior should be similar, given the projection vector of those boundaries.
         
         Parameters
         -------------------------
@@ -887,7 +889,7 @@ class CEulerSolver(CSolver):
         """
         Compute the blockage source terms for every cell element, depending on the actual solution `sol`
         """
-        bfm = CBFMSource(self.config, self)
+        self.bfm = CBFMSource(self.config, self)
         blockage_source = np.zeros_like(sol)
         self.body_force_source_inviscid = np.zeros_like(sol)
         self.body_force_source_viscous = np.zeros_like(sol)
@@ -900,11 +902,11 @@ class CEulerSolver(CSolver):
                         if np.linalg.norm(bgrad)<1e-9:
                             blockage_source[i,j,k,:] = np.zeros(5, dtype=float)
                         else: 
-                            blockage_source[i,j,k,:] = bfm.ComputeBlockageSource(i, j, k)
+                            blockage_source[i,j,k,:] = self.bfm.ComputeBlockageSource(i, j, k)
                     
                     if self.config.GetBFMModel().lower()!='none':
                         if self.mesh.bladeIsPresent[i,j]>0.5:
-                            self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = bfm.ComputeForceSource(i,j,k)  
+                            self.body_force_source_inviscid[i,j,k,:], self.body_force_source_viscous[i,j,k,:] = self.bfm.ComputeForceSource(i,j,k)  
                         else:
                             self.body_force_source_inviscid[i,j,k,:] = np.zeros(5, dtype=float)
                             self.body_force_source_viscous[i,j,k,:] = np.zeros(5, dtype=float)

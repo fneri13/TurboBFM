@@ -239,7 +239,7 @@ class CConfig:
         try:
             return float(self.config_parser.get('CFD', 'SOURCE_RAMP_ITERATIONS'))
         except:
-            return 500 # default
+            return 0 # default
     
 
     def GetTimeStepLocal(self) -> bool:

@@ -117,6 +117,7 @@ class CSolver(ABC):
             print('The BFM mode is active')
             print('Blockage active: %s' %self.config.GetBlockageActive())
             print('BFM model: %s' %self.config.GetBFMModel())
+            print('Source Term Ramp Iterations: %i' %self.config.GetSourceRampIterations())
             print('======================= END BFM INFORMATION =======================\n')
             
             BFModel = self.config.GetBFMModel().lower()
@@ -213,7 +214,12 @@ class CSolver(ABC):
 
     def GetSourceRampCoefficient(self, itRamp):
         totalRampIterations = self.config.GetSourceRampIterations()
+        if totalRampIterations < 1:
+            return 1
+        
         coeff = itRamp/totalRampIterations
+        if coeff>=1:
+            coeff = 1
         return coeff
     
 
@@ -383,6 +389,18 @@ class CSolver(ABC):
                         pointsData["Viscous Body Force [N/m³]"] = (np.ascontiguousarray(self.body_force_source_viscous[:,:,:,1])/self.mesh.V,
                                                                    np.ascontiguousarray(self.body_force_source_viscous[:,:,:,2])/self.mesh.V,
                                                                    np.ascontiguousarray(self.body_force_source_viscous[:,:,:,3])/self.mesh.V)
+                        
+                        try: # if the blade camber is available, include it in the output
+                            pointsData["Camber Normal [-]"] = (np.ascontiguousarray(self.mesh.normalCamberCartesian[:,:,:,0]),
+                                                               np.ascontiguousarray(self.mesh.normalCamberCartesian[:,:,:,1]),
+                                                               np.ascontiguousarray(self.mesh.normalCamberCartesian[:,:,:,2]))
+                        except:
+                            pass
+                        
+                        try:
+                            pointsData["Deviation Angle [deg]"] = np.ascontiguousarray(self.bfm.deviationAngle*180/np.pi)
+                        except:
+                            pass
                     
                     gridToVTK('Results_VTK/' + output_filename, 
                               np.ascontiguousarray(self.mesh.X), # x coords

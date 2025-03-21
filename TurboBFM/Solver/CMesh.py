@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D 
 from TurboBFM.Solver.CConfig import CConfig
 from TurboBFM.Postprocess import styles
+from TurboBFM.Solver.math import ComputeCartesianVectorFromCylindrical, ComputeCylindricalVectorFromCartesian
 import pyvista as pv
 import pickle
 import os
@@ -742,6 +743,8 @@ class CMesh():
         self.normal_camber_cyl['Axial'] = normal['Axial']
         self.normal_camber_cyl['Radial'] = normal['Radial'] 
         self.normal_camber_cyl['Tangential'] = normal['Tangential']
+        
+        self.normalCamberCartesian = self.Get3DNormalCamberCartesian()
     
 
     def AddRPMGrid(self):
@@ -865,6 +868,28 @@ class CMesh():
             pass
         
         return direction
+    
+    def Get3DNormalCamberCartesian(self):
+        """Transform the 2D array of blade camber vector in cylindrical component to a 3D array of camber vector in 
+        cartesian component associated to every cell
+
+        Returns:
+            np.ndarray: camber normal vector in cartesian component for every mesh node
+        """
+        normalCamberCartesian = np.zeros((self.ni,self.nj,self.nk,3))
+        for i in range(self.ni):
+            for j in range(self.nj):
+                for k in range(self.nk):
+                    normalRadial = self.normal_camber_cyl["Radial"][i,j]
+                    normalTangential = self.normal_camber_cyl["Tangential"][i,j]
+                    normalAxial = self.normal_camber_cyl["Axial"][i,j]
+                    normalCylindric = np.array([normalAxial, normalRadial, normalTangential])
+                    x, y, z = self.X[i,j,k], self.Y[i,j,k], self.Z[i,j,k]
+                    normalCartesian = ComputeCartesianVectorFromCylindrical(x, y, z, normalCylindric)
+                    for iDir in range(3):
+                        normalCamberCartesian[i,j,k,iDir] = normalCartesian[iDir]
+        return normalCamberCartesian
+        
         
 
 
