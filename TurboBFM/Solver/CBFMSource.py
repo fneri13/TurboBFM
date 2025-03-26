@@ -195,60 +195,57 @@ class CBFMSource():
 
         `source`: np.ndarray of size 5 containing the source terms (the dimension for the momentum equations is [N/m^3])
         """
-        x, y, z = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
-        r = np.sqrt(y**2+z**2)
-        theta = np.arctan2(z, y)
-        primitive = GetPrimitivesFromConservatives(self.solver.solution[i,j,k,:])
-        u_cart = primitive[1:-1]  
-        u_cyl = ComputeCylindricalVectorFromCartesian(x, y, z, u_cart)
+        xNode, yNode, zNode = self.solver.mesh.X[i,j,k], self.solver.mesh.Y[i,j,k], self.solver.mesh.Z[i,j,k]
+        radius = np.sqrt(yNode**2+zNode**2)
+        conservative = self.solver.solution[i,j,k,:]
+        primitive = GetPrimitivesFromConservatives(conservative)
+        density = primitive[0]
+        velocityCartesian = primitive[1:-1]  # cartesian absolute velocity
+        velocityCylindric = ComputeCylindricalVectorFromCartesian(xNode, yNode, zNode, velocityCartesian)
         omega = self.solver.mesh.omega[i,j]
-        drag_velocity_cyl = np.array([0, 0, omega*r])
-        w_cyl = u_cyl-drag_velocity_cyl
+        dragVelocityCylindric = np.array([0, 0, omega*radius])
+        relativeVelocityCylindric = velocityCylindric-dragVelocityCylindric
         numberBlades = self.solver.mesh.numberBlades[i,j]
         if numberBlades==0:
             raise ValueError('No blades found in cell %i, %i, %i, where the Hall source term is trying to be computed' %(i,j,k))
-        
-        pitch = 2*np.pi*r/numberBlades
-        n_camber_ax = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
-        n_camber_rad = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
-        n_camber_tan = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
-        n_vector_cyl = np.array([n_camber_ax, n_camber_rad, n_camber_tan])
-        deviationAngle = self.ComputeAbsDeviationAngle(w_cyl, n_vector_cyl)
-        b = self.solver.mesh.blockage[i,j,k]
-        Kmach = self.ComputeCompressibilityCorrection(w_cyl, primitive)
+        pitch = 2*np.pi*radius/numberBlades
+        normalCamberAxial = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
+        normalCamberRadial = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
+        normalCamberTangential = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
+        normalCamberCylindric = np.array([normalCamberAxial, normalCamberRadial, normalCamberTangential])
+        deviationAngle = self.ComputeDeviationAngle(relativeVelocityCylindric, normalCamberCylindric)
+        self.deviationAngle[i,j,k] = deviationAngle # bookkeep this in memory for later output in vtk file
         
         # inviscid component
-        fn = Kmach * np.linalg.norm(w_cyl)**2 * np.pi * np.abs(deviationAngle) / pitch / np.abs(n_camber_tan) / b
-        fn_versor = self.ComputeInviscidForceDirection(w_cyl, n_vector_cyl)
-
-        if np.abs(omega)<1:
-            fn_versor *= -1
-            
+        blockage = self.solver.mesh.blockage[i,j,k]
+        Kmach = self.ComputeCompressibilityCorrection(relativeVelocityCylindric, primitive)
+        fn = Kmach * np.linalg.norm(relativeVelocityCylindric)**2 * np.pi * deviationAngle / pitch / np.abs(normalCamberTangential) / blockage
+        fn_versor = self.ComputeInviscidForceDirection(relativeVelocityCylindric, normalCamberCylindric)
         fn_cyl = fn*fn_versor
-        fn_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fn_cyl)
+        fn_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fn_cyl)
 
         # viscous component
         rho = primitive[0]
         nu = self.config.GetKinematicViscosity()
-        Rex = np.linalg.norm(w_cyl) * self.solver.mesh.stwl[i,j] / nu
+        Rex = np.linalg.norm(relativeVelocityCylindric) * self.solver.mesh.stwl[i,j] / nu
         Cf = 0.0592*Rex**(-0.2)
         delta0 = deviationAngle  # this could be calibrated later, from the deviation of the float at peak efficiency
-        fp = np.linalg.norm(w_cyl)**2/(pitch*b*np.abs(n_camber_tan)) * (Cf + np.pi*Kmach*(deviationAngle-delta0))
-        fp_vers_cyl = -w_cyl/np.linalg.norm(w_cyl) # opposite to the relative velocity
+        fp = np.linalg.norm(relativeVelocityCylindric)**2/(pitch*blockage*np.abs(normalCamberTangential)) * (Cf + np.pi*Kmach*(deviationAngle-delta0))
+        fp_vers_cyl = -relativeVelocityCylindric/np.linalg.norm(relativeVelocityCylindric) # opposite to the relative velocity
         fp_cyl = fp*fp_vers_cyl  
-        fp_cart = ComputeCartesianVectorFromCylindrical(x, y, z, fp_cyl)
+        fp_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fp_cyl)
 
         source_inviscid = np.zeros(5)
         source_inviscid[1] = fn_cart[0]
         source_inviscid[2] = fn_cart[1]
         source_inviscid[3] = fn_cart[2]
-        source_inviscid[4] = (fn_cyl[2])*omega*r
+        source_inviscid[4] = (fn_cyl[2])*omega*radius
 
         source_viscous = np.zeros(5)
         source_viscous[1] = fp_cart[0]
         source_viscous[2] = fp_cart[1]
         source_viscous[3] = fp_cart[2]
-        source_viscous[4] = (fp_cyl[2])*omega*r
+        source_viscous[4] = (fp_cyl[2])*omega*radius
 
         return source_inviscid*rho, source_viscous*rho
     

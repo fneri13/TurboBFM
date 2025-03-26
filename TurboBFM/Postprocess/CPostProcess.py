@@ -547,8 +547,8 @@ class CPostProcess():
         print(r'Tot-to-Tot Temperature ratio [-]:       %.3f' %(trTT))
         print(r'Tot-to-Tot Efficiency [-]:              %.3f' %(etaTT))
 
-        if save_csv:
-            with open('performance.csv', 'w') as file:
-                file.write('MassFlow [kg/s],Betatt [-], Etatt[-]\n')
-                file.write('%6.3f,%6.3f,%6.3f' %(mflow, prTT, etaTT))
+        # if save_csv:
+        #     with open('performance.csv', 'w') as file:
+        #         file.write('MassFlow [kg/s],Betatt [-], Etatt[-]\n')
+        #         file.write('%6.3f,%6.3f,%6.3f' %(mflow, prTT, etaTT))
 
