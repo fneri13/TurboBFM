@@ -877,21 +877,21 @@ class CEulerSolver(CSolver):
         return primitives
     
     @override
-    def ComputeSourceTerm(self, sol):
+    def ComputeSourceTerm(self, sol, iterationCounter):
         """
         Compute the source term for a certain solution
         """
         if self.config.IsBFM():
-            source = self.ComputeBFMSource(sol)
+            source = self.ComputeBFMSource(sol, iterationCounter)
         else:
             source = np.zeros_like(sol)
         return source
     
-    def ComputeBFMSource(self, sol):
+    def ComputeBFMSource(self, sol, iterationCounter):
         """
         Compute the blockage source terms for every cell element, depending on the actual solution `sol`
         """
-        self.bfm = CBFMSource(self.config, self)
+        self.bfm = CBFMSource(self.config, self, iterationCounter)
         blockage_source = np.zeros_like(sol)
         self.body_force_source_inviscid = np.zeros_like(sol)
         self.body_force_source_viscous = np.zeros_like(sol)

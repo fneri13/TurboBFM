@@ -11,12 +11,13 @@ class CBFMSource():
     """
     BFM source Class, where all the source terms are computed
     """
-    def __init__(self, config, solver):
+    def __init__(self, config, solver, iterationCounter):
         """
         Initialize the BFM class with config file info
         """
         self.config = config
         self.solver = solver
+        self.iterationCounter = iterationCounter
         self.blockageActive = config.GetBlockageActive()
         self.model = config.GetBFMModel()
         self.deviationAngle = np.zeros_like(self.solver.mesh.X)
@@ -147,7 +148,7 @@ class CBFMSource():
         density = primitive[0]
         velocityCartesian = primitive[1:-1]  # cartesian absolute velocity
         velocityCylindric = ComputeCylindricalVectorFromCartesian(xNode, yNode, zNode, velocityCartesian)
-        omega = self.solver.mesh.omega[i,j]
+        omega = self.solver.mesh.omega[i,j]*self.config.getRotationalSpeedRampCoefficient(self.iterationCounter)
         dragVelocityCylindric = np.array([0, 0, omega*radius])
         relativeVelocityCylindric = velocityCylindric-dragVelocityCylindric
         numberBlades = self.solver.mesh.numberBlades[i,j]
@@ -202,7 +203,7 @@ class CBFMSource():
         density = primitive[0]
         velocityCartesian = primitive[1:-1]  # cartesian absolute velocity
         velocityCylindric = ComputeCylindricalVectorFromCartesian(xNode, yNode, zNode, velocityCartesian)
-        omega = self.solver.mesh.omega[i,j]
+        omega = self.solver.mesh.omega[i,j]*self.config.getRotationalSpeedRampCoefficient(self.iterationCounter)
         dragVelocityCylindric = np.array([0, 0, omega*radius])
         relativeVelocityCylindric = velocityCylindric-dragVelocityCylindric
         numberBlades = self.solver.mesh.numberBlades[i,j]

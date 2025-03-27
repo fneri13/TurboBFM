@@ -197,7 +197,7 @@ class CSolver(ABC):
             for iStep in range(len(rk_coeff)):      
                 alpha = rk_coeff[iStep]
                 fluxResiduals = self.ComputeFluxResiduals(sol_old, it)
-                sourceTerms = self.ComputeSourceTerm(sol_old)
+                sourceTerms = self.ComputeSourceTerm(sol_old, it)
                 sourceTerms *= self.GetSourceRampCoefficient(it_ramp)
 
                 sol_new = self.solution.copy() 
