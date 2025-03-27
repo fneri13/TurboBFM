@@ -60,13 +60,13 @@ class CEulerSolver(CSolver):
             print('Initial Temperature [K]:                 %.2f' %(self.config.GetInitTemperature()))
             print('Initial Pressure [kPa]:                  %.2f' %(self.config.GetInitPressure()/1e3))
             print('Initial flow direction [-]:              %s' %(dir))
-            print('Boundary type at i=0:                    %s' %(self.GetBoundaryCondition('i', 'begin')[0]))
-            print('Boundary type at i=ni:                   %s' %(self.GetBoundaryCondition('i', 'end')[0]))
-            print('Boundary type at j=0:                    %s' %(self.GetBoundaryCondition('j', 'begin')[0]))
-            print('Boundary type at j=nj:                   %s' %(self.GetBoundaryCondition('j', 'end')[0]))
+            print('Boundary type at i=0:                    %s' %(self.GetBoundaryCondition('i', 'begin', 1e6)[0]))
+            print('Boundary type at i=ni:                   %s' %(self.GetBoundaryCondition('i', 'end', 1e6)[0]))
+            print('Boundary type at j=0:                    %s' %(self.GetBoundaryCondition('j', 'begin', 1e6)[0]))
+            print('Boundary type at j=nj:                   %s' %(self.GetBoundaryCondition('j', 'end', 1e6)[0]))
             if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
-                print('Boundary type at k=0:                    %s' %(self.GetBoundaryCondition('k', 'begin')[0]))
-                print('Boundary type at k=nk:                   %s' %(self.GetBoundaryCondition('k', 'end')[0]))
+                print('Boundary type at k=0:                    %s' %(self.GetBoundaryCondition('k', 'begin', 1e6)[0]))
+                print('Boundary type at k=nk:                   %s' %(self.GetBoundaryCondition('k', 'end', 1e6)[0]))
             print('Inlet Total Pressure [kPa]:              %.2f' %(self.config.GetInletValue()[0]/1e3))
             print('Inlet Total Temperature [K]:             %.2f' %(self.config.GetInletValue()[1]))
             print('Inlet flow direction [-]:                (%.2f, %.2f, %.2f)' %(self.config.GetInletValue()[2], self.config.GetInletValue()[3], self.config.GetInletValue()[4]))
@@ -449,7 +449,7 @@ class CEulerSolver(CSolver):
         return rho, u_mag, et
            
     @override
-    def SpatialIntegration(self, dir, Sol, Res):
+    def SpatialIntegration(self, dir, Sol, Res, iterationCounter):
         """
         Perform spatial integration loop in a certain direction. 
 
@@ -461,6 +461,8 @@ class CEulerSolver(CSolver):
         `Sol`: array of the solution to use
 
         `Res`: residual arrays of the current time-step that will be updated
+        
+        `iterationCounter`: int, needed to get ramp coefficients
         """
         if dir=='i':
             step_mask = np.array([1, 0, 0])
@@ -492,7 +494,7 @@ class CEulerSolver(CSolver):
                         stop_face = nkF-1
                     
                     if dir_face==0: 
-                        bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin')
+                        bc_type, bc_value = self.GetBoundaryCondition(dir, 'begin', iterationCounter)
                         Ub = Sol[iFace, jFace, kFace, :]   
                         S = -Surf[iFace, jFace, kFace, :]
                         CG = midpS[iFace, jFace, kFace, :]       
@@ -503,7 +505,7 @@ class CEulerSolver(CSolver):
                         area = np.linalg.norm(S)
                         Res[iFace, jFace, kFace, :] += flux*area          
                     elif dir_face==stop_face:
-                        bc_type, bc_value = self.GetBoundaryCondition(dir, 'end')
+                        bc_type, bc_value = self.GetBoundaryCondition(dir, 'end', iterationCounter)
                         Ub = Sol[iFace-1*step_mask[0], jFace-1*step_mask[1], kFace-1*step_mask[2], :]      
                         S = Surf[iFace, jFace, kFace, :]  
                         CG = midpS[iFace, jFace, kFace, :]                   

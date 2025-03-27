@@ -241,6 +241,27 @@ class CConfig:
         except:
             return 0 # default
     
+    
+    def GetOutletPressureRampIterations(self) -> float:
+        try:
+            return float(self.config_parser.get('CFD', 'OUTLET_PRESSURE_RAMP_ITERATIONS'))
+        except:
+            return 0 # default
+    
+    def getOutletPressureRampCoefficient(self, iterationCounter) -> float:
+        iterationsMax = self.GetOutletPressureRampIterations()
+        coeff = iterationCounter/iterationsMax
+        if coeff>1:
+            coeff = 1
+        return coeff
+    
+    
+    def GetRotationalSpeedRampIterations(self) -> float:
+        try:
+            return float(self.config_parser.get('CFD', 'ROTATIONAL_SPEED_RAMP_ITERATIONS'))
+        except:
+            return 0 # default
+    
 
     def GetTimeStepLocal(self) -> bool:
         glob = self.GetTimeStepGlobal()

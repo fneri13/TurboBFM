@@ -81,7 +81,7 @@ class CSolver(ABC):
                                     'end': self.config.GetBoundaryTypeK()[1]}
         
     
-    def GetBoundaryCondition(self, direction: str, location: str):
+    def GetBoundaryCondition(self, direction: str, location: str, iterationCounter):
         """
         Get the boundary condition type and value for a specified direction and location
 
@@ -94,6 +94,11 @@ class CSolver(ABC):
         """
         bc_type = self.boundary_types[direction][location]
         bc_value = self.boundary_values[direction][location]
+        
+        if bc_type == 'outlet':
+            rampCoeff = self.config.getOutletPressureRampCoefficient(iterationCounter)
+            pressureInit = self.config.GetInitPressure()
+            bc_value = pressureInit + rampCoeff*(bc_value-pressureInit)
         return bc_type, bc_value
             
 
@@ -191,7 +196,7 @@ class CSolver(ABC):
             rk_coeff = self.config.GetRungeKuttaCoeffs()
             for iStep in range(len(rk_coeff)):      
                 alpha = rk_coeff[iStep]
-                fluxResiduals = self.ComputeFluxResiduals(sol_old)
+                fluxResiduals = self.ComputeFluxResiduals(sol_old, it)
                 sourceTerms = self.ComputeSourceTerm(sol_old)
                 sourceTerms *= self.GetSourceRampCoefficient(it_ramp)
 
@@ -223,7 +228,7 @@ class CSolver(ABC):
         return coeff
     
 
-    def ComputeFluxResiduals(self, sol):
+    def ComputeFluxResiduals(self, sol, iterationCounter):
         """
         For a given flow solution, compute the advection fluxes
         """
@@ -233,15 +238,15 @@ class CSolver(ABC):
 
         for dir in dirs:
             for loc in locs:
-                bc_type, bc_values = self.GetBoundaryCondition(dir, loc)
+                bc_type, bc_values = self.GetBoundaryCondition(dir, loc, iterationCounter)
                 if bc_type=='outlet_re':
                     self.radial_pressure_profile = self.ComputeRadialEquilibriumPressureProfile(sol, dir, loc, bc_values)
 
         fluxResidual = np.zeros_like(sol)
-        self.SpatialIntegration('i', sol, fluxResidual)
-        self.SpatialIntegration('j', sol, fluxResidual)
+        self.SpatialIntegration('i', sol, fluxResidual, iterationCounter)
+        self.SpatialIntegration('j', sol, fluxResidual, iterationCounter)
         if self.nDim==3 or (self.nDim==2 and self.config.GetTopology()=='axisymmetric'):
-            self.SpatialIntegration('k', sol, fluxResidual)
+            self.SpatialIntegration('k', sol, fluxResidual, iterationCounter)
 
         return fluxResidual
 
