@@ -406,6 +406,15 @@ class CSolver(ABC):
                             pointsData["Deviation Angle [deg]"] = np.ascontiguousarray(self.bfm.deviationAngle*180/np.pi)
                         except:
                             pass
+                        
+                        try:
+                            pointsData["Blockage [-]"] = np.ascontiguousarray(self.mesh.blockage)
+                            blockageGradient = self.mesh.blockage_gradient
+                            pointsData["Blockage Gradient [1/m]"] = (np.ascontiguousarray(blockageGradient[:,:,:,0]),
+                                                                     np.ascontiguousarray(blockageGradient[:,:,:,1]),
+                                                                     np.ascontiguousarray(blockageGradient[:,:,:,2]))
+                        except:
+                            pass
                     
                     gridToVTK('Results_VTK/' + output_filename, 
                               np.ascontiguousarray(self.mesh.X), # x coords
