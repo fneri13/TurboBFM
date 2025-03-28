@@ -359,6 +359,10 @@ class CPostProcess():
             name = 'VelocityY'
             label = r'$u_y \ \rm{[m/s]}$'
             field2D = self.data['U'][:,:,idx_k,2]/self.data['U'][:,:,idx_k,0]
+        elif field_name.lower()=='uz':
+            name = 'VelocityZ'
+            label = r'$u_z \ \rm{[m/s]}$'
+            field2D = self.data['U'][:,:,idx_k,3]/self.data['U'][:,:,idx_k,0]
         elif field_name.lower()=='et':
             name = 'TotalEnergy'
             label = r'$e_t \ \rm{[J/kg]}$'
