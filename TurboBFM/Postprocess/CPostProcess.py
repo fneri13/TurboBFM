@@ -542,13 +542,13 @@ class CPostProcess():
         if axisymmetric: mflow*=360
         prTT = self.data['PRtt'][-1]
         etaTT = self.data['ETAtt'][-1]
-        trTT = self.data['TRtt'][-1]
+        # trTT = self.data['TRtt'][-1]
         
         print()
         print('TURBOMACHINERY PERFORMANCE')
         print(r'Mass Flow [kg/s]:                       %.3f' %(mflow))
         print(r'Tot-to-Tot Pressure ratio [-]:          %.3f' %(prTT))
-        print(r'Tot-to-Tot Temperature ratio [-]:       %.3f' %(trTT))
+        # print(r'Tot-to-Tot Temperature ratio [-]:       %.3f' %(trTT))
         print(r'Tot-to-Tot Efficiency [-]:              %.3f' %(etaTT))
 
         # if save_csv:

@@ -757,6 +757,15 @@ class CMesh():
         self.omega = 2*np.pi*rpm/60
         self.rotation_axis = self.config.GetRotationAxis()
     
+    
+    def AddBFCalibrationCoefficients(self):
+        """
+        Add the BF calibration coefficients grid associated with every cell element. 
+        """
+        with open(self.config.GetGridFilepath(), 'rb') as file:
+            data = pickle.load(file)
+            self.BFcalibrationCoeffs = data['Calibration_Coefficients']
+    
     def AddBladeIsPresentGrid(self):
         """
         Add the blade presence grid

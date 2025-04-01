@@ -136,7 +136,7 @@ class CSolver(ABC):
                     contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,1], r'$\partial_y b$ [1/m]')
                     contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.blockage_gradient[:,:,0,2], r'$\partial_z b$ [1/m]')
 
-            if BFModel == 'hall-thollet' or BFModel.lower() == 'hall':
+            if BFModel == 'hall-thollet' or BFModel.lower() == 'hall' or BFModel.lower() == 'lift-drag':
                 self.mesh.AddRPMGrid()
                 self.mesh.AddCamberNormalGrid()
                 self.mesh.AddBladeIsPresentGrid()
@@ -150,7 +150,7 @@ class CSolver(ABC):
                     contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.bladeIsPresent, r'Blade Presence')
                     contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.numberBlades, r'Blades Number')
      
-                if BFModel=='hall-thollet':
+                if BFModel=='hall-thollet' or BFModel.lower() == 'lift-drag':
                     self.mesh.AddStreamwiseLengthGrid()
                     if self.config.GetVerbosity()>2: 
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.stwl, r'$s_{stwl}$ [-]')
@@ -162,6 +162,9 @@ class CSolver(ABC):
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_axial[:,:,0], r'$f_{ax}$ [-]')
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_radial[:,:,0], r'$f_{r}$ [-]')
                         contour_template(self.mesh.X[:,:,0], self.mesh.Y[:,:,0], self.mesh.force_tangential[:,:,0], r'$f_{\theta}$ [-]')
+                
+                if BFModel=='lift-drag':
+                    self.mesh.AddBFCalibrationCoefficients()
 
         it_ramp = 0
         for it in range(nIter): 
@@ -355,6 +358,12 @@ class CSolver(ABC):
                         results['TRtt'] = self.tau_tt
                         results['ETAtt'] = self.eta_tt
                         results['MassFlowTurbo'] = self.m_turbo
+                    
+                    try:
+                        results['Inviscid_Body_Force'] = self.body_force_source_inviscid
+                        results['Viscous_Body_Force'] = self.body_force_source_viscous
+                    except:
+                        pass
                     
                     os.makedirs('Results', exist_ok=True)
                     with open('Results/%s.pik' %file_name, 'wb') as file:
