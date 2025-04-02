@@ -749,7 +749,7 @@ class CMesh():
 
     def AddRPMGrid(self):
         """
-        Add the RPM grid associated with every cell element. Only one element in the third direction
+        Add the RPM grid associated with every cell element. Two dimensional array
         """
         with open(self.config.GetGridFilepath(), 'rb') as file:
             data = pickle.load(file)
