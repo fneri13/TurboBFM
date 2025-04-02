@@ -293,13 +293,45 @@ class CBFMSource():
         self.deviationAngle[i,j,k] = deviationAngle # bookkeep this in memory for later output in vtk file
         
         # inviscid component
+        # print(f"Drag Velocity cylindric [m/s]: {dragVelocityCylindric}")
+        # print(f"Relative Velocity cylindric [m/s]: {relativeVelocityCylindric}")
+        # print(f"Deviation angle [deg]: {deviationAngle*180/np.pi}")
+        
         beta_0 = self.solver.mesh.BFcalibrationCoeffs["beta_0"][i,j]
         solidity = self.solver.mesh.BFcalibrationCoeffs["solidity"][i,j]
         h_parameter = self.solver.mesh.BFcalibrationCoeffs["h_parameter"][i,j]
-        velMeridionalCylindric = np.array([velocityCylindric[0], velocityCylindric[0], 0])
-        beta_flow = np.arccos(np.dot(relativeVelocityCylindric, velMeridionalCylindric) / (np.linalg.norm(relativeVelocityCylindric) * np.linalg.norm(velMeridionalCylindric)))
-        fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0)
+        velMeridionalCylindric = np.array([velocityCylindric[0], velocityCylindric[1], 0])
+        
+        # print(f"Beta 0 [deg]: {beta_0*180/np.pi}")
+        # print(f"Solidity: {solidity}")
+        # print(f"h parameter: {h_parameter}")
+        
+        #distinguish between positive and negative flow angle
+        if relativeVelocityCylindric[2]>=0:
+            beta_flow = np.arccos(np.dot(relativeVelocityCylindric, velMeridionalCylindric) / (np.linalg.norm(relativeVelocityCylindric) * np.linalg.norm(velMeridionalCylindric)))
+        else:
+            beta_flow = -np.arccos(np.dot(relativeVelocityCylindric, velMeridionalCylindric) / (np.linalg.norm(relativeVelocityCylindric) * np.linalg.norm(velMeridionalCylindric)))
+        # print(f"Beta flow [def] {beta_flow*180/np.pi}")
+        
+        # the magnitude is positive when the force must work to align the flow with respect to beta_0
+        if omega!=0: # rotor blades
+            fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_0-beta_flow) * np.sign(omega)
+        else: # stator blades
+            if beta_0!=0:
+                fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0) * np.sign(beta_0)
+            else: # local axial flow for stator blade
+                if beta_flow>0 and normalCamberCylindric[2]>0:
+                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0) * (-1)
+                elif beta_flow>0 and normalCamberCylindric[2]<0:
+                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0)
+                elif beta_flow<0 and normalCamberCylindric[2]>0:
+                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0) * (-1)
+                elif beta_flow<0 and normalCamberCylindric[2]<0:
+                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0)
+        # print(f"Fn magnitude [N/m3]: {fn_magnitude}")
+        
         fn_versor = self.ComputeInviscidForceDirection(relativeVelocityCylindric, normalCamberCylindric)
+        # print(f"Fn versor cylindrical: {fn_versor}")
         fn_cyl = fn_magnitude*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fn_cyl)
 
@@ -307,7 +339,7 @@ class CBFMSource():
         kp_etaMax = self.solver.mesh.BFcalibrationCoeffs["kp_etaMax"][i,j]
         beta_etaMax = self.solver.mesh.BFcalibrationCoeffs["beta_etaMax"][i,j]
         kp = kp_etaMax + 2*np.pi*solidity*(beta_flow-beta_etaMax)**2
-        fp_magnitude = kp*np.linalg.norm(relativeVelocityCylindric)**2/h_parameter
+        fp_magnitude = kp_etaMax*np.linalg.norm(relativeVelocityCylindric)**2/h_parameter
         fp_vers_cyl = -relativeVelocityCylindric/np.linalg.norm(relativeVelocityCylindric) # opposite to the relative velocity
         fp_cyl = fp_magnitude*fp_vers_cyl  
         fp_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fp_cyl)
