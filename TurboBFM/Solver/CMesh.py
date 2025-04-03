@@ -756,6 +756,14 @@ class CMesh():
             rpm = data['RPM']
         self.omega = 2*np.pi*rpm/60
         self.rotation_axis = self.config.GetRotationAxis()
+        
+        # since there will never be contra-rotating machines:
+        if np.mean(self.omega)>1e-6:
+            self.machineRotation = 1
+        elif np.mean(self.omega)<-1e-6:
+            self.machineRotation = -1
+        else:
+            self.machineRotation = 0
     
     
     def AddBFCalibrationCoefficients(self):
