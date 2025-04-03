@@ -3,7 +3,7 @@ from numpy import cos, sin
 
 def GreenGaussGradient(S, U, V):
         """
-        For the 6 surfaces enclosing an element, compute the volume using green gauss theorem.
+        For the 6 surfaces enclosing an element, compute the gradient using green gauss theorem.
 
         Paramters
         --------------------------------
