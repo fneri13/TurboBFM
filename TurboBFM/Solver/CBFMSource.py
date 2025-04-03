@@ -148,7 +148,7 @@ class CBFMSource():
         conservative = self.solver.solution[i,j,k,:]
         primitive = GetPrimitivesFromConservatives(conservative)
         density = primitive[0]
-        velocityCartesian = primitive[1:-1]  # cartesian absolute velocity
+        velocityCartesian = primitive[1:-1]  # cartesian absolute velocity 
         velocityCylindric = ComputeCylindricalVectorFromCartesian(xNode, yNode, zNode, velocityCartesian)
         omega = self.solver.mesh.omega[i,j]*self.config.getRotationalSpeedRampCoefficient(self.iterationCounter)
         dragVelocityCylindric = np.array([0, 0, omega*radius])
@@ -275,7 +275,6 @@ class CBFMSource():
         radius = np.sqrt(yNode**2+zNode**2)
         conservative = self.solver.solution[i,j,k,:]
         primitive = GetPrimitivesFromConservatives(conservative)
-        density = primitive[0]
         velocityCartesian = primitive[1:-1]  # cartesian absolute velocity
         velocityCylindric = ComputeCylindricalVectorFromCartesian(xNode, yNode, zNode, velocityCartesian)
         omega = self.solver.mesh.omega[i,j]*self.config.getRotationalSpeedRampCoefficient(self.iterationCounter)
@@ -284,54 +283,26 @@ class CBFMSource():
         numberBlades = self.solver.mesh.numberBlades[i,j]
         if numberBlades==0:
             raise ValueError('No blades found in cell %i, %i, %i, where the Hall source term is trying to be computed' %(i,j,k))
-        pitch = 2*np.pi*radius/numberBlades
         normalCamberAxial = self.solver.mesh.normal_camber_cyl['Axial'][i,j]
         normalCamberRadial = self.solver.mesh.normal_camber_cyl['Radial'][i,j]
         normalCamberTangential = self.solver.mesh.normal_camber_cyl['Tangential'][i,j]
         normalCamberCylindric = np.array([normalCamberAxial, normalCamberRadial, normalCamberTangential])
-        deviationAngle = self.ComputeDeviationAngle(relativeVelocityCylindric, normalCamberCylindric)
-        self.deviationAngle[i,j,k] = deviationAngle # bookkeep this in memory for later output in vtk file
-        
-        # inviscid component
-        # print(f"Drag Velocity cylindric [m/s]: {dragVelocityCylindric}")
-        # print(f"Relative Velocity cylindric [m/s]: {relativeVelocityCylindric}")
-        # print(f"Deviation angle [deg]: {deviationAngle*180/np.pi}")
+        self.deviationAngle[i,j,k] = self.ComputeDeviationAngle(relativeVelocityCylindric, normalCamberCylindric)
         
         beta_0 = self.solver.mesh.BFcalibrationCoeffs["beta_0"][i,j]
         solidity = self.solver.mesh.BFcalibrationCoeffs["solidity"][i,j]
         h_parameter = self.solver.mesh.BFcalibrationCoeffs["h_parameter"][i,j]
         velMeridionalCylindric = np.array([velocityCylindric[0], velocityCylindric[1], 0])
         
-        # print(f"Beta 0 [deg]: {beta_0*180/np.pi}")
-        # print(f"Solidity: {solidity}")
-        # print(f"h parameter: {h_parameter}")
-        
         #distinguish between positive and negative flow angle
         if relativeVelocityCylindric[2]>=0:
             beta_flow = np.arccos(np.dot(relativeVelocityCylindric, velMeridionalCylindric) / (np.linalg.norm(relativeVelocityCylindric) * np.linalg.norm(velMeridionalCylindric)))
         else:
             beta_flow = -np.arccos(np.dot(relativeVelocityCylindric, velMeridionalCylindric) / (np.linalg.norm(relativeVelocityCylindric) * np.linalg.norm(velMeridionalCylindric)))
-        # print(f"Beta flow [def] {beta_flow*180/np.pi}")
         
-        # the magnitude is positive when the force must work to align the flow with respect to beta_0
-        if omega!=0: # rotor blades
-            fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_0-beta_flow) * np.sign(omega)
-        else: # stator blades
-            if beta_0!=0:
-                fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0) * np.sign(beta_0)
-            else: # local axial flow for stator blade
-                if beta_flow>0 and normalCamberCylindric[2]>0:
-                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0) * (-1)
-                elif beta_flow>0 and normalCamberCylindric[2]<0:
-                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0)
-                elif beta_flow<0 and normalCamberCylindric[2]>0:
-                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0) * (-1)
-                elif beta_flow<0 and normalCamberCylindric[2]<0:
-                    fn_magnitude = 2*np.pi*solidity/h_parameter*np.linalg.norm(relativeVelocityCylindric)**2 * (beta_flow-beta_0)
-        # print(f"Fn magnitude [N/m3]: {fn_magnitude}")
-        
+        rotationDirection = self.solver.mesh.machineRotation
+        fn_magnitude = self.computeLiftDragInviscidMagnitude(solidity, h_parameter, np.linalg.norm(relativeVelocityCylindric), beta_flow, beta_0, omega, rotationDirection)
         fn_versor = self.ComputeInviscidForceDirection(relativeVelocityCylindric, normalCamberCylindric)
-        # print(f"Fn versor cylindrical: {fn_versor}")
         fn_cyl = fn_magnitude*fn_versor
         fn_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fn_cyl)
 
@@ -339,7 +310,7 @@ class CBFMSource():
         kp_etaMax = self.solver.mesh.BFcalibrationCoeffs["kp_etaMax"][i,j]
         beta_etaMax = self.solver.mesh.BFcalibrationCoeffs["beta_etaMax"][i,j]
         kp = kp_etaMax + 2*np.pi*solidity*(beta_flow-beta_etaMax)**2
-        fp_magnitude = kp_etaMax*np.linalg.norm(relativeVelocityCylindric)**2/h_parameter
+        fp_magnitude = kp*np.linalg.norm(relativeVelocityCylindric)**2/h_parameter
         fp_vers_cyl = -relativeVelocityCylindric/np.linalg.norm(relativeVelocityCylindric) # opposite to the relative velocity
         fp_cyl = fp_magnitude*fp_vers_cyl  
         fp_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fp_cyl)
@@ -496,27 +467,6 @@ class CBFMSource():
             fn_dir = np.array([-w_dir[2], 0, w_dir[0]])
 
         return fn_dir
-    
-    
-    def ComputeInviscidForceDirection_MagriniFormula(self, w: np.ndarray, n: np.ndarray) -> np.ndarray:
-        w_dir = w/np.linalg.norm(w)
-        n_dir = n/np.linalg.norm(n)
-        beta = np.arctan2(w[2],w[0])
-        lmbda = np.arctan2(w[1], np.sqrt(w[0]**2+w[2]**2))
-        delta = - np.arccos(n[1])
-        delta = 0
-        fn_axial = -sin(delta)*sin(lmbda)*cos(beta) + cos(delta)*sin(beta)
-        fn_radial = -sin(delta)*cos(beta)
-        fn_tan = -sin(delta)*sin(lmbda)*sin(beta)-cos(delta)*cos(beta)
-        
-        fn_versor = np.array([fn_axial, fn_radial, fn_tan])
-        norm = np.linalg.norm(fn_versor)
-        
-        if np.dot(fn_versor, n)<0:
-            fn_versor *= -1
-        
-        return fn_versor
-        
 
 
     def ComputeCompressibilityCorrection(self, w, primitive):
@@ -550,10 +500,34 @@ class CBFMSource():
         return kmach
 
 
+    def computeLiftDragInviscidMagnitude(self, soldity, h_parameter, relVelMag, beta_flow, beta_0, omega, machineRotation):
+        """Compute the magnitude of the inviscid component for the L/D model. The magnitude must be positive when the flow is underturned, 
+        while negative when overturned with respect to the reference direction beta_0
 
-
-
-        
+        Args:
+            solditity (float): local solidity
+            solditity (float): local h_parameter of the model
+            relVelMag (float): local relative velocity magnitude
+            beta_flow (float): relative flow angle during simulation [rad]
+            beta_0 (float): relative flow angle of the model [rad]
+            omega (float): local rotational speed of the cell [rad/s]
+            machinRotation (int): rotational direction of the machine (+1, 0, -1) -> (with positive rotor blocks, without any rotor, with counter rotating rotors)
+        """
+        commonTerm = 2 * np.pi * soldity * (relVelMag**2) / h_parameter
+        if np.abs(omega) > 1e-9 : # rotor zone
+            if omega < 0:
+                return commonTerm * (beta_flow - beta_0)
+            else:
+                return commonTerm * (beta_0 - beta_flow)
+        else: # stator zone
+            if machineRotation == 1:
+                return commonTerm * (beta_flow - beta_0)
+            elif machineRotation == -1:
+                return commonTerm * (beta_0 - beta_flow)
+            elif machineRotation == 0:
+                raise ValueError(" I still didn't figure out how to handle machine with only stator blocks")
+            
+            
     
 
     
