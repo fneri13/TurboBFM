@@ -53,10 +53,12 @@ on windows based machines. It should be quite easy to fix.
 ##### Inviscid transonic flow over a circular bump #####
 Test case for inviscid transonic flow, compared with SU2 results.
 Flow field:
-![Description of image](Pics/transonic_circular_bump_mach.png)
-![Description of image](Pics/transonic_circular_bump_residuals.pdf)
+![Residuals drop](Pics/transonic_circular_bump_residuals.png)
+![Mach contour](Pics/transonic_circular_bump_mach.png)
 
-Comparison with SU2 Euler Solver:
+Comparison with SU2 Euler Solver results:
+![Pressure at lower wall](Pics/transonic_circular_bump_pressureComparison.png)
+![Mach at lower wall](Pics/transonic_circular_bump_machComparison.png)
 
 
 
