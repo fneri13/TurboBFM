@@ -1,49 +1,74 @@
-# TurboBFM
+# TurboBFM #
+
+
 
 ### What is this repository for? ###
 
-* Verification of Turbomachinery BFM models.
-* Python based CFD finite volume structured solver.
-* Educational software
+* Resolution of inviscid fluid dynamics problems (2D, Axisymmetric and 3D)
+* Simulation of turbomachinery flows through the concept of body force models
 
 
 ### How do I get set up? ###
 
 * Git clone the present folder in your system
 
-* Create a new python environment where to install the package:
+* Generate a conda python environment with the needed packages using the YAML file
 ```bash
-cd turbobfm
-pip install .
+conda env create -f turbo_bfm.yml
 ```
 
-* Navigate to the `Run` folder (or create one), and run of the test cases:
+* Activate the new environment:
+```bash
+conda activate turbo_bfm
+```
+
+* Navigate to the package and and install it:
+```bash
+cd TurboBFM
+pip install . -e
+```
+
+* Navigate to the test cases (TurboBFM/Run) folder (or create one), and run the main.py file for one of the cases:
 ```bash
 python main.py
 ```
 
+* The input parameters are specified inside every `intput.ini` file, and should be quite easy to comprehend and modify. The content of input files
+can be taken from the testcases folder, or alternatively checking the Config.py class.
+
+
 
 ### Notes ###
+* The code has been written for Mac OS systems, so there is the chance for some path-related commands to not run correctly
+on windows based machines. It should be quite easy to fix.
+
+* The system of Euler equations is solved with explicit methods (3rd or 4th order Runge-Kutta). This means that the time-step must be accurately restricted below certain limits, and a large number of iterations may be required to simulate a certain problem. The first thing to do when a simulation fails, is to try reducing the `CFL_MAX` input parameter. 
+
+
+
 
 
 ### Results Example ###
 
+##### Godunov Scheme for ideal gas (air) #####
+Test case for ideal gas (air), documented in [1].
+The following picture reports the comparison between the reference data obtained with the analytical Riemann Solver, and the simulation results obtained with the Godunov scheme for ideal gas:
+![Description of image](images/godunov_idealgas.png)
+
+
+
+
+
 
 ### Contribution guidelines ###
 
-* Validate the modifications by means of detailed unittest (see the `Test` folder.)
-* Push the code.
+* Validate the modifications by means of detailed test cases
+* Push the code
 
 ### Authors and contacts ###
 
 - **Francesco Neri**, TU Delft, `f.neri@tudelft.nl`
 
-### References ###
 
-[1] Toro, Eleuterio F. Riemann solvers and numerical methods for fluid dynamics: a practical introduction. Springer Science & Business Media, 2013.
 
-[2] Arabi, Sina, Jean-Yves Tr�panier, and Ricardo Camarero. "A simple extension of Roe's scheme for real gases." Journal of Computational Physics 329 (2017): 16-28.
 
-[3] Blazek, Jiri. Computational fluid dynamics: principles and applications. Butterworth-Heinemann, 2015.
-
-[4] Hirsch, Charles. Numerical computation of internal and external flows: The fundamentals of computational fluid dynamics. Elsevier, 2007.
