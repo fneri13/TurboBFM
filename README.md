@@ -50,10 +50,14 @@ on windows based machines. It should be quite easy to fix.
 
 ### Results Example ###
 
-##### Godunov Scheme for ideal gas (air) #####
-Test case for ideal gas (air), documented in [1].
-The following picture reports the comparison between the reference data obtained with the analytical Riemann Solver, and the simulation results obtained with the Godunov scheme for ideal gas:
-![Description of image](images/godunov_idealgas.png)
+##### Inviscid transonic flow over a circular bump #####
+Test case for inviscid transonic flow, compared with SU2 results.
+Flow field:
+![Description of image](Pics/transonic_circular_bump_mach.png)
+![Description of image](Pics/transonic_circular_bump_residuals.pdf)
+
+Comparison with SU2 Euler Solver:
+
 
 
 
