@@ -335,7 +335,7 @@ class CConfig:
             else:
                 return False
         except:
-            return True
+            return False
     
     
     def GetBFMModel(self) -> str:

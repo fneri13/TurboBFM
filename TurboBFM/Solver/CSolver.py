@@ -349,21 +349,15 @@ class CSolver(ABC):
                     if self.kindSolver.lower()=='euler':
                         results['MassFlow'] = (self.mi_in, self.mi_out, self.mj_in, self.mj_out, self.mk_in, self.mk_out)
                     
-                    if self.config.GetBlockageActive():
+                    if self.config.IsBFM() and self.config.GetBlockageActive():
                         results['Blockage'] = self.mesh.blockage
                         results['Blockage_Gradient'] = self.mesh.blockage_gradient
-                    
-                    if self.config.GetTurboOutput():
+                        results['Inviscid_Body_Force'] = self.body_force_source_inviscid
+                        results['Viscous_Body_Force'] = self.body_force_source_viscous                    
                         results['PRtt'] = self.beta_tt
                         results['TRtt'] = self.tau_tt
                         results['ETAtt'] = self.eta_tt
                         results['MassFlowTurbo'] = self.m_turbo
-                    
-                    try:
-                        results['Inviscid_Body_Force'] = self.body_force_source_inviscid
-                        results['Viscous_Body_Force'] = self.body_force_source_viscous
-                    except:
-                        pass
                     
                     os.makedirs('Results', exist_ok=True)
                     with open('Results/%s.pik' %file_name, 'wb') as file:
