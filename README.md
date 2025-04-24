@@ -60,7 +60,7 @@ Flow field:
 
 
 
-Comparison with SU2 Euler Solver results:
+Comparison with SU2 Euler Solver results at lower wall:
 
 <img src="Pics/transonic_circular_bump_pressureComparison.png" alt="Pressure at lower wall" width="50%">
 <img src="Pics/transonic_circular_bump_machComparison.png" alt="Mach at lower wall" width="50%">
