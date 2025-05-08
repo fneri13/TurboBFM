@@ -448,12 +448,14 @@ class CSolver(ABC):
                     Ss, CGs = self.mesh.GetSurfaceData(i, j, k, 'south', 'all')
                     Sb, CGb = self.mesh.GetSurfaceData(i, j, k, 'bottom', 'all')
                     St, CGt = self.mesh.GetSurfaceData(i, j, k, 'top', 'all')
+                    
                     Uw = self.InterpolateScalar(phi, i, j, k, CGw, 'west')
                     Ue = self.InterpolateScalar(phi, i, j, k, CGe, 'east')
                     Un = self.InterpolateScalar(phi, i, j, k, CGn, 'north')
                     Us = self.InterpolateScalar(phi, i, j, k, CGs, 'south')
                     Ut = self.InterpolateScalar(phi, i, j, k, CGt, 'top')
                     Ub = self.InterpolateScalar(phi, i, j, k, CGb, 'bottom')
+                    
                     gradient[i,j,k,:] = GreenGaussGradient((Sw, Se, Sn, Ss, St, Sb),
                                                             (Uw, Ue, Un, Us, Ut, Ub),
                                                             self.mesh.V[i,j,k])

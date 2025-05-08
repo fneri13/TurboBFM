@@ -233,7 +233,7 @@ class CBFMSource():
         Rex = np.linalg.norm(relativeVelocityCylindric) * self.solver.mesh.stwl[i,j] / nu
         Cf = 0.0592*Rex**(-0.2)
         delta0 = deviationAngle  # this could be calibrated later, from the deviation of the float at peak efficiency
-        fp = np.linalg.norm(relativeVelocityCylindric)**2/(pitch*blockage*np.abs(normalCamberTangential)) * (Cf + np.pi*Kmach*(deviationAngle-delta0))
+        fp = np.linalg.norm(relativeVelocityCylindric)**2/(pitch*blockage*np.abs(normalCamberTangential)) * (Cf + np.pi*Kmach*(deviationAngle-delta0)**2)
         fp_vers_cyl = -relativeVelocityCylindric/np.linalg.norm(relativeVelocityCylindric) # opposite to the relative velocity
         fp_cyl = fp*fp_vers_cyl  
         fp_cart = ComputeCartesianVectorFromCylindrical(xNode, yNode, zNode, fp_cyl)
